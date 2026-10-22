@@ -59,6 +59,8 @@ jobs:
           Path("/tmp/agent-chat.js").write_text("\n".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/agent-chat.js
+      - name: Verify API container build
+        run: docker build -t ai-project-scout-api:test .
       - name: Ensure secrets are not embedded in the public UI
         run: |
           if grep -E 'TAVILY_API_KEY=|SCOUT_LLM_API_KEY=|sk-or-v1-[A-Za-z0-9]+' site/index.html; then
