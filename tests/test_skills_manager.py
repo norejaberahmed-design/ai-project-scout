@@ -6,7 +6,7 @@ from skills_manager import build_catalog, inspect_risks, parse_skill, quality_sc
 
 class SkillsManagerTests(unittest.TestCase):
     def test_parses_skill_frontmatter(self):
-        parsed = parse_skill("---\\nname: test-driven-development\\ndescription: Write focused tests first\\n---\\n# Steps\\n", "skills/testing/SKILL.md")
+        parsed = parse_skill("---\nname: test-driven-development\ndescription: Write focused tests first\n---\n# Steps\n", "skills/testing/SKILL.md")
         self.assertEqual(parsed["name"], "test-driven-development")
         self.assertEqual(parsed["description"], "Write focused tests first")
 
@@ -16,13 +16,14 @@ class SkillsManagerTests(unittest.TestCase):
         self.assertIn("dangerous_shell", risks)
 
     def test_score_is_bounded_and_license_affects_score(self):
-        permissive = quality_score(5000, 200, "2026-10-20T00:00:00Z", "MIT", "---\\nname: x\\ndescription: y\\n---\\n" + "steps " * 100)
-        unknown = quality_score(5000, 200, "2026-10-20T00:00:00Z", "UNKNOWN", "---\\nname: x\\ndescription: y\\n---\\n" + "steps " * 100)
+        document = "---\nname: x\ndescription: y\n---\n" + "steps " * 100
+        permissive = quality_score(5000, 200, "2026-10-20T00:00:00Z", "MIT", document)
+        unknown = quality_score(5000, 200, "2026-10-20T00:00:00Z", "UNKNOWN", document)
         self.assertTrue(0 <= permissive <= 100)
         self.assertTrue(permissive > unknown)
 
     def test_scans_skill_document_without_executing_it(self):
-        text = "---\\nname: example\\ndescription: Safe example\\n---\\nUse small tests.\\n"
+        text = "---\nname: example\ndescription: Safe example\n---\nUse small tests.\n"
         encoded = base64.b64encode(text.encode()).decode()
         def fake_fetch(url):
             if url.endswith("/repos/example/skills"):
