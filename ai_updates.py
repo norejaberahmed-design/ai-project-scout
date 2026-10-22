@@ -55,7 +55,7 @@ def fetch_recent_papers(max_results=60, timeout=25, opener=None):
             })
     return papers
 
-def write_report(papers, report_dir=None):
+def write_report(papers, report_dir=None, error=None):
     out = Path(report_dir or REPORT_DIR)
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -70,6 +70,8 @@ def write_report(papers, report_dir=None):
             "Titles and abstracts should be read in context; no independent replication is performed.",
         ],
     }
+    if error:
+        payload["collection_error"] = str(error)
     json_path = out / f"ai-updates-{stamp}.json"
     md_path = out / f"ai-updates-{stamp}.md"
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -87,6 +89,8 @@ def write_report(papers, report_dir=None):
             "- الملخص: " + (paper["abstract"] or "لا يوجد ملخص"),
             "",
         ]
+    if error:
+        lines += ["## تعذر الوصول إلى المصدر في هذا التشغيل", "", "- الخطأ: " + str(error), "- لم تُسترجع أوراق بحثية؛ أعد التشغيل لاحقًا.", ""]
     lines += [
         "## كيف تستخدم هذه القائمة؟", "",
         "1. افتح الورقة واقرأ الملخص والمساهمات والقيود.",
@@ -104,8 +108,10 @@ def main():
         print(json.dumps({"papers": len(papers), "markdown_report": str(md_path), "json_report": str(json_path)}, ensure_ascii=False))
         return 0
     except Exception as exc:
-        print(json.dumps({"error": str(exc), "source": "arXiv Atom API"}, ensure_ascii=False))
-        return 1
+        # A temporary external-source outage must not prevent the dashboard from deploying.
+        md_path, json_path = write_report([], error=str(exc))
+        print(json.dumps({"papers": 0, "error": str(exc), "source": "arXiv Atom API", "markdown_report": str(md_path), "json_report": str(json_path)}, ensure_ascii=False))
+        return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())
