@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       idea:
@@ -34,7 +37,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run complete offline test suite
+        run: python -m unittest discover -s tests -v
+
   research-agent:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -67,6 +85,8 @@ jobs:
         run: python feature_hunter.py
       - name: Build self-improvement plan
         run: python self_improve.py
+      - name: Reverse engineer candidate architectures (read-only)
+        run: python reverse_engineer.py
       - name: Collect recent AI research papers
         run: python ai_updates.py
       - name: Run market research agent
@@ -88,7 +108,8 @@ jobs:
           agent_files = list(reports.glob("agent-*.json"))
           feature_files = list(reports.glob("feature-candidates.json"))
           improvement_files = list(reports.glob("self-improvement-plan.json"))
-          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json")]:
+          reverse_files = list(reports.glob("reverse-engineering.json"))
+          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json"), (reverse_files, "reverse-engineering.json")]:
               if files:
                   shutil.copy2(max(files, key=lambda p: p.stat().st_mtime), data / target)
           (data / "status.json").write_text(json.dumps({
