@@ -66,7 +66,7 @@ jobs:
                   if self.active: self.parts.append(data)
           parser = Scripts()
           parser.feed(Path("site/index.html").read_text(encoding="utf-8"))
-          Path("/tmp/scout-dashboard.js").write_text("\\n".join(parser.parts), encoding="utf-8")
+          Path("/tmp/scout-dashboard.js").write_text("\n".join(parser.parts), encoding="utf-8")
           if not parser.parts: raise SystemExit("No inline dashboard script found")
           PY
           node --check /tmp/scout-dashboard.js
