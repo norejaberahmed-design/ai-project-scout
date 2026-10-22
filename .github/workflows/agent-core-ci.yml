@@ -59,6 +59,9 @@ jobs:
           Path("/tmp/agent-chat.js").write_text("\n".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/agent-chat.js
+      - name: Parse workflow YAML files
+        run: |
+          ruby -e 'require "yaml"; Dir.glob(".github/workflows/*.{yml,yaml}").each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }'
       - name: Verify API container build
         run: docker build -t ai-project-scout-api:test .
       - name: Smoke-test API container health endpoint
