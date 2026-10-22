@@ -136,6 +136,9 @@ def collect_releases(conn, limit=30):
     conn.commit(); return stats
 
 def build_report(conn, stats, release_stats=None, report_dir=REPORT_DIR):
+    # Backward compatibility: older callers passed report_dir as the third positional argument.
+    if isinstance(release_stats, (str, Path)):
+        report_dir, release_stats = release_stats, None
     stamp=datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report_dir.mkdir(parents=True,exist_ok=True)
     rows=conn.execute("""SELECT full_name,url,description,language,stars,forks,license,updated_at,pushed_at,first_seen,query_tags,technical_score
