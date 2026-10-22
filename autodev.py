@@ -84,11 +84,12 @@ def select_active_skills(skills, target, evidence_context=None, max_skills=3):
     if target not in TARGETS:
         raise AutoDevError("Cannot select skills for a target that is not allowlisted.")
     evidence_context = evidence_context or {}
-    risk_text = json.dumps({
-        "risk_flags": [item.get("risk_flags", []) for item in evidence_context.get("reverse_engineering", [])],
-        "gaps": evidence_context.get("capability_gaps", []),
-        "target": target,
-    }, ensure_ascii=False).lower()
+    # Search actual evidence values only: JSON field names like "risk_flags"
+    # must not trigger the security skill when the evidence contains no risk.
+    risk_text = json.dumps([
+        [item.get("risk_flags", []) for item in evidence_context.get("reverse_engineering", [])],
+        evidence_context.get("capability_gaps", []),
+    ], ensure_ascii=False).lower()
     baseline = {"planning-and-verification", "test-driven-development"}
     needs_security = target in {"reverse_engineer", "feature_hunter"} or any(
         word in risk_text for word in ("security", "secret", "injection", "unsafe", "risk", "license", "shell")
