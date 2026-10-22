@@ -27,8 +27,8 @@ def parse_model_json(text):
     text = (text or "").strip()
     fence = chr(96) * 3
     if text.startswith(fence):
-        text = re.sub(r"^" + re.escape(fence) + r"(?:json)?\\s*", "", text)
-        text = re.sub(r"\\s*" + re.escape(fence) + r"$", "", text)
+        text = re.sub(r"^" + re.escape(fence) + r"(?:json)?\s*", "", text)
+        text = re.sub(r"\s*" + re.escape(fence) + r"$", "", text)
     try:
         value = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -53,10 +53,10 @@ def validate_changes(payload, expected_paths):
             raise AutoDevError("Change includes an unexpected or duplicate file.")
         if not isinstance(content, str) or not content.strip():
             raise AutoDevError("File content must be a non-empty string.")
-        if "\\x00" in content or len(content.encode("utf-8")) > MAX_FILE_BYTES:
+        if chr(0) in content or len(content.encode("utf-8")) > MAX_FILE_BYTES:
             raise AutoDevError("File content is invalid or exceeds the size limit.")
         seen.add(path)
-        normalized[path] = content.rstrip() + "\\n"
+        normalized[path] = content.rstrip() + "\n"
         total += len(content.encode("utf-8"))
     if seen != set(expected_paths) or total > MAX_TOTAL_BYTES:
         raise AutoDevError("The exact module/test pair and total size limit are required.")
@@ -89,13 +89,12 @@ def select_active_skills(skills, target, evidence_context=None, max_skills=3):
         "gaps": evidence_context.get("capability_gaps", []),
         "target": target,
     }, ensure_ascii=False).lower()
-    selected = []
-    # Planning and regression testing are baseline procedures for every proposed code change.
     baseline = {"planning-and-verification", "test-driven-development"}
     needs_security = target in {"reverse_engineer", "feature_hunter"} or any(
         word in risk_text for word in ("security", "secret", "injection", "unsafe", "risk", "license", "shell")
     )
     allowed = baseline | ({"security-review"} if needs_security else set())
+    selected = []
     for skill in skills or []:
         name = str(skill.get("name", "")).strip().lower()
         content = skill.get("content")
@@ -175,7 +174,8 @@ def request_patch(api_key, model, module_path, test_path, module_text, test_text
         "integration fits the target module, return NO_CHANGE instead of inventing a feature. "
         "Return ONLY JSON with keys summary and changes. changes must contain exactly the two "
         "provided paths, each with complete replacement file content. If no meaningful improvement "
-        "is justified, return {\\"summary\\":\\"NO_CHANGE\\",\\"changes\\":[]}.")
+        "is justified, return {\"summary\":\"NO_CHANGE\",\"changes\":[]}."
+    )
     user = json.dumps({
         "task": "Reverse-engineering-first daily improvement: use the supplied fresh public-repository architecture signals and verified gaps to implement one small, genuinely missing capability in this target module, with a regression test. If no concrete relevant gap is supported, return NO_CHANGE. Do not implement unrelated bug fixes or speculative features.",
         "module_path": module_path,
