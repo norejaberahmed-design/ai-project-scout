@@ -212,7 +212,7 @@ class AgentHandler(BaseHTTPRequestHandler):
 
 def main():
     host = os.getenv("SCOUT_API_HOST", "127.0.0.1")
-    port = int(os.getenv("SCOUT_API_PORT", "8787"))
+    port = int(os.getenv("PORT", os.getenv("SCOUT_API_PORT", "8787")) )
     server = ThreadingHTTPServer((host, port), AgentHandler)
     print(f"AI Project Scout API listening on {host}:{port}")
     server.serve_forever()
