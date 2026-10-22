@@ -61,6 +61,18 @@ jobs:
           node --check /tmp/agent-chat.js
       - name: Verify API container build
         run: docker build -t ai-project-scout-api:test .
+      - name: Smoke-test API container health endpoint
+        run: |
+          docker run -d --name agent-api-test -p 8787:8787 ai-project-scout-api:test
+          trap 'docker rm -f agent-api-test >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl --fail --silent http://127.0.0.1:8787/api/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs agent-api-test
+          exit 1
       - name: Ensure secrets are not embedded in the public UI
         run: |
           if grep -E 'TAVILY_API_KEY=|SCOUT_LLM_API_KEY=|sk-or-v1-[A-Za-z0-9]+' site/index.html; then
