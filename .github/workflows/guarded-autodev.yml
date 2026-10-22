@@ -1,6 +1,9 @@
 name: Guarded AutoDev
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "43 5 * * *"
   workflow_dispatch:
@@ -21,7 +24,6 @@ concurrency:
 
 jobs:
   guarded-autodev:
-    if: github.event_name == 'schedule' || inputs.run_autodev == true
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -51,7 +53,7 @@ jobs:
             echo "An AutoDev PR is already open; skipping to avoid duplicate work."
           fi
       - name: Ask configured free model for one bounded change
-        if: steps.duplicate.outputs.open_autodev_prs == '0'
+        if: (github.event_name == 'schedule' || inputs.run_autodev == true) && steps.duplicate.outputs.open_autodev_prs == '0'
         run: python autodev.py
       - name: Stop if there is no validated candidate
         id: candidate
