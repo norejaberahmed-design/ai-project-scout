@@ -50,6 +50,26 @@ jobs:
           python-version: "3.12"
       - name: Run complete offline test suite
         run: python -m unittest discover -s tests -v
+      - name: Check dashboard JavaScript syntax
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.active = False; self.parts = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == "script": self.active = True
+              def handle_endtag(self, tag):
+                  if tag == "script": self.active = False
+              def handle_data(self, data):
+                  if self.active: self.parts.append(data)
+          parser = Scripts()
+          parser.feed(Path("site/index.html").read_text(encoding="utf-8"))
+          Path("/tmp/scout-dashboard.js").write_text("\n".join(parser.parts), encoding="utf-8")
+          if not parser.parts: raise SystemExit("No inline dashboard script found")
+          PY
+          node --check /tmp/scout-dashboard.js
 
   research-agent:
     if: github.event_name != 'pull_request'
@@ -89,6 +109,8 @@ jobs:
         run: python self_improve.py
       - name: Reverse engineer candidate architectures (read-only)
         run: python reverse_engineer.py
+      - name: Discover and rank reusable agent skills
+        run: python skills_manager.py
       - name: Collect recent AI research papers
         run: python ai_updates.py
       - name: Run market research agent
@@ -105,13 +127,18 @@ jobs:
           from pathlib import Path
           reports = Path("reports")
           data = Path("site/data")
+          active_skills = []
+          for skill_path in sorted(Path("skills/active").glob("*/SKILL.md"))[:4]:
+              active_skills.append({"name": skill_path.parent.name, "content": skill_path.read_text(encoding="utf-8")[:6000]})
+          (data / "active-skills.json").write_text(json.dumps({"skills": active_skills}, ensure_ascii=False, indent=2), encoding="utf-8")
           scout_files = [p for p in reports.glob("*.json") if p.name[:4].isdigit() and "ai-updates-" not in p.name and not p.name.startswith("agent-")]
           updates_files = list(reports.glob("ai-updates-*.json"))
           agent_files = list(reports.glob("agent-*.json"))
           feature_files = list(reports.glob("feature-candidates.json"))
           improvement_files = list(reports.glob("self-improvement-plan.json"))
           reverse_files = list(reports.glob("reverse-engineering.json"))
-          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json"), (reverse_files, "reverse-engineering.json")]:
+          skills_files = list(reports.glob("skills-catalog.json"))
+          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json"), (reverse_files, "reverse-engineering.json"), (skills_files, "skills-catalog.json")]:
               if files:
                   shutil.copy2(max(files, key=lambda p: p.stat().st_mtime), data / target)
           (data / "status.json").write_text(json.dumps({
