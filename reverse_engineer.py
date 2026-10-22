@@ -20,6 +20,18 @@ CANDIDATES_PATH = REPORT_DIR / "feature-candidates.json"
 API = "https://api.github.com"
 MAX_REPOS = int(os.getenv("SCOUT_REVERSE_MAX_REPOS", "5"))
 MAX_BLOB_BYTES = 180_000
+MAX_SOURCE_FILES = 2
+SOURCE_EXTENSIONS = {".py", ".js", ".ts", ".mjs", ".cjs", ".go", ".rs"}
+CODE_PATTERNS = [
+    ("model_provider_calls", re.compile(r"openai|anthropic|chat\.completions|completion\.create|litellm|genai\.generate", re.I)),
+    ("tool_or_mcp_registration", re.compile(r"fastmcp|mcpserver|register_tool|@tool\b|tool_call|function_call|tools\s*=", re.I)),
+    ("http_or_network_clients", re.compile(r"requests\.(get|post)|httpx\.|urllib\.request|fetch\(|axios\.|aiohttp", re.I)),
+    ("shell_or_dynamic_execution", re.compile(r"subprocess\.|os\.system\(|shell\s*=\s*true|\beval\s*\(|\bexec\s*\(", re.I)),
+    ("environment_or_secret_access", re.compile(r"os\.getenv|os\.environ|process\.env|dotenv|secret", re.I)),
+    ("filesystem_operations", re.compile(r"open\s*\(|write_text\(|writeFile\(|unlink\(|rmtree\(", re.I)),
+    ("vector_or_retrieval", re.compile(r"chromadb|faiss|pinecone|weaviate|qdrant|vectorstore|embedding", re.I)),
+    ("web_framework_or_routes", re.compile(r"FastAPI|Flask|express\(|app\.(get|post|put|delete)\(|router\.(get|post)\(", re.I)),
+]
 MANIFEST_NAMES = {
     "pyproject.toml", "requirements.txt", "setup.py", "package.json",
     "go.mod", "cargo.toml", "pom.xml", "dockerfile", "compose.yaml",
@@ -86,6 +98,21 @@ def _feature_matches(readme):
             for label, terms in ARCHITECTURE_SIGNALS
             if any(term in text for term in terms)]
 
+def scan_source(path, source):
+    """Return pattern evidence and line numbers, never source excerpts."""
+    findings = []
+    for label, pattern in CODE_PATTERNS:
+        matches = []
+        for number, line in enumerate((source or "").splitlines(), 1):
+            if pattern.search(line):
+                matches.append(number)
+                if len(matches) >= 5:
+                    break
+        if matches:
+            findings.append({"signal": label, "line_numbers": matches})
+    return {"path": path, "signals": findings, "lines_analyzed": len((source or "").splitlines())}
+
+
 def analyze_snapshot(repository, repo_meta, tree, readme, manifests=None):
     manifests = manifests or {}
     paths = [x.get("path", "") for x in (tree or {}).get("tree", []) if x.get("type") == "blob"]
@@ -140,6 +167,7 @@ def analyze_snapshot(repository, repo_meta, tree, readme, manifests=None):
         "manifest_paths": manifest_paths,
         "manifest_names": sorted({p.split("/")[-1] for p in manifest_paths}),
         "readme_headings": readme_sections,
+        "source_analysis": [],
         "risk_flags": risk_flags[:40],
         "integration_assessment": (
             "Inspect the identified entrypoints, dependencies, API contracts and tests; design a small adapter rather than copying the project wholesale."
@@ -179,6 +207,19 @@ def inspect_candidates(candidate_report, fetcher=request_json, limit=MAX_REPOS):
                 decoded[key] = _decode_blob(payload)
             readme = decoded.pop("readme", "")
             result = analyze_snapshot(name, meta, tree, readme, decoded)
+            source_blobs = []
+            for blob in blobs:
+                path = blob.get("path", "")
+                suffix = Path(path).suffix.lower()
+                if suffix in SOURCE_EXTENSIONS and blob.get("sha"):
+                    priority = 0 if any(rx.search(path) for rx in ENTRYPOINT_PATTERNS) else 1
+                    source_blobs.append((priority, path, blob["sha"]))
+            source_blobs.sort(key=lambda item: (item[0], item[1].count("/"), item[1]))
+            source_analysis = []
+            for _, path, sha in source_blobs[:MAX_SOURCE_FILES]:
+                payload = fetcher(API + "/repos/" + name + "/git/blobs/" + sha)
+                source_analysis.append(scan_source(path, _decode_blob(payload)))
+            result["source_analysis"] = source_analysis
             result["tree_truncated"] = bool(tree.get("truncated"))
             result["readme_bytes_analyzed"] = len(readme.encode("utf-8"))
             results.append(result)
@@ -217,6 +258,7 @@ def write_report(report, report_dir=REPORT_DIR):
             "- نقاط دخول محتملة: " + ("، ".join(item["entrypoint_candidates"]) or "غير محددة"),
             "- ملفات تعريف/اعتماديات: " + ("، ".join(item["manifest_paths"]) or "غير محددة"),
             "- عناوين الوثائق: " + ("؛ ".join(item["readme_headings"]) or "غير متوفرة"),
+            "- تحليل الشيفرة المختارة: " + ("؛ ".join(src["path"] + " [" + ", ".join(sig["signal"] + ":" + ",".join(map(str, sig["line_numbers"])) for sig in src["signals"]) + "]" for src in item.get("source_analysis", [])) or "لم تتوفر ملفات مصدر مناسبة"),
             "- مؤشرات تحتاج فحصًا: " + ("؛ ".join(x["flag"] + " (" + x["path"] + ")" for x in item["risk_flags"]) or "لا توجد مؤشرات مسجلة من القواعد المحدودة"),
             f"- تقييم الدمج: {item['integration_assessment']}",
             "- الحالة: مراجعة بشرية مطلوبة؛ لم يتم الدمج.",
