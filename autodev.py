@@ -66,7 +66,7 @@ def validate_changes(payload, expected_paths):
 def load_evidence_context(report_dir=None):
     """Load bounded feature/gap summaries; never load third-party source code."""
     report_dir = Path(report_dir or os.getenv("SCOUT_REPORT_DIR", ROOT / "reports"))
-    context = {"capability_gaps": [], "verified_feature_gaps": [], "feature_candidates": [], "reverse_engineering": []}
+    context = {"capability_gaps": [], "verified_feature_gaps": [], "feature_candidates": [], "reverse_engineering": [], "feature_opportunities": []}
     paths = {
         "plan": report_dir / "self-improvement-plan.json",
         "features": report_dir / "feature-candidates.json",
