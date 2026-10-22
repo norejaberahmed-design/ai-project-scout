@@ -1,4 +1,4 @@
-name: AI Project Scout
+name: AI Project Scout Agent
 
 on:
   push:
@@ -16,11 +16,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scout:
+  research-agent:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
+    timeout-minutes: 15
     env:
       SCOUT_DB_PATH: data/scout.sqlite
       SCOUT_REPORT_DIR: reports
@@ -32,22 +30,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Restore history cache
+      - name: Restore SQLite history cache
         uses: actions/cache/restore@v4
         with:
           path: data/scout.sqlite
           key: ai-scout-db-${{ github.run_id }}
           restore-keys: |
             ai-scout-db-
-      - name: Run tests
+      - name: Run offline tests
         run: python -m unittest discover -s tests -v
-      - name: Run scan
+      - name: Run technical discovery
         run: python scout.py
-      - name: Save history cache
+      - name: Run market research agent
+        run: python agent.py --idea "متابعة الفواتير المتأخرة" --buyer "المدير المالي في الشركات الصغيرة والمتوسطة" --market "السعودية"
+      - name: Save SQLite history cache
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: tools/ai-project-scout/data/scout.sqlite
+          path: data/scout.sqlite
           key: ai-scout-db-${{ github.run_id }}
       - name: Upload reports
         if: always()
