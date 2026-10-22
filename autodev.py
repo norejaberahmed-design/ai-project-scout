@@ -96,7 +96,7 @@ def load_evidence_context(report_dir=None):
                     "url": item.get("url"),
                     "architecture_signals": [x.get("capability") for x in item.get("architecture_signals", [])][:8],
                     "source_signals": [
-                        {"path": src.get("path"), "signals": [sig.get("signal") for sig in src.get("signals", [])][:8]}
+                        {"path": src.get("path"), "signals": [sig.get("signal") for sig in src.get("signals", [])][:8], "symbols": src.get("symbols", [])[:12], "imports": src.get("imports", [])[:12]}
                         for src in item.get("source_analysis", [])[:3]
                     ],
                     "risk_flags": [x.get("flag") for x in item.get("risk_flags", [])][:8],
