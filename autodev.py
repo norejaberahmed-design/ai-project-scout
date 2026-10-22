@@ -100,6 +100,17 @@ def load_evidence_context(report_dir=None):
                         for src in item.get("source_analysis", [])[:3]
                     ],
                     "risk_flags": [x.get("flag") for x in item.get("risk_flags", [])][:8],
+                    "feature_opportunities": [
+                        {
+                            "title": opportunity.get("title"),
+                            "source_signal": opportunity.get("source_signal"),
+                            "evidence": opportunity.get("evidence", [])[:4],
+                            "risk": opportunity.get("risk"),
+                            "recommended_action": opportunity.get("recommended_action"),
+                            "status": opportunity.get("status"),
+                        }
+                        for opportunity in item.get("feature_opportunities", [])[:8]
+                    ],
                     "integration_assessment": item.get("integration_assessment"),
                 }
                 for item in payload.get("results", [])
