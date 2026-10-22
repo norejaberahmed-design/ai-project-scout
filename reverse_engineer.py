@@ -3,6 +3,7 @@
 This module does not decompile binaries, run repositories, install packages, or copy code.
 It uses GitHub metadata, README text, file paths, and small manifest excerpts as untrusted evidence.
 """
+import ast
 import base64
 import json
 import os
@@ -103,8 +104,39 @@ def _feature_matches(readme):
             for label, terms in ARCHITECTURE_SIGNALS
             if any(term in text for term in terms)]
 
+def extract_structure(path, source):
+    """Extract names and imports without executing code or returning source snippets."""
+    suffix = Path(path).suffix.lower()
+    symbols, imports = [], []
+    if suffix == ".py":
+        try:
+            tree = ast.parse(source or "")
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    symbols.append(node.name)
+                elif isinstance(node, ast.Import):
+                    imports.extend(alias.name for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    imports.append(node.module)
+        except (SyntaxError, ValueError, TypeError):
+            pass
+    else:
+        text = source or ""
+        symbol_patterns = [
+            re.compile(r"\\b(?:export\\s+)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)"),
+            re.compile(r"\\bclass\\s+([A-Za-z_$][\\w$]*)"),
+            re.compile(r"\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?\\([^)]*\\)\\s*=>"),
+        ]
+        for pattern in symbol_patterns:
+            symbols.extend(pattern.findall(text))
+        imports.extend(re.findall(r"""import\\s+(?:[^'"]*?\\s+from\\s+)?['"]([^'"]+)['"]""", text))
+        imports.extend(re.findall(r"""require\\(\\s*['"]([^'"]+)['"]\\s*\\)""", text))
+    return {"symbols": sorted(set(symbols))[:20], "imports": sorted(set(imports))[:20]}
+
+
 def scan_source(path, source):
-    """Return pattern evidence and line numbers, never source excerpts."""
+    """Return structural names and pattern evidence, never source excerpts."""
+    structure = extract_structure(path, source)
     findings = []
     for label, pattern in CODE_PATTERNS:
         matches = []
@@ -115,7 +147,7 @@ def scan_source(path, source):
                     break
         if matches:
             findings.append({"signal": label, "line_numbers": matches})
-    return {"path": path, "signals": findings, "lines_analyzed": len((source or "").splitlines())}
+    return {"path": path, "signals": findings, "lines_analyzed": len((source or "").splitlines()), **structure}
 
 
 def analyze_snapshot(repository, repo_meta, tree, readme, manifests=None):
