@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 12
     env:
       GH_TOKEN: ${{ github.token }}
-      SCOUT_ENABLE_AUTODEV: ${{ vars.SCOUT_ENABLE_AUTODEV || 'true' }}
+      SCOUT_ENABLE_AUTODEV: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_autodev == true) || vars.SCOUT_ENABLE_AUTODEV == 'true' }}
       SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
       SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
       SCOUT_AUTODEV_TARGET: ${{ vars.SCOUT_AUTODEV_TARGET || 'reverse_engineer' }}
@@ -79,7 +79,7 @@ jobs:
             echo "An AutoDev PR is already open; skipping to avoid duplicate work."
           fi
       - name: Build fresh discovery and reverse-engineering evidence
-        if: (github.event_name == 'schedule' || inputs.run_autodev == true) && steps.duplicate.outputs.open_autodev_prs == '0'
+        if: ((github.event_name == 'schedule' && vars.SCOUT_ENABLE_AUTODEV == 'true') || (github.event_name == 'workflow_dispatch' && inputs.run_autodev == true)) && steps.duplicate.outputs.open_autodev_prs == '0'
         env:
           SCOUT_DB_PATH: data/scout.sqlite
           SCOUT_REPORT_DIR: reports
@@ -91,6 +91,7 @@ jobs:
           python feature_hunter.py
           python self_improve.py
           python reverse_engineer.py
+          python skills_manager.py
           python skills_manager.py
       - name: Ask configured free model to propose one evidence-grounded change
         if: (github.event_name == 'schedule' || inputs.run_autodev == true) && steps.duplicate.outputs.open_autodev_prs == '0'
