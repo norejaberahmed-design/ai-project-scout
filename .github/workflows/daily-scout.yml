@@ -89,6 +89,8 @@ jobs:
         run: python self_improve.py
       - name: Reverse engineer candidate architectures (read-only)
         run: python reverse_engineer.py
+      - name: Discover and rank reusable agent skills
+        run: python skills_manager.py
       - name: Collect recent AI research papers
         run: python ai_updates.py
       - name: Run market research agent
@@ -111,7 +113,8 @@ jobs:
           feature_files = list(reports.glob("feature-candidates.json"))
           improvement_files = list(reports.glob("self-improvement-plan.json"))
           reverse_files = list(reports.glob("reverse-engineering.json"))
-          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json"), (reverse_files, "reverse-engineering.json")]:
+          skills_files = list(reports.glob("skills-catalog.json"))
+          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json"), (reverse_files, "reverse-engineering.json"), (skills_files, "skills-catalog.json")]:
               if files:
                   shutil.copy2(max(files, key=lambda p: p.stat().st_mtime), data / target)
           (data / "status.json").write_text(json.dumps({
