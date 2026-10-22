@@ -30,9 +30,9 @@ CAPABILITIES = [
     {
         "id": "patch_test_loop",
         "title": "حلقة اقتراح تغيير ثم اختبارات",
-        "status": "missing",
+        "status": "partial",
         "priority": "critical",
-        "why": "الوكيل يجمع ويحلل تقنيًا، لكنه لا يملك بعد محرك توليد كود موثوقًا ينشئ تغييرات ويختبرها.",
+        "why": "أضيف محرك AutoDev اختياري ومقيّد يقترح تعديلًا لملف مصدر واختباره، ويشغّل الفحوصات قبل طلب مراجعة Draft؛ ما زال يحتاج إعداد مزود نموذج مجاني والتحقق العملي من أول اقتراح قبل الاعتماد عليه.",
         "acceptance": ["استخدام محرك توليد كود مُعدّ صراحة", "إنشاء فرع منفصل", "تشغيل الاختبارات وفحوصات الأمان", "فتح PR مع ملخص وتراجع واضح"],
         "risk": "لا يمكن تنفيذ توليد كود فعلي دون نموذج برمجي متصل؛ لا تُستخدم مفاتيح أو خدمات مدفوعة تلقائيًا."
     },
@@ -86,11 +86,11 @@ def build_plan(candidates=None, generated_at=None):
         },
         "capabilities": CAPABILITIES,
         "repository_review_queue": top,
-        "next_recommended_step": "Implement safe README and license evidence collection before connecting any code-generation model.",
+        "next_recommended_step": "Configure a free model through GitHub Actions Secrets/Variables, then review the first generated Draft PR and its full test/security results; never auto-merge.",
         "safety": [
             "No third-party repository code was copied, installed, or executed.",
             "Candidate scores are triage signals, not proof of quality or safety.",
-            "A proposed capability is not implemented until a code change and tests are verified.",
+            "A proposed capability is not implemented until a code change and tests are verified. AutoDev proposals remain drafts and are never merged automatically.",
             "No paid model or API is called by this planner."
         ]
     }
