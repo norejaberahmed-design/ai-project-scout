@@ -144,7 +144,7 @@ def request_patch(api_key, model, module_path, test_path, module_text, test_text
         "is justified, return {\"summary\":\"NO_CHANGE\",\"changes\":[]}."
     )
     user = json.dumps({
-        "task": "Reverse-engineering-first daily improvement: use the supplied fresh public-repository architecture signals and verified gaps to implement one small, genuinely missing capability in this target module, with a regression test. If no concrete relevant gap is supported, return NO_CHANGE. Do not implement unrelated bug fixes or speculative features.",
+        "task": "Reverse-engineering-first daily improvement: inspect evidence-linked feature opportunities from public AI repositories, compare each opportunity against the actual target module and tests, and implement at most one small, genuinely missing capability with a regression test. Treat signal matches as leads, not proof that a feature works. Reject risks, duplicates, incompatible APIs, and features outside this target module. If no concrete relevant gap is supported, return NO_CHANGE. Do not implement unrelated bug fixes or speculative features.",
         "module_path": module_path,
         "test_path": test_path,
         "module_content": module_text,
