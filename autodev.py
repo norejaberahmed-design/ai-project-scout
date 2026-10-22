@@ -94,7 +94,7 @@ def request_patch(api_key, model, module_path, test_path, module_text, test_text
     request = urllib.request.Request(endpoint, data=body, headers={
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://norejaberahmed.github.io/ai-project-scout/",
+        "HTTP-Referer": "https://norejaberahmed-design.github.io/ai-project-scout/",
         "X-Title": "AI Project Scout Guarded AutoDev",
     }, method="POST")
     try:
