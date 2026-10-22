@@ -31,7 +31,7 @@ jobs:
       SCOUT_ENABLE_AUTODEV: ${{ vars.SCOUT_ENABLE_AUTODEV }}
       SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
       SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
-      SCOUT_AUTODEV_TARGET: ${{ vars.SCOUT_AUTODEV_TARGET || 'feature_hunter' }}
+      SCOUT_AUTODEV_TARGET: ${{ vars.SCOUT_AUTODEV_TARGET || 'scout_core' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
