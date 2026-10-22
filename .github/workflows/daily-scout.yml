@@ -26,6 +26,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: ai-project-scout
@@ -35,6 +37,9 @@ jobs:
   research-agent:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     env:
       SCOUT_DB_PATH: data/scout.sqlite
       SCOUT_REPORT_DIR: reports
@@ -65,17 +70,45 @@ jobs:
           BUYER: ${{ inputs.buyer || 'المدير المالي في الشركات الصغيرة والمتوسطة' }}
           MARKET: ${{ inputs.market || 'السعودية' }}
         run: python agent.py --idea "$IDEA" --buyer "$BUYER" --market "$MARKET"
+      - name: Prepare dashboard data
+        run: |
+          mkdir -p site/data
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          reports = Path("reports")
+          data = Path("site/data")
+          scout_files = [p for p in reports.glob("*.json") if p.name[:4].isdigit() and "ai-updates-" not in p.name and not p.name.startswith("agent-")]
+          updates_files = list(reports.glob("ai-updates-*.json"))
+          agent_files = list(reports.glob("agent-*.json"))
+          for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json")]:
+              if files:
+                  shutil.copy2(max(files, key=lambda p: p.stat().st_mtime), data / target)
+          (data / "status.json").write_text(json.dumps({
+              "updated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+              "run_number": "${{ github.run_number }}",
+              "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }, ensure_ascii=False, indent=2), encoding="utf-8")
+          PY
+      - name: Upload reports for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-project-scout-reports-${{ github.run_number }}
+          path: reports/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload dashboard
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
       - name: Save SQLite history cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: data/scout.sqlite
           key: ai-scout-db-${{ github.run_id }}
-      - name: Upload reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-project-scout-reports-${{ github.run_number }}
-          path: reports/
-          if-no-files-found: warn
-          retention-days: 30
