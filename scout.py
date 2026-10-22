@@ -186,6 +186,7 @@ def build_report(conn, stats, release_stats=None, report_dir=REPORT_DIR):
           "- الوصف: "+(r["description"] or "لا يوجد وصف").replace("\n"," "),
           "- اللغة: {} | النجوم: {} | التفرعات: {}".format(r["language"] or "غير محددة",r["stars"],r["forks"]),
           "- الترخيص: {}".format(r["license"] or "غير واضح؛ تحقق من المستودع"),
+          "- الحالة التجارية: NEEDS_VALIDATION — لم يتم إثبات الطلب أو الاستعداد للدفع.",
           "- آخر دفع للكود: {} | الدرجة التقنية: {}/100".format(r["pushed_at"] or "غير متوفر",r["technical_score"]),
           "- سبب الاكتشاف: "+", ".join(r["discovery_queries"]),
           "- القرار التجاري: DO_NOT_BUILD_YET — لا يوجد دليل طلب مدفوع مجمّع.",""]
