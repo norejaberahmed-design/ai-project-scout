@@ -123,14 +123,14 @@ def extract_structure(path, source):
     else:
         text = source or ""
         symbol_patterns = [
-            re.compile(r"\\b(?:export\\s+)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)"),
-            re.compile(r"\\bclass\\s+([A-Za-z_$][\\w$]*)"),
-            re.compile(r"\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?\\([^)]*\\)\\s*=>"),
+            re.compile(r"\b(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)"),
+            re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)"),
+            re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>"),
         ]
         for pattern in symbol_patterns:
             symbols.extend(pattern.findall(text))
-        imports.extend(re.findall(r"""import\\s+(?:[^'"]*?\\s+from\\s+)?['"]([^'"]+)['"]""", text))
-        imports.extend(re.findall(r"""require\\(\\s*['"]([^'"]+)['"]\\s*\\)""", text))
+        imports.extend(re.findall(r"""import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", text))
+        imports.extend(re.findall(r"""require\(\s*['"]([^'"]+)['"]\s*\)""", text))
     return {"symbols": sorted(set(symbols))[:20], "imports": sorted(set(imports))[:20]}
 
 
