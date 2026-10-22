@@ -30,6 +30,7 @@ PERMISSIVE_LICENSES = {"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC
 SEED_REPOSITORIES = [
     "anthropics/skills",
     "obra/superpowers",
+    "mattpocock/skills",
     "addyosmani/agent-skills",
     "vercel-labs/agent-skills",
     "github/awesome-copilot",
