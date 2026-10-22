@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 ENV SCOUT_API_HOST=0.0.0.0
 ENV SCOUT_API_PORT=8787
 WORKDIR /app
-COPY api_server.py web_search.py skill_runtime.py ./
+COPY api_server.py web_search.py skill_runtime.py github_discovery.py ./
 COPY skills/active ./skills/active
 EXPOSE 8787
 CMD ["python", "api_server.py"]
