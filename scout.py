@@ -139,6 +139,15 @@ def build_report(conn, stats, release_stats=None, report_dir=REPORT_DIR):
     # Backward compatibility: older callers passed report_dir as the third positional argument.
     if isinstance(release_stats, (str, Path)):
         report_dir, release_stats = release_stats, None
+    # Keep reports compatible with older callers and partial/offline test fixtures.
+    stats = dict(stats or {})
+    stats.setdefault("queries", 0)
+    stats.setdefault("successful_queries", 0)
+    stats.setdefault("repositories_seen", 0)
+    stats.setdefault("unique_repositories", conn.execute("SELECT COUNT(*) FROM repositories").fetchone()[0])
+    stats.setdefault("new_today", 0)
+    stats.setdefault("recently_active", 0)
+    stats.setdefault("errors", [])
     stamp=datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report_dir.mkdir(parents=True,exist_ok=True)
     rows=conn.execute("""SELECT full_name,url,description,language,stars,forks,license,updated_at,pushed_at,first_seen,query_tags,technical_score
