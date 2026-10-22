@@ -174,7 +174,7 @@ def main():
         return 0
     api_key = os.getenv("SCOUT_LLM_API_KEY", "").strip()
     model = os.getenv("SCOUT_LLM_MODEL", "").strip()
-    target = os.getenv("SCOUT_AUTODEV_TARGET", "feature_hunter").strip()
+    target = os.getenv("SCOUT_AUTODEV_TARGET", "scout_core").strip()
     if not api_key or not model:
         print(json.dumps({"status": "needs_configuration", "required": ["SCOUT_LLM_API_KEY", "SCOUT_LLM_MODEL"]}))
         return 0
