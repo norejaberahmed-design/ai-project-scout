@@ -70,7 +70,7 @@ jobs:
           python self_improve.py
           python reverse_engineer.py
           python skills_manager.py
-          git restore -- site/data || true
+          git restore -- site/data
       - name: Draft one skill in the review-only proposal directory
         if: steps.config.outputs.ready == 'true' && steps.duplicate.outputs.open_proposals == '0'
         run: python skill_proposer.py
