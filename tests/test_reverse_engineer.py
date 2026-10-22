@@ -1,6 +1,6 @@
 import unittest
 
-from reverse_engineer import analyze_snapshot, inspect_candidates
+from reverse_engineer import analyze_snapshot, inspect_candidates, scan_source
 
 
 class ReverseEngineerTests(unittest.TestCase):
@@ -28,6 +28,15 @@ class ReverseEngineerTests(unittest.TestCase):
         self.assertEqual(result["decision"], "manual_review_required")
         self.assertEqual(result["license_decision"], "review_terms_and_attribution_before_reuse")
         self.assertTrue(result["risk_flags"])
+
+    def test_source_scan_reports_line_numbers_without_code_snippets(self):
+        source = "from openai import OpenAI\nclient = OpenAI()\nsubprocess.run(cmd)\n"
+        result = scan_source("src/agent.py", source)
+        labels = {x["signal"] for x in result["signals"]}
+        self.assertIn("model_provider_calls", labels)
+        self.assertIn("shell_or_dynamic_execution", labels)
+        self.assertEqual(result["lines_analyzed"], 3)
+        self.assertNotIn("source", result)
 
     def test_inspector_uses_bounded_read_only_requests(self):
         calls = []
