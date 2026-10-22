@@ -3,6 +3,7 @@
 This module does not decompile binaries, run repositories, install packages, or copy code.
 It uses GitHub metadata, README text, file paths, and small manifest excerpts as untrusted evidence.
 """
+import ast
 import base64
 import json
 import os
@@ -20,7 +21,7 @@ CANDIDATES_PATH = REPORT_DIR / "feature-candidates.json"
 API = "https://api.github.com"
 MAX_REPOS = int(os.getenv("SCOUT_REVERSE_MAX_REPOS", "5"))
 MAX_BLOB_BYTES = 180_000
-MAX_SOURCE_FILES = 2
+MAX_SOURCE_FILES = 8
 SOURCE_EXTENSIONS = {".py", ".js", ".ts", ".mjs", ".cjs", ".go", ".rs"}
 CODE_PATTERNS = [
     ("model_provider_calls", re.compile(r"openai|anthropic|chat\.completions|completion\.create|litellm|genai\.generate", re.I)),
@@ -31,6 +32,11 @@ CODE_PATTERNS = [
     ("filesystem_operations", re.compile(r"open\s*\(|write_text\(|writeFile\(|unlink\(|rmtree\(", re.I)),
     ("vector_or_retrieval", re.compile(r"chromadb|faiss|pinecone|weaviate|qdrant|vectorstore|embedding", re.I)),
     ("web_framework_or_routes", re.compile(r"FastAPI|Flask|express\(|app\.(get|post|put|delete)\(|router\.(get|post)\(", re.I)),
+    ("memory_or_state", re.compile(r"conversation.?memory|memory.?store|chat.?history|redis|sqlite|session\.", re.I)),
+    ("structured_outputs", re.compile(r"json_schema|structured.?output|response_format|pydantic\.BaseModel", re.I)),
+    ("evaluation_or_tracing", re.compile(r"langsmith|langfuse|opentelemetry|tracer|evaluation|pytest", re.I)),
+    ("retry_or_rate_limit", re.compile(r"tenacity|backoff|retry\(|rate.?limit|429", re.I)),
+    ("streaming_responses", re.compile(r"stream=True|streaming|StreamingResponse|text/event-stream", re.I)),
 ]
 MANIFEST_NAMES = {
     "pyproject.toml", "requirements.txt", "setup.py", "package.json",
@@ -98,8 +104,39 @@ def _feature_matches(readme):
             for label, terms in ARCHITECTURE_SIGNALS
             if any(term in text for term in terms)]
 
+def extract_structure(path, source):
+    """Extract names and imports without executing code or returning source snippets."""
+    suffix = Path(path).suffix.lower()
+    symbols, imports = [], []
+    if suffix == ".py":
+        try:
+            tree = ast.parse(source or "")
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    symbols.append(node.name)
+                elif isinstance(node, ast.Import):
+                    imports.extend(alias.name for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    imports.append(node.module)
+        except (SyntaxError, ValueError, TypeError):
+            pass
+    else:
+        text = source or ""
+        symbol_patterns = [
+            re.compile(r"\b(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)"),
+            re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)"),
+            re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>"),
+        ]
+        for pattern in symbol_patterns:
+            symbols.extend(pattern.findall(text))
+        imports.extend(re.findall(r"""import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", text))
+        imports.extend(re.findall(r"""require\(\s*['"]([^'"]+)['"]\s*\)""", text))
+    return {"symbols": sorted(set(symbols))[:20], "imports": sorted(set(imports))[:20]}
+
+
 def scan_source(path, source):
-    """Return pattern evidence and line numbers, never source excerpts."""
+    """Return structural names and pattern evidence, never source excerpts."""
+    structure = extract_structure(path, source)
     findings = []
     for label, pattern in CODE_PATTERNS:
         matches = []
@@ -110,7 +147,7 @@ def scan_source(path, source):
                     break
         if matches:
             findings.append({"signal": label, "line_numbers": matches})
-    return {"path": path, "signals": findings, "lines_analyzed": len((source or "").splitlines())}
+    return {"path": path, "signals": findings, "lines_analyzed": len((source or "").splitlines()), **structure}
 
 
 def analyze_snapshot(repository, repo_meta, tree, readme, manifests=None):
@@ -178,6 +215,55 @@ def analyze_snapshot(repository, repo_meta, tree, readme, manifests=None):
         "decision": "manual_review_required",
     }
 
+
+def derive_feature_opportunities(source_analysis, architecture_signals=None):
+    """Map observed source signals to cautious, evidence-linked integration leads."""
+    signal_paths = {}
+    for source in source_analysis or []:
+        path = source.get("path", "")
+        for item in source.get("signals", []):
+            signal = item.get("signal", "")
+            if signal:
+                signal_paths.setdefault(signal, []).append({
+                    "path": path,
+                    "line_numbers": item.get("line_numbers", [])[:5],
+                })
+    rules = [
+        ("tool_or_mcp_registration", "قابلية إضافة أدوات جديدة", "افحص عقود الأدوات المكتشفة وقارنها بواجهات الوكيل؛ اقترح موصلًا داخليًا فقط عند إثبات فجوة.", "medium"),
+        ("vector_or_retrieval", "استرجاع المعرفة", "تحقق من وجود بحث أو استرجاع مكافئ داخل الوكيل قبل اقتراح واجهة جديدة.", "medium"),
+        ("model_provider_calls", "تكامل مزوّد النماذج", "قارن نمط استدعاء النموذج بإعدادات المزوّد الحالية؛ لا تنقل مفاتيح أو إعدادات سرية.", "medium"),
+        ("environment_or_secret_access", "إدارة الأسرار", "راجع فصل الإعدادات عن الكود؛ لا تستورد أسرارًا أو ملفات بيئة من المشروع الخارجي.", "high"),
+        ("shell_or_dynamic_execution", "تنفيذ الكود ومخاطره", "اعتبر التنفيذ الديناميكي إشارة خطر؛ لا تنقل هذا السلوك إلى الوكيل.", "high"),
+        ("memory_or_state", "الذاكرة وحالة المحادثة", "افحص التخزين والاسترجاع والخصوصية قبل اقتراح ذاكرة جديدة، وتجنب التكرار.", "medium"),
+        ("structured_outputs", "المخرجات المنظمة", "تحقق من التحقق الحالي لمخططات JSON؛ أضف تحققًا واختبارًا فقط إذا كانت الفجوة حقيقية.", "low"),
+        ("evaluation_or_tracing", "تقييم الجودة والتتبع", "تحقق من الاختبارات والتقارير الحالية قبل اقتراح تقييم محلي لا يرسل بيانات المستخدمين.", "low"),
+        ("retry_or_rate_limit", "التعامل مع الفشل وحدود الطلبات", "راجع سياسة إعادة المحاولة الحالية لتجنب التكرار أو المحاولات غير المحدودة.", "medium"),
+        ("streaming_responses", "تدفق الردود", "قارن تجربة الرد الحالية بواجهات التدفق قبل اقتراح تغيير مناسب للواجهة.", "medium"),
+        ("web_framework_or_routes", "واجهات API", "افحص عقود المسارات والاختبارات قبل اقتراح تكامل متوافق.", "medium"),
+    ]
+    result = []
+    for signal, title, action, risk in rules:
+        evidence = signal_paths.get(signal, [])
+        if evidence:
+            result.append({
+                "title": title, "source_signal": signal, "evidence": evidence[:4],
+                "risk": risk, "recommended_action": action,
+                "status": "candidate_requires_gap_check",
+                "implementation_policy": "native_adapter_only_no_third_party_code_copy",
+            })
+    if not result and architecture_signals:
+        result.append({
+            "title": "الأدلة البرمجية غير كافية",
+            "source_signal": "readme_architecture_only",
+            "evidence": [{"path": "README", "line_numbers": []}],
+            "risk": "unknown",
+            "recommended_action": "لا تنفذ ميزة بناءً على وصف README فقط؛ اجمع أدلة من المصدر والاختبارات.",
+            "status": "insufficient_source_evidence",
+            "implementation_policy": "no_change_until_evidence",
+        })
+    return result
+
+
 def inspect_candidates(candidate_report, fetcher=request_json, limit=MAX_REPOS):
     candidates = (candidate_report or {}).get("candidates", [])[:max(0, min(int(limit), 8))]
     results, errors = [], []
@@ -220,6 +306,7 @@ def inspect_candidates(candidate_report, fetcher=request_json, limit=MAX_REPOS):
                 payload = fetcher(API + "/repos/" + name + "/git/blobs/" + sha)
                 source_analysis.append(scan_source(path, _decode_blob(payload)))
             result["source_analysis"] = source_analysis
+            result["feature_opportunities"] = derive_feature_opportunities(source_analysis, result.get("architecture_signals"))
             result["tree_truncated"] = bool(tree.get("truncated"))
             result["readme_bytes_analyzed"] = len(readme.encode("utf-8"))
             results.append(result)
@@ -259,7 +346,9 @@ def write_report(report, report_dir=REPORT_DIR):
             "- ملفات تعريف/اعتماديات: " + ("، ".join(item["manifest_paths"]) or "غير محددة"),
             "- عناوين الوثائق: " + ("؛ ".join(item["readme_headings"]) or "غير متوفرة"),
             "- تحليل الشيفرة المختارة: " + ("؛ ".join(src["path"] + " [" + ", ".join(sig["signal"] + ":" + ",".join(map(str, sig["line_numbers"])) for sig in src["signals"]) + "]" for src in item.get("source_analysis", [])) or "لم تتوفر ملفات مصدر مناسبة"),
+            "- البنية المستخرجة: " + ("؛ ".join(src["path"] + " (رموز: " + ", ".join(src.get("symbols", [])[:8]) + "؛ استيرادات: " + ", ".join(src.get("imports", [])[:8]) + ")" for src in item.get("source_analysis", []) if src.get("symbols") or src.get("imports")) or "لم تستخرج أسماء دوال/أصناف أو استيرادات واضحة"),
             "- مؤشرات تحتاج فحصًا: " + ("؛ ".join(x["flag"] + " (" + x["path"] + ")" for x in item["risk_flags"]) or "لا توجد مؤشرات مسجلة من القواعد المحدودة"),
+            "- فرص الميزات المبنية على دليل: " + ("؛ ".join(x["title"] + " (" + x["source_signal"] + ")" for x in item.get("feature_opportunities", [])) or "لم تثبت فرصة من الملفات المفحوصة"),
             f"- تقييم الدمج: {item['integration_assessment']}",
             "- الحالة: مراجعة بشرية مطلوبة؛ لم يتم الدمج.",
             "",

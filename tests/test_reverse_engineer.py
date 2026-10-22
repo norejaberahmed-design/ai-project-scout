@@ -1,6 +1,6 @@
 import unittest
 
-from reverse_engineer import analyze_snapshot, inspect_candidates, scan_source
+from reverse_engineer import analyze_snapshot, derive_feature_opportunities, extract_structure, inspect_candidates, scan_source
 
 
 class ReverseEngineerTests(unittest.TestCase):
@@ -38,6 +38,29 @@ class ReverseEngineerTests(unittest.TestCase):
         self.assertEqual(result["lines_analyzed"], 3)
         self.assertNotIn("source", result)
 
+    def test_structure_extracts_symbols_and_imports_without_source(self):
+        python_result = extract_structure("src/agent.py", "from pathlib import Path\nclass Agent:\n    def run(self): pass\n")
+        self.assertIn("Agent", python_result["symbols"])
+        self.assertIn("run", python_result["symbols"])
+        self.assertIn("pathlib", python_result["imports"])
+        js_result = extract_structure("src/agent.ts", "import { tool } from 'agent-kit';\nexport function runAgent() {}\nclass Runner {}")
+        self.assertIn("runAgent", js_result["symbols"])
+        self.assertIn("Runner", js_result["symbols"])
+        self.assertIn("agent-kit", js_result["imports"])
+
+    def test_feature_opportunities_require_direct_source_evidence(self):
+        self.assertEqual(derive_feature_opportunities([], architecture_signals=[]), [])
+        opportunities = derive_feature_opportunities([
+            {"path": "src/tools.py", "signals": [
+                {"signal": "tool_or_mcp_registration", "line_numbers": [12, 18]},
+                {"signal": "streaming_responses", "line_numbers": [29]},
+            ]}
+        ])
+        self.assertEqual(len(opportunities), 2)
+        self.assertEqual(opportunities[0]["evidence"][0]["path"], "src/tools.py")
+        self.assertEqual(opportunities[0]["evidence"][0]["line_numbers"], [12, 18])
+        self.assertEqual(opportunities[0]["status"], "candidate_requires_gap_check")
+        self.assertTrue(all(item["implementation_policy"] == "native_adapter_only_no_third_party_code_copy" for item in opportunities))
     def test_inspector_uses_bounded_read_only_requests(self):
         calls = []
         def fake_fetch(url):

@@ -66,7 +66,7 @@ def validate_changes(payload, expected_paths):
 def load_evidence_context(report_dir=None):
     """Load bounded feature/gap summaries; never load third-party source code."""
     report_dir = Path(report_dir or os.getenv("SCOUT_REPORT_DIR", ROOT / "reports"))
-    context = {"capability_gaps": [], "verified_feature_gaps": [], "feature_candidates": [], "reverse_engineering": []}
+    context = {"capability_gaps": [], "verified_feature_gaps": [], "feature_candidates": [], "reverse_engineering": [], "feature_opportunities": []}
     paths = {
         "plan": report_dir / "self-improvement-plan.json",
         "features": report_dir / "feature-candidates.json",
@@ -96,10 +96,21 @@ def load_evidence_context(report_dir=None):
                     "url": item.get("url"),
                     "architecture_signals": [x.get("capability") for x in item.get("architecture_signals", [])][:8],
                     "source_signals": [
-                        {"path": src.get("path"), "signals": [sig.get("signal") for sig in src.get("signals", [])][:8]}
+                        {"path": src.get("path"), "signals": [sig.get("signal") for sig in src.get("signals", [])][:8], "symbols": src.get("symbols", [])[:12], "imports": src.get("imports", [])[:12]}
                         for src in item.get("source_analysis", [])[:3]
                     ],
                     "risk_flags": [x.get("flag") for x in item.get("risk_flags", [])][:8],
+                    "feature_opportunities": [
+                        {
+                            "title": opportunity.get("title"),
+                            "source_signal": opportunity.get("source_signal"),
+                            "evidence": opportunity.get("evidence", [])[:4],
+                            "risk": opportunity.get("risk"),
+                            "recommended_action": opportunity.get("recommended_action"),
+                            "status": opportunity.get("status"),
+                        }
+                        for opportunity in item.get("feature_opportunities", [])[:8]
+                    ],
                     "integration_assessment": item.get("integration_assessment"),
                 }
                 for item in payload.get("results", [])
@@ -133,7 +144,7 @@ def request_patch(api_key, model, module_path, test_path, module_text, test_text
         "is justified, return {\"summary\":\"NO_CHANGE\",\"changes\":[]}."
     )
     user = json.dumps({
-        "task": "Reverse-engineering-first daily improvement: use the supplied fresh public-repository architecture signals and verified gaps to implement one small, genuinely missing capability in this target module, with a regression test. If no concrete relevant gap is supported, return NO_CHANGE. Do not implement unrelated bug fixes or speculative features.",
+        "task": "Reverse-engineering-first daily improvement: inspect evidence-linked feature opportunities from public AI repositories, compare each opportunity against the actual target module and tests, and implement at most one small, genuinely missing capability with a regression test. Treat signal matches as leads, not proof that a feature works. Reject risks, duplicates, incompatible APIs, and features outside this target module. If no concrete relevant gap is supported, return NO_CHANGE. Do not implement unrelated bug fixes or speculative features.",
         "module_path": module_path,
         "test_path": test_path,
         "module_content": module_text,
