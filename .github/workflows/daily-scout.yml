@@ -44,6 +44,7 @@ jobs:
       SCOUT_DB_PATH: data/scout.sqlite
       SCOUT_REPORT_DIR: reports
       SCOUT_PER_QUERY: "20"
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
