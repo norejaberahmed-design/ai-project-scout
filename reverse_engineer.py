@@ -346,6 +346,7 @@ def write_report(report, report_dir=REPORT_DIR):
             "- ملفات تعريف/اعتماديات: " + ("، ".join(item["manifest_paths"]) or "غير محددة"),
             "- عناوين الوثائق: " + ("؛ ".join(item["readme_headings"]) or "غير متوفرة"),
             "- تحليل الشيفرة المختارة: " + ("؛ ".join(src["path"] + " [" + ", ".join(sig["signal"] + ":" + ",".join(map(str, sig["line_numbers"])) for sig in src["signals"]) + "]" for src in item.get("source_analysis", [])) or "لم تتوفر ملفات مصدر مناسبة"),
+            "- البنية المستخرجة: " + ("؛ ".join(src["path"] + " (رموز: " + ", ".join(src.get("symbols", [])[:8]) + "؛ استيرادات: " + ", ".join(src.get("imports", [])[:8]) + ")" for src in item.get("source_analysis", []) if src.get("symbols") or src.get("imports")) or "لم تستخرج أسماء دوال/أصناف أو استيرادات واضحة"),
             "- مؤشرات تحتاج فحصًا: " + ("؛ ".join(x["flag"] + " (" + x["path"] + ")" for x in item["risk_flags"]) or "لا توجد مؤشرات مسجلة من القواعد المحدودة"),
             "- فرص الميزات المبنية على دليل: " + ("؛ ".join(x["title"] + " (" + x["source_signal"] + ")" for x in item.get("feature_opportunities", [])) or "لم تثبت فرصة من الملفات المفحوصة"),
             f"- تقييم الدمج: {item['integration_assessment']}",
