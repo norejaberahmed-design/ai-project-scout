@@ -52,7 +52,20 @@ jobs:
           if [ "$count" -gt 0 ]; then
             echo "An AutoDev PR is already open; skipping to avoid duplicate work."
           fi
-      - name: Ask configured free model for one bounded change
+      - name: Build fresh discovery and reverse-engineering evidence
+        if: (github.event_name == 'schedule' || inputs.run_autodev == true) && steps.duplicate.outputs.open_autodev_prs == '0'
+        env:
+          SCOUT_DB_PATH: data/scout.sqlite
+          SCOUT_REPORT_DIR: reports
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data reports
+          python -m compileall -q .
+          python scout.py
+          python feature_hunter.py
+          python self_improve.py
+          python reverse_engineer.py
+      - name: Ask configured free model to propose one evidence-grounded change
         if: (github.event_name == 'schedule' || inputs.run_autodev == true) && steps.duplicate.outputs.open_autodev_prs == '0'
         run: python autodev.py
       - name: Stop if there is no validated candidate
@@ -98,7 +111,7 @@ jobs:
         run: |
           BRANCH_NAME="autodev-$BRANCH_NAME"
           git checkout -b "$BRANCH_NAME"
-          git add feature_hunter.py tests/test_feature_hunter.py reverse_engineer.py tests/test_reverse_engineer.py agent.py tests/test_agent.py
+          git add scout.py tests/test_scout.py feature_hunter.py tests/test_feature_hunter.py reverse_engineer.py tests/test_reverse_engineer.py agent.py tests/test_agent.py
           git commit -m "Propose bounded self-improvement"
           git push origin "$BRANCH_NAME"
           gh pr create \
