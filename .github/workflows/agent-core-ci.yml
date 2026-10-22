@@ -1,0 +1,67 @@
+name: Agent Core CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, self-improving-agent-core]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compile Python
+        run: python -m compileall -q .
+      - name: Run complete offline test suite
+        run: python -m unittest discover -s tests -v
+      - name: Check chat UI JavaScript syntax
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.active = False
+                  self.parts = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == "script":
+                      self.active = True
+              def handle_endtag(self, tag):
+                  if tag == "script":
+                      self.active = False
+              def handle_data(self, data):
+                  if self.active:
+                      self.parts.append(data)
+          parser = Scripts()
+          parser.feed(Path("site/index.html").read_text(encoding="utf-8"))
+          if not parser.parts:
+              raise SystemExit("No inline JavaScript found")
+          Path("/tmp/agent-chat.js").write_text("\n".join(parser.parts), encoding="utf-8")
+          PY
+          node --check /tmp/agent-chat.js
+      - name: Ensure secrets are not embedded in the public UI
+        run: |
+          if grep -E 'TAVILY_API_KEY=|SCOUT_LLM_API_KEY=|sk-or-v1-[A-Za-z0-9]+' site/index.html; then
+            echo "Possible secret embedded in public UI"
+            exit 1
+          fi
