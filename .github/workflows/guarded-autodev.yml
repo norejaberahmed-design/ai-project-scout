@@ -12,7 +12,7 @@ on:
         description: "Run one bounded, free-model improvement attempt"
         required: true
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -28,10 +28,10 @@ jobs:
     timeout-minutes: 12
     env:
       GH_TOKEN: ${{ github.token }}
-      SCOUT_ENABLE_AUTODEV: ${{ vars.SCOUT_ENABLE_AUTODEV }}
+      SCOUT_ENABLE_AUTODEV: ${{ vars.SCOUT_ENABLE_AUTODEV || 'true' }}
       SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
       SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
-      SCOUT_AUTODEV_TARGET: ${{ vars.SCOUT_AUTODEV_TARGET || 'scout_core' }}
+      SCOUT_AUTODEV_TARGET: ${{ vars.SCOUT_AUTODEV_TARGET || 'reverse_engineer' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -104,7 +104,7 @@ jobs:
             echo "No change proposed; no branch or PR created."
             exit 0
           fi
-          expected="$(python -c 'import os; from autodev import TARGETS; print(" ".join(TARGETS[os.getenv("SCOUT_AUTODEV_TARGET", "scout_core")]))')"
+          expected="$(python -c 'import os; from autodev import TARGETS; print(" ".join(TARGETS[os.getenv("SCOUT_AUTODEV_TARGET", "reverse_engineer")]))')"
           actual="$(git diff --name-only | sort | tr '\n' ' ')"
           if [ "$actual" != "$(printf '%s' "$expected" | tr ' ' '\n' | sort | tr '\n' ' ')" ]; then
             echo "Unexpected file set; refusing to publish candidate."
