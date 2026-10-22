@@ -56,16 +56,64 @@ CAPABILITIES = [
     }
 ]
 
-def build_plan(candidates=None, generated_at=None):
+FEATURE_IMPLEMENTATION_MARKERS = {
+    "RAG / البحث في المستندات": ("def retrieve_documents(", "class VectorStore", "def search_documents("),
+    "استخدام الأدوات واستدعاء الوظائف": ("def execute_tool(", "class ToolRegistry", "def call_tool("),
+    "الذاكرة وتلخيص المحادثات": ("def save_conversation(", "def load_conversation(", "class ConversationMemory"),
+    "تشغيل محلي وخصوصية": ("ollama.chat(", "llama_cpp.Llama(", "def run_local_model("),
+    "الصوت وتحويل الكلام": ("def transcribe_audio(", "def synthesize_speech(", "whisper.load_model("),
+    "الرؤية وقراءة الصور": ("def analyze_image(", "def extract_ocr(", "pytesseract.image_to_string("),
+    "التقييم والاختبارات": ("def run_benchmark(", "class EvaluationSuite", "def evaluate_agent("),
+    "تنسيق الوكلاء والمهام": ("class AgentOrchestrator", "def run_agent_workflow(", "def delegate_task("),
+    "الأمان والحماية": ("def detect_prompt_injection(", "def scan_dependencies(", "def validate_generated_patch("),
+}
+
+
+def scan_existing_features(root=ROOT):
+    """Static signature check; absence means 'not found by these markers', not mathematical proof."""
+    root = Path(root)
+    source_files = []
+    for path in root.rglob("*.py"):
+        if any(part in {"tests", ".git", ".venv", "reports", "__pycache__"} for part in path.parts):
+            continue
+        if path.name == "self_improve.py" or path.name == "feature_hunter.py":
+            continue
+        try:
+            source_files.append((str(path.relative_to(root)), path.read_text(encoding="utf-8").lower()))
+        except (OSError, UnicodeError):
+            continue
+    results = {}
+    for feature, markers in FEATURE_IMPLEMENTATION_MARKERS.items():
+        found = []
+        for marker in markers:
+            for path, content in source_files:
+                if marker.lower() in content:
+                    found.append({"marker": marker, "file": path})
+                    break
+        status = "present" if len(found) >= 2 else "partial" if found else "missing"
+        results[feature] = {
+            "status": status,
+            "matched_signatures": found,
+            "checked_source_files": len(source_files),
+            "method": "static_signature_scan",
+            "limitation": "Missing means no configured implementation signature was found; manual review is still required."
+        }
+    return results
+
+
+def build_plan(candidates=None, generated_at=None, root=ROOT):
     candidates = candidates or {}
     rows = candidates.get("candidates", [])
+    existing_features = scan_existing_features(root)
     top = []
     for item in rows[:12]:
         features = [x.get("feature", "") for x in item.get("feature_candidates", [])]
+        verification = {name: existing_features[name] for name in features if name in existing_features}
         top.append({
             "repository": item.get("repository", ""),
             "url": item.get("url", ""),
             "features": features,
+            "feature_verification": verification,
             "license_spdx": item.get("license_spdx", "UNKNOWN"),
             "license_status": item.get("license_status", "unknown_do_not_copy"),
             "priority_score": item.get("priority_score", 0),
@@ -83,9 +131,18 @@ def build_plan(candidates=None, generated_at=None):
             "missing_capabilities": missing,
             "partial_capabilities": partial,
             "code_changes_made_by_planner": 0,
+            "candidate_features_missing_in_current_code": sum(
+                1 for row in top for status in row.get("feature_verification", {}).values()
+                if status.get("status") == "missing"
+            ),
         },
         "capabilities": CAPABILITIES,
         "repository_review_queue": top,
+        "verified_feature_gaps": [
+            {"feature": feature, **verification}
+            for row in top for feature, verification in row.get("feature_verification", {}).items()
+            if verification.get("status") == "missing"
+        ][:20],
         "next_recommended_step": "Configure a free model through GitHub Actions Secrets/Variables, then review the first generated Draft PR and its full test/security results; never auto-merge.",
         "safety": [
             "No third-party repository code was copied, installed, or executed.",
