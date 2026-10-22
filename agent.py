@@ -71,9 +71,34 @@ def deduplicate_results(results):
     return list(unique.values())
 
 
+def commercial_scorecard(web_results):
+    """Score observable search signals; never infer payment willingness from snippets."""
+    all_text = [(r.get("title", "") + " " + r.get("snippet", "")).lower() for r in web_results]
+    pricing_terms = ("pricing", "price", "سعر", "أسعار", "اشتراك", "cost", "تكلفة")
+    complaint_terms = ("complaint", "problem", "issue", "مشكلة", "معاناة", "شكوى", "review")
+    competitor_terms = ("alternative", "competitor", "بديل", "منافس")
+    pricing_count = sum(any(term in item for term in pricing_terms) for item in all_text)
+    complaint_count = sum(any(term in item for term in complaint_terms) for item in all_text)
+    competitor_count = sum(any(term in item for term in competitor_terms) for item in all_text)
+    dimensions = [
+        {"name": "إشارات تسعير", "score": min(25, pricing_count * 5), "max": 25, "evidence_count": pricing_count},
+        {"name": "إشارات مشكلة أو شكاوى", "score": min(30, complaint_count * 6), "max": 30, "evidence_count": complaint_count},
+        {"name": "إشارات بدائل أو منافسين", "score": min(20, competitor_count * 5), "max": 20, "evidence_count": competitor_count},
+        {"name": "نتائج مرتبطة بالبحث", "score": 10 if web_results else 0, "max": 10, "evidence_count": len(web_results)},
+        {"name": "دليل مباشر على الاستعداد للدفع", "score": 0, "max": 15, "evidence_count": 0},
+    ]
+    return {
+        "score": sum(d["score"] for d in dimensions), "max_score": 100,
+        "label": "إشارات بحث أولية — ليست احتمال نجاح", "dimensions": dimensions,
+        "verified_paying_customers": 0, "willingness_to_pay_verified": False,
+        "interpretation": "الدرجة لترتيب أولوية البحث فقط. لا تثبت الطلب أو الربح؛ يلزم التحقق مع مشترين ودليل دفع فعلي."
+    }
+
+
 def make_report(idea, buyer, market, web_results, github_stats, errors, generated_at=None):
     """Conservative conclusions: search snippets are leads, never proof of willingness to pay."""
     generated_at = generated_at or utc_now()
+    scorecard = commercial_scorecard(web_results)
     competitors = [r for r in web_results if any(word in (r["title"] + " " + r["snippet"]).lower()
                    for word in ("pricing", "price", "سعر", "أسعار", "اشتراك", "cost", "alternative", "بديل"))]
     complaints = [r for r in web_results if any(word in (r["title"] + " " + r["snippet"]).lower()
@@ -86,6 +111,7 @@ def make_report(idea, buyer, market, web_results, github_stats, errors, generate
         "agent_mode": "research_assistant",
         "sources": {"web_search": "Bing RSS search", "technical_discovery": "GitHub Search API"},
         "web_results": web_results,
+        "commercial_scorecard": scorecard,
         "possible_competitor_or_pricing_leads": competitors,
         "possible_problem_or_review_leads": complaints,
         "github_scan": github_stats,
