@@ -117,6 +117,11 @@ def save_proposal(document: str, root: Path | None = None) -> dict:
     directory = (root or ROOT) / "skills" / "proposed"
     directory.mkdir(parents=True, exist_ok=True)
     name = result["metadata"]["name"]
+    active_target = (root or ROOT) / "skills" / "active" / name
+    if active_target.exists():
+        result["valid"] = False
+        result["errors"].append("A skill with this name is already active; use a distinct proposal name.")
+        return result
     target = directory / name / "SKILL.md"
     if target.exists():
         result["valid"] = False
