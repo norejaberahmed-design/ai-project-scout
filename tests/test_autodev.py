@@ -77,7 +77,7 @@ class AutoDevTests(unittest.TestCase):
                 "results": [{"repository": "example/project", "url": "https://github.com/example/project",
                              "architecture_signals": [{"capability": "memory"}],
                              "source_analysis": [{"path": "src/main.py",
-                                                  "signals": [{"signal": "memory", "line_numbers": [5]}]}],
+                                                  "signals": [{"signal": "memory", "line_numbers": [5]}], "symbols": ["Agent", "run"], "imports": ["pathlib"]}],
                              "risk_flags": [{"flag": "network"}],
                              "feature_opportunities": [{"title": "Structured outputs", "source_signal": "structured_outputs", "evidence": [{"path": "src/main.py", "line_numbers": [12]}], "risk": "low", "recommended_action": "compare existing implementation", "status": "candidate_requires_gap_check"}],
                              "integration_assessment": "review"}]
@@ -87,6 +87,8 @@ class AutoDevTests(unittest.TestCase):
         self.assertEqual(context["feature_candidates"][0]["repository"], "example/project")
         self.assertNotIn("source_code", context["feature_candidates"][0])
         self.assertEqual(context["reverse_engineering"][0]["source_signals"][0]["signals"], ["memory"])
+        self.assertEqual(context["reverse_engineering"][0]["source_signals"][0]["symbols"], ["Agent", "run"])
+        self.assertEqual(context["reverse_engineering"][0]["source_signals"][0]["imports"], ["pathlib"])
         self.assertEqual(context["reverse_engineering"][0]["feature_opportunities"][0]["evidence"][0]["line_numbers"], [12])
 
     def test_no_change_is_not_a_patch(self):
