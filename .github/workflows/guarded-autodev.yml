@@ -43,6 +43,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Verify ordinary pushes without calling a model
+        if: github.event_name == 'push'
+        run: |
+          python -m compileall -q .
+          python -m unittest discover -s tests -v
       - name: Prevent duplicate open AutoDev pull requests
         id: duplicate
         shell: bash
