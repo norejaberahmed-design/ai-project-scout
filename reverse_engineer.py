@@ -31,6 +31,11 @@ CODE_PATTERNS = [
     ("filesystem_operations", re.compile(r"open\s*\(|write_text\(|writeFile\(|unlink\(|rmtree\(", re.I)),
     ("vector_or_retrieval", re.compile(r"chromadb|faiss|pinecone|weaviate|qdrant|vectorstore|embedding", re.I)),
     ("web_framework_or_routes", re.compile(r"FastAPI|Flask|express\(|app\.(get|post|put|delete)\(|router\.(get|post)\(", re.I)),
+    ("memory_or_state", re.compile(r"conversation.?memory|memory.?store|chat.?history|redis|sqlite|session\\.", re.I)),
+    ("structured_outputs", re.compile(r"json_schema|structured.?output|response_format|pydantic\\.BaseModel", re.I)),
+    ("evaluation_or_tracing", re.compile(r"langsmith|langfuse|opentelemetry|tracer|evaluation|pytest", re.I)),
+    ("retry_or_rate_limit", re.compile(r"tenacity|backoff|retry\\(|rate.?limit|429", re.I)),
+    ("streaming_responses", re.compile(r"stream=True|streaming|StreamingResponse|text/event-stream", re.I)),
 ]
 MANIFEST_NAMES = {
     "pyproject.toml", "requirements.txt", "setup.py", "package.json",
