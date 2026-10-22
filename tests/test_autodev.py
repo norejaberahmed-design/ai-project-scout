@@ -1,6 +1,9 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from autodev import AutoDevError, parse_model_json, validate_changes
+from autodev import AutoDevError, load_evidence_context, parse_model_json, validate_changes
 
 
 class AutoDevTests(unittest.TestCase):
@@ -49,6 +52,36 @@ class AutoDevTests(unittest.TestCase):
         ]}
         with self.assertRaises(AutoDevError):
             validate_changes(payload, paths)
+
+
+    def test_loads_bounded_feature_evidence_without_source_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "self-improvement-plan.json").write_text(json.dumps({
+                "capabilities": [{"id": "memory", "title": "Memory", "status": "missing",
+                                  "priority": "high", "why": "Not present", "acceptance": ["test it"],
+                                  "risk": "prompt injection"}]
+            }), encoding="utf-8")
+            (root / "feature-candidates.json").write_text(json.dumps({
+                "candidates": [{"repository": "example/project", "url": "https://github.com/example/project",
+                                "description": "memory agent", "license_spdx": "MIT",
+                                "license_status": "permissive_review_required",
+                                "feature_candidates": [{"feature": "memory"}], "priority_score": 60,
+                                "evidence": "metadata only", "source_code": "must not be passed"}]
+            }), encoding="utf-8")
+            (root / "reverse-engineering.json").write_text(json.dumps({
+                "results": [{"repository": "example/project", "url": "https://github.com/example/project",
+                             "architecture_signals": [{"capability": "memory"}],
+                             "source_analysis": [{"path": "src/main.py",
+                                                  "signals": [{"signal": "memory", "line_numbers": [5]}]}],
+                             "risk_flags": [{"flag": "network"}],
+                             "integration_assessment": "review"}]
+            }), encoding="utf-8")
+            context = load_evidence_context(root)
+        self.assertEqual(context["capability_gaps"][0]["id"], "memory")
+        self.assertEqual(context["feature_candidates"][0]["repository"], "example/project")
+        self.assertNotIn("source_code", context["feature_candidates"][0])
+        self.assertEqual(context["reverse_engineering"][0]["source_signals"][0]["signals"], ["memory"])
 
     def test_no_change_is_not_a_patch(self):
         with self.assertRaises(AutoDevError):
