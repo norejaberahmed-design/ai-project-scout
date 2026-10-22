@@ -5,6 +5,22 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      idea:
+        description: "المشكلة أو الفكرة المراد التحقق منها"
+        required: true
+        type: string
+        default: "متابعة الفواتير المتأخرة"
+      buyer:
+        description: "المشتري المستهدف"
+        required: true
+        type: string
+        default: "المدير المالي في الشركات الصغيرة والمتوسطة"
+      market:
+        description: "السوق المستهدف"
+        required: true
+        type: string
+        default: "السعودية"
   schedule:
     - cron: "17 4 * * *"
 
@@ -42,7 +58,11 @@ jobs:
       - name: Run technical discovery
         run: python scout.py
       - name: Run market research agent
-        run: python agent.py --idea "متابعة الفواتير المتأخرة" --buyer "المدير المالي في الشركات الصغيرة والمتوسطة" --market "السعودية"
+        env:
+          IDEA: ${{ inputs.idea || 'متابعة الفواتير المتأخرة' }}
+          BUYER: ${{ inputs.buyer || 'المدير المالي في الشركات الصغيرة والمتوسطة' }}
+          MARKET: ${{ inputs.market || 'السعودية' }}
+        run: python agent.py --idea "$IDEA" --buyer "$BUYER" --market "$MARKET"
       - name: Save SQLite history cache
         if: always()
         uses: actions/cache/save@v4
