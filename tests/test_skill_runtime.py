@@ -57,6 +57,16 @@ class SkillRuntimeTests(unittest.TestCase):
             self.assertTrue(Path(result["saved_path"]).exists())
             self.assertNotIn("/active/", result["saved_path"])
 
+    def test_proposal_cannot_shadow_an_active_skill(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            active = root / "skills" / "active" / "careful-research"
+            active.mkdir(parents=True)
+            (active / "SKILL.md").write_text(SAFE_SKILL, encoding="utf-8")
+            result = save_proposal(SAFE_SKILL, root)
+            self.assertFalse(result["valid"])
+            self.assertIn("already active", result["errors"][0])
+
 
 if __name__ == "__main__":
     unittest.main()
