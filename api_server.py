@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 from skill_runtime import load_active_skills, select_skills
 from web_search import search_web
+from github_discovery import discover_github
 
 MAX_BODY_BYTES = 12_000
 MAX_QUERY_CHARS = 500
@@ -43,7 +44,7 @@ def check_rate_limit(client: str, now: float | None = None) -> bool:
 
 def make_chat_messages(question: str, search_result: dict, skills: list[dict]) -> list[dict]:
     sources = [{
-        "title": item["title"], "url": item["url"], "snippet": item["snippet"]
+        "title": item["title"], "url": item["url"], "snippet": item["snippet"], "source": item.get("source", "Web search")
     } for item in search_result.get("results", [])[:8]]
     skill_notes = [{"name": item["name"], "content": item["content"][:2500]} for item in skills[:4]]
     system = (
@@ -178,11 +179,26 @@ class AgentHandler(BaseHTTPRequestHandler):
         if not isinstance(question, str) or not question.strip() or len(question) > MAX_QUERY_CHARS:
             self._send(400, {"error": "أدخل سؤالًا صالحًا لا يتجاوز 500 حرف."})
             return
+        if self.path == "/api/chat" and (
+            not os.getenv("SCOUT_LLM_API_KEY", "").strip()
+            or not os.getenv("SCOUT_LLM_MODEL", "").strip()
+        ):
+            self._send(503, {"error": "إعداد النموذج ناقص: اضبط SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL في الخادم."})
+            return
         try:
             found = search_web(question)
             if self.path == "/api/search":
                 self._send(200, found)
                 return
+            # For project/tool questions, enrich web results with read-only GitHub metadata.
+            try:
+                github_sources = discover_github(question)
+            except RuntimeError:
+                github_sources = []
+            if github_sources:
+                found["results"] = (github_sources + found.get("results", []))[:8]
+                found["result_count"] = len(found["results"])
+                found["provider"] = "Tavily + GitHub"
             answer = generate_answer(question, found)
             self._send(200, {"answer": answer, "sources": found["results"],
                              "coverage_note": found["coverage_note"]})
