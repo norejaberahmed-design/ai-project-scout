@@ -3,10 +3,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from autodev import AutoDevError, load_evidence_context, parse_model_json, validate_changes
+from autodev import AutoDevError, DEFAULT_TARGET, TARGETS, load_evidence_context, parse_model_json, validate_changes
 
 
 class AutoDevTests(unittest.TestCase):
+    def test_daily_default_targets_reverse_engineering_module_and_tests(self):
+        self.assertEqual(DEFAULT_TARGET, "reverse_engineer")
+        self.assertEqual(TARGETS[DEFAULT_TARGET], ("reverse_engineer.py", "tests/test_reverse_engineer.py"))
+
     def test_parse_json_and_fenced_json(self):
         self.assertEqual(parse_model_json('{"summary":"ok","changes":[]}')["summary"], "ok")
         fenced = chr(96) * 3 + 'json\n{"summary":"ok","changes":[]}' + chr(96) * 3
