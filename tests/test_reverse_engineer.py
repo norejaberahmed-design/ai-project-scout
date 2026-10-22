@@ -39,14 +39,15 @@ class ReverseEngineerTests(unittest.TestCase):
         self.assertNotIn("source", result)
 
     def test_structure_extracts_symbols_and_imports_without_source(self):
-        python_result = extract_structure("src/agent.py", "from pathlib import Path\\nclass Agent:\\n    def run(self): pass\\n")
+        python_result = extract_structure("src/agent.py", "from pathlib import Path\nclass Agent:\n    def run(self): pass\n")
         self.assertIn("Agent", python_result["symbols"])
         self.assertIn("run", python_result["symbols"])
         self.assertIn("pathlib", python_result["imports"])
-        js_result = extract_structure("src/agent.ts", "import { tool } from 'agent-kit';\\nexport function runAgent() {}\\nclass Runner {}")
+        js_result = extract_structure("src/agent.ts", "import { tool } from 'agent-kit';\nexport function runAgent() {}\nclass Runner {}")
         self.assertIn("runAgent", js_result["symbols"])
         self.assertIn("Runner", js_result["symbols"])
         self.assertIn("agent-kit", js_result["imports"])
+
     def test_feature_opportunities_require_direct_source_evidence(self):
         self.assertEqual(derive_feature_opportunities([], architecture_signals=[]), [])
         opportunities = derive_feature_opportunities([
