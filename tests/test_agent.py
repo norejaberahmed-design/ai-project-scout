@@ -32,6 +32,18 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(report["build_decision"], "DO_NOT_BUILD_YET")
         self.assertIn("https://example.com/pricing", render_markdown(report))
 
+    def test_commercial_scorecard_never_claims_payment_proof(self):
+        from agent import commercial_scorecard
+        scorecard = commercial_scorecard([
+            {"title": "Pricing plan", "snippet": "Pricing available", "url": "https://example.com"},
+            {"title": "Customer complaint", "snippet": "problem and complaint", "url": "https://example.org"},
+        ])
+        self.assertGreater(scorecard["score"], 0)
+        self.assertLessEqual(scorecard["score"], 100)
+        self.assertEqual(scorecard["verified_paying_customers"], 0)
+        self.assertFalse(scorecard["willingness_to_pay_verified"])
+        self.assertEqual(scorecard["dimensions"][-1]["score"], 0)
+
     def test_run_agent_writes_json_and_markdown(self):
         def fake_search(query):
             return [{"title": "Result", "url": "https://example.com/" + str(len(query)),
