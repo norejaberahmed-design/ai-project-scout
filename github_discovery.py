@@ -51,6 +51,11 @@ def repository_from_url(text: str) -> tuple[str, str] | None:
         return None
     owner, repo = match.group(1), match.group(2)
     repo = repo.removesuffix(".git")
+    remainder = (text or "")[match.end():]
+    # A repository URL may end here or have a trailing slash/query/fragment,
+    # but routes such as /issues/ or /pull/ are not repository roots.
+    if remainder.startswith("/") and remainder.strip("/") and not remainder.startswith("//"):
+        return None
     if repo.lower() in {"issues", "pull", "pulls", "actions", "settings", "discussions", "wiki"}:
         return None
     return owner, repo
