@@ -142,6 +142,16 @@ def render_markdown(report):
         "",
         "نتائج البحث إشارات أولية فقط. لم يتم إثبات وجود مشترين يدفعون أو وجود ربح.",
         "",
+        f"## بطاقة الفرصة التجارية: {report['commercial_scorecard']['score']}/100",
+        "",
+        "الدرجة لترتيب أولوية البحث فقط، وليست احتمال نجاح أو دليل ربح.",
+        "",
+    ]
+    for dimension in report["commercial_scorecard"]["dimensions"]:
+        lines.append(f"- {dimension['name']}: {dimension['score']}/{dimension['max']} — إشارات مرصودة: {dimension['evidence_count']}")
+    lines += [
+        "- دليل دفع مباشر: غير متوفر؛ الاستعداد للدفع غير مثبت.",
+        "",
         "## نتائج البحث على الويب",
         "",
     ]
