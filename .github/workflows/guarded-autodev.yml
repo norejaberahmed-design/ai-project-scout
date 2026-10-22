@@ -78,7 +78,7 @@ jobs:
             echo "No change proposed; no branch or PR created."
             exit 0
           fi
-          expected="$(python -c 'import os; from autodev import TARGETS; print(" ".join(TARGETS[os.getenv("SCOUT_AUTODEV_TARGET", "feature_hunter")]))')"
+          expected="$(python -c 'import os; from autodev import TARGETS; print(" ".join(TARGETS[os.getenv("SCOUT_AUTODEV_TARGET", "scout_core")]))')"
           actual="$(git diff --name-only | sort | tr '\n' ' ')"
           if [ "$actual" != "$(printf '%s' "$expected" | tr ' ' '\n' | sort | tr '\n' ' ')" ]; then
             echo "Unexpected file set; refusing to publish candidate."
