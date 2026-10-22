@@ -19,7 +19,7 @@ from skill_runtime import load_active_skills, select_skills
 from web_search import search_web
 
 MAX_BODY_BYTES = 12_000
-MAX_QUERY_CHARS = 1_000
+MAX_QUERY_CHARS = 500
 RATE_LIMIT_REQUESTS = 30
 RATE_LIMIT_WINDOW = 60
 REQUEST_TIMES: dict[str, deque[float]] = defaultdict(deque)
@@ -176,7 +176,7 @@ class AgentHandler(BaseHTTPRequestHandler):
             return
         question = data.get("query", data.get("question", "")) if isinstance(data, dict) else ""
         if not isinstance(question, str) or not question.strip() or len(question) > MAX_QUERY_CHARS:
-            self._send(400, {"error": "أدخل سؤالًا صالحًا لا يتجاوز 1000 حرف."})
+            self._send(400, {"error": "أدخل سؤالًا صالحًا لا يتجاوز 500 حرف."})
             return
         try:
             found = search_web(question)
