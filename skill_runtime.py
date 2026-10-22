@@ -1,0 +1,129 @@
+"""Runtime utilities for selecting trusted internal skills and validating candidates.
+
+External skill files are never activated by this module automatically. It loads only
+maintainer-controlled files from skills/active and validates proposals before review.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+ACTIVE_DIR = ROOT / "skills" / "active"
+PROPOSED_DIR = ROOT / "skills" / "proposed"
+MAX_SKILL_BYTES = 20_000
+MAX_ACTIVE_SKILLS = 100
+
+RISK_PATTERNS = {
+    "instruction_override": re.compile(r"ignore (all |any )?(previous|prior|system) instructions|disregard (all |your) rules", re.I),
+    "secret_exfiltration": re.compile(r"(exfiltrat|print|reveal|upload|send).{0,50}(secret|api.?key|token|credential|password)", re.I | re.S),
+    "dangerous_execution": re.compile(r"\b(os\.system|subprocess\.(run|Popen|call)|eval\s*\(|exec\s*\()"),
+}
+
+
+def parse_frontmatter(document: str) -> dict:
+    """Parse the intentionally small YAML-like frontmatter subset used by our skills."""
+    if not isinstance(document, str) or not document.startswith("---\n"):
+        raise ValueError("Skill must begin with YAML frontmatter.")
+    end = document.find("\n---", 4)
+    if end < 0:
+        raise ValueError("Skill frontmatter is not closed.")
+    metadata = {}
+    for line in document[4:end].splitlines():
+        if not line.strip():
+            continue
+        if ":" not in line:
+            raise ValueError("Malformed skill metadata line.")
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key not in {"name", "description", "version"}:
+            continue
+        if not value:
+            raise ValueError(f"Empty required metadata: {key}")
+        metadata[key] = value
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", metadata.get("name", "")):
+        raise ValueError("Skill name must be a lowercase slug.")
+    if len(metadata.get("description", "")) < 12:
+        raise ValueError("Skill description must explain its purpose.")
+    return metadata
+
+
+def inspect_candidate(document: str) -> dict:
+    """Return validation evidence; passing this check is not automatic approval."""
+    errors = []
+    warnings = []
+    try:
+        metadata = parse_frontmatter(document)
+    except ValueError as exc:
+        metadata = {}
+        errors.append(str(exc))
+    if len(document.encode("utf-8")) > MAX_SKILL_BYTES:
+        errors.append(f"Skill exceeds {MAX_SKILL_BYTES} bytes.")
+    if len(document.strip()) < 100:
+        errors.append("Skill content is too short to be actionable.")
+    risks = [name for name, pattern in RISK_PATTERNS.items() if pattern.search(document)]
+    if risks:
+        errors.append("Risk indicators detected: " + ", ".join(risks))
+    if "license:" not in document.lower() and "licence:" not in document.lower():
+        warnings.append("License/provenance is not documented; review before adapting third-party material.")
+    if "test" not in document.lower() and "verify" not in document.lower():
+        warnings.append("No testing or verification guidance found.")
+    return {"valid": not errors, "metadata": metadata, "errors": errors,
+            "warnings": warnings, "requires_human_review": True,
+            "auto_activated": False}
+
+
+def load_active_skills(root: Path | None = None) -> list[dict]:
+    """Load active skills from the trusted local directory, skipping invalid documents."""
+    directory = (root or ROOT) / "skills" / "active"
+    loaded = []
+    if not directory.exists():
+        return loaded
+    for path in sorted(directory.glob("*/SKILL.md"))[:MAX_ACTIVE_SKILLS]:
+        try:
+            document = path.read_text(encoding="utf-8")
+            metadata = parse_frontmatter(document)
+        except (OSError, UnicodeError, ValueError):
+            continue
+        loaded.append({"name": metadata["name"], "description": metadata["description"],
+                       "path": str(path), "content": document})
+    return loaded
+
+
+def select_skills(task: str, skills: list[dict] | None = None, limit: int = 4) -> list[dict]:
+    """Rank active skills by simple explainable token overlap; no model/network call."""
+    if limit < 1:
+        return []
+    available = skills if skills is not None else load_active_skills()
+    words = set(re.findall(r"[a-z0-9_+-]+|[\u0600-\u06ff]+", (task or "").lower()))
+    scored = []
+    for skill in available:
+        haystack = (skill.get("name", "") + " " + skill.get("description", "") + " " +
+                    skill.get("content", "")[:2500]).lower()
+        terms = set(re.findall(r"[a-z0-9_+-]+|[\u0600-\u06ff]+", haystack))
+        score = len(words & terms)
+        if score:
+            scored.append((score, skill.get("name", ""), skill))
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    return [dict(item, relevance_score=score) for score, _, item in scored[:limit]]
+
+
+def save_proposal(document: str, root: Path | None = None) -> dict:
+    """Save a valid candidate under skills/proposed; never activate it automatically."""
+    result = inspect_candidate(document)
+    if not result["valid"]:
+        return result
+    directory = (root or ROOT) / "skills" / "proposed"
+    directory.mkdir(parents=True, exist_ok=True)
+    name = result["metadata"]["name"]
+    target = directory / name / "SKILL.md"
+    if target.exists():
+        result["valid"] = False
+        result["errors"].append("A proposal with this name already exists; review/update it explicitly.")
+        return result
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(document, encoding="utf-8")
+    result.update({"saved_path": str(target), "status": "PROPOSED_REVIEW_REQUIRED",
+                   "auto_activated": False})
+    return result
