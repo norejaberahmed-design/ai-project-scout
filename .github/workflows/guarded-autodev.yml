@@ -91,6 +91,7 @@ jobs:
           python feature_hunter.py
           python self_improve.py
           python reverse_engineer.py
+          python skills_manager.py
       - name: Ask configured free model to propose one evidence-grounded change
         if: (github.event_name == 'schedule' || inputs.run_autodev == true) && steps.duplicate.outputs.open_autodev_prs == '0'
         run: python autodev.py
