@@ -133,6 +133,22 @@ class SkillRuntimeTests(unittest.TestCase):
             self.assertFalse(result["valid"])
             self.assertIn("already active", result["errors"][0])
 
+    def test_curated_first_party_skill_pack_loads_and_validates(self):
+        root = Path(__file__).resolve().parents[1]
+        skills = load_active_skills(root)
+        expected = {
+            "evidence-first-research",
+            "ai-tool-discovery",
+            "repository-security-review",
+            "test-driven-implementation",
+            "product-market-validation",
+            "structured-debugging",
+        }
+        self.assertEqual(expected, {skill["name"] for skill in skills})
+        for skill in skills:
+            result = inspect_candidate(skill["content"])
+            self.assertTrue(result["valid"], f"{skill['name']} failed validation: {result['errors']}")
+
 
 if __name__ == "__main__":
     unittest.main()
