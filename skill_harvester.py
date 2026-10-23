@@ -124,9 +124,18 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
     info = inspect_repository(canonical, fetcher=fetcher)
     if info.get("license_spdx") not in ALLOWED_LICENSES or not info.get("license_text_verified"):
         raise ValueError("A verified allowlisted license is required.")
+    tree_url = f"{API}/repos/{owner}/{repo}/git/trees/{info['revision']}?recursive=1"
+    tree_data = fetcher(tree_url)
+    if tree_data.get("truncated"):
+        raise ValueError("GitHub truncated the skill tree; refusing an incomplete discovery pass.")
     candidates = [
-        item for item in info.get("eligible_files", [])
-        if Path(str(item.get("path", ""))).name.lower() == "skill.md"
+        item for item in tree_data.get("tree", [])
+        if isinstance(item, dict)
+        and item.get("type") == "blob"
+        and item.get("mode") != "120000"
+        and Path(str(item.get("path", ""))).name.lower() == "skill.md"
+        and isinstance(item.get("size"), int)
+        and 0 < item.get("size") <= MAX_SKILL_BYTES
     ]
     candidates.sort(key=lambda item: (
         -SKILL_PRIORITY.get(Path(str(item.get("path", ""))).parent.name.lower(), 0),
