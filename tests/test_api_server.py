@@ -114,7 +114,7 @@ class ApiServerTests(unittest.TestCase):
         rerank.assert_not_called()
         payload = json.loads(opener.call_args[0][0].data.decode("utf-8"))
         user = json.loads(payload["messages"][1]["content"])
-        self.assertEqual(user["trusted_internal_skills"][0]["name"], "careful-research")
+        self.assertEqual(user["approved_internal_skills"][0]["name"], "careful-research")
 
     def test_only_https_model_endpoint_is_allowed(self):
         with patch.dict(os.environ, {
