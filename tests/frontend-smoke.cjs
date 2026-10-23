@@ -24,11 +24,11 @@ assert.ok(submitHandler.includes('fetch(apiBase+"/api/search"'), "chat must show
 assert.ok(script.includes("https://www.google.com/search?q="), "fallback must include broad Google web search");
 assert.ok(script.includes("https://www.bing.com/search?q="), "fallback must include broad Bing web search");
 assert.ok(script.includes("https://duckduckgo.com/?q="), "fallback must include broad DuckDuckGo web search");
-assert.ok(script.includes("https://www.youtube.com/results?search_query="), "fallback must include video/tutorial discovery");
+assert.ok(!script.includes("https://www.youtube.com/results?search_query="), "skill discovery must not add unrelated video search");
 assert.ok(!submitHandler.includes("publicFallback") && !submitHandler.includes("wikipedia.org/w/api.php"), "chat must not disguise Wikipedia-only results as general search");
 assert.ok(html.includes("روابط بحث مباشرة وليست نتائج جلبها الإيجنت"), "UI must disclose direct links are not fetched results");
 assert.ok(html.includes("تغطية البحث في هذه الإجابة"), "UI must show an Arabic source coverage summary");
-assert.ok(html.includes("مصادر معروضة:"), "UI must count sources and distinguish web, GitHub, and YouTube");
+assert.ok(html.includes("مصادر معروضة:"), "UI must count sources and distinguish general web and GitHub");
 assert.ok(html.includes("ليس قياسًا لتغطية الإنترنت كله"), "UI must not claim complete internet coverage");
 new vm.Script(script, { filename: "site/index.html inline script" });
 console.log("Frontend smoke checks passed: JavaScript syntax, API-backed chat, real search fallback endpoint, honest no-backend search links.");
