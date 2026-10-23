@@ -261,7 +261,7 @@ def transition_skill(
             if ("license_verified" not in updates or not effective_license_verified
                     or "license_evidence" not in updates or not effective_license_evidence
                     or effective_license.lower() in UNKNOWN_LICENSES):
-                raise ValueError("Approval blocked: provide explicit license verification and supporting evidence in this review")
+                raise ValueError("Approval blocked: license must be verified with explicit supporting evidence in this review")
             if effective_flags:
                 raise ValueError("Approval blocked: unresolved risk flags remain")
             if not reviewer.strip():
