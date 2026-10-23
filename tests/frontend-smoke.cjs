@@ -3,94 +3,26 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 const html = fs.readFileSync("site/index.html", "utf8");
-const match = html.match(/<script>([\s\S]*?)<\/script>/);
+const match = html.match(/<script>([\\s\\S]*?)<\\/script>/);
 assert.ok(match, "inline app script must exist");
 assert.match(html, /id="view-components"/, "component acquisition view must exist");
-assert.match(match[1], /\/api\/components\/inspect/, "UI must call component inspection API");
-assert.match(match[1], /\/api\/components\/acquire/, "UI must call guarded acquisition API");
+assert.match(match[1], /\\/api\\/components\\/inspect/, "UI must call component inspection API");
+assert.match(match[1], /\\/api\\/components\\/acquire/, "UI must call guarded acquisition API");
 assert.match(match[1], /Authorization.*Bearer/, "acquisition token must be sent as an authorization header");
-assert.doesNotMatch(match[1], /localStorage\.(?:setItem|getItem)\([^)]*component-token/i,
+assert.doesNotMatch(match[1], /localStorage\\.(?:setItem|getItem)\\([^)]*component-token/i,
   "admin import token must not be persisted in localStorage");
 
-class FakeElement {
-  constructor() {
-    this.value = "";
-    this.textContent = "";
-    this.dataset = {};
-    this.childNodes = [];
-    this.disabled = false;
-    this.className = "";
-    this.scrollTop = 0;
-    this.scrollHeight = 0;
-  }
-  addEventListener() {}
-  appendChild(node) { this.childNodes.push(node); return node; }
-  replaceChildren(...nodes) { this.childNodes = [...nodes]; this.textContent = ""; }
-  focus() {}
-}
-const elements = new Map();
-const document = {
-  getElementById(id) {
-    if (!elements.has(id)) elements.set(id, new FakeElement());
-    return elements.get(id);
-  },
-  querySelectorAll() { return []; },
-  createElement() { return new FakeElement(); },
-};
-const localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
-let fetchMode = "github-search";
-async function fetch(url) {
-  if (fetchMode === "github-search") {
-    assert.match(String(url), /api\.github\.com\/search\/repositories/);
-    return { ok: true, status: 200, async json() { return { items: [{
-      full_name: "demo/agent", html_url: "https://github.com/demo/agent",
-      description: "Public AI agent project", language: "Python",
-      stargazers_count: 12, pushed_at: "2026-10-01T00:00:00Z",
-      license: { spdx_id: "MIT" },
-    }] }; } };
-  }
-  if (fetchMode === "repo") {
-    if (String(url).endsWith("/readme")) {
-      return { ok: true, status: 200, async json() {
-        return { content: Buffer.from("# Demo readme\nTesting instructions").toString("base64") };
-      } };
-    }
-    return { ok: true, status: 200, async json() { return {
-      full_name: "demo/agent", html_url: "https://github.com/demo/agent",
-      description: "Public AI agent project", language: "Python",
-      stargazers_count: 12, pushed_at: "2026-10-01T00:00:00Z",
-      license: { spdx_id: "MIT" },
-    }; } };
-  }
-  assert.match(String(url), /wikipedia\.org\/w\/api\.php/);
-  return { ok: true, status: 200, async json() { return { query: { search: [{
-    title: "Artificial intelligence", snippet: "A field of computer science.",
-  }] } }; } };
-}
-const context = {
-  document, localStorage, fetch, URL, console, TextDecoder, Uint8Array,
-  atob: value => Buffer.from(value, "base64").toString("binary"),
-};
-vm.runInNewContext(match[1], context, { timeout: 2000 });
+// Regression guard: a missing API must never be disguised as a GitHub/Wikipedia search.
+const script = match[1];
+const submitStart = script.indexOf("async function submit(text){");
+const submitEnd = script.indexOf('$("form").addEventListener("submit"', submitStart);
+assert.ok(submitStart >= 0 && submitEnd > submitStart, "submit handler must exist");
+const submitHandler = script.slice(submitStart, submitEnd);
+assert.match(submitHandler, /if\\(!apiBase\\)throw new Error/, "chat must fail clearly when API is not configured");
+assert.match(submitHandler, /fetch\\(apiBase\\+"\\/api\\/chat"/, "chat must call the general web-search backend");
+assert.doesNotMatch(submitHandler, /publicFallback|wikipedia\\.org|api\\.github\\.com/,
+  "chat handler must not mask backend failure with limited single-source search");
+assert.match(html, /GitHub Pages وحدها لا تشغّل Python/, "UI must explain why a backend is required");
 
-(async () => {
-  let result = await context.publicFallback("find open source AI agent tools");
-  assert.match(result.answer, /demo\/agent/);
-  assert.equal(result.sources[0].url, "https://github.com/demo/agent");
-  assert.match(result.coverage_note, /GitHub API/);
-
-  fetchMode = "repo";
-  result = await context.publicFallback("Analyze https://github.com/demo/agent");
-  assert.match(result.answer, /README/);
-  assert.match(result.answer, /Testing instructions/);
-  assert.equal(result.sources.length, 2);
-
-  fetchMode = "wikipedia";
-  result = await context.publicFallback("What is artificial intelligence?");
-  assert.match(result.answer, /Artificial intelligence/);
-  assert.match(result.sources[0].url, /wikipedia\.org\/wiki/);
-  console.log("Frontend fallback smoke tests passed: GitHub search, repository inspection, Wikipedia search.");
-})().catch(error => {
-  console.error(error);
-  process.exitCode = 1;
-});
+new vm.Script(script, { filename: "site/index.html inline script" });
+console.log("Frontend smoke checks passed: JavaScript syntax, API-backed chat, explicit missing-backend error, no misleading fallback.");
