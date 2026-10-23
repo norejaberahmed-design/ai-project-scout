@@ -6,6 +6,7 @@ never sleeps beyond the configured operational wait budget.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -87,8 +88,11 @@ def request_json(
     token = os.getenv("GITHUB_TOKEN", "").strip()
     if token:
         headers["Authorization"] = "Bearer " + token
+    # Keep cached representations isolated by credential context without retaining
+    # the token itself in the cache key or logs.
+    cache_key = url + "|" + hashlib.sha256(token.encode("utf-8")).hexdigest()
     with _cache_lock:
-        cached = _cache.get(url)
+        cached = _cache.get(cache_key)
     if cached:
         headers["If-None-Match"] = cached[0]
 
@@ -116,7 +120,7 @@ def request_json(
             etag = response_headers.get("ETag") if response_headers else None
             if etag:
                 with _cache_lock:
-                    _cache[url] = (etag, dict(data))
+                    _cache[cache_key] = (etag, dict(data))
             return data
         except urllib.error.HTTPError as exc:
             status = int(exc.code)
