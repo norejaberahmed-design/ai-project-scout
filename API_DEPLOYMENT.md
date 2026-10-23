@@ -36,7 +36,7 @@
 
 ## التشغيل المحلي
     python -m unittest discover -s tests -v
-    TAVILY_API_KEY=... SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... SCOUT_LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions python api_server.py
+    SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... SCOUT_LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions python api_server.py
 
 ثم افتح http://127.0.0.1:8787/api/health و http://127.0.0.1:8787/api/skills. واجهة Pages لن تتمكن من الاتصال بعنوان localhost على هاتف المستخدم؛ يجب أن يكون الخادم منشورًا بعنوان HTTPS يمكن الوصول إليه.
 
