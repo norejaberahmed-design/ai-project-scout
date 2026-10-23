@@ -9,7 +9,7 @@ RUN addgroup --system scout && adduser --system --ingroup scout scout
 WORKDIR /app
 
 # Keep every imported runtime module inside the image, including the lifecycle registry.
-COPY --chown=scout:scout api_server.py web_search.py skill_runtime.py skill_registry.py skill_proposal_sync.py github_discovery.py component_acquisition.py ./
+COPY --chown=scout:scout api_server.py skill_harvester.py web_search.py skill_runtime.py skill_registry.py skill_proposal_sync.py github_discovery.py component_acquisition.py ./
 COPY --chown=scout:scout skills/active ./skills/active
 COPY --chown=scout:scout skills/proposed ./skills/proposed
 RUN mkdir -p /app/data /app/components/proposed && chown -R scout:scout /app/data /app/components
