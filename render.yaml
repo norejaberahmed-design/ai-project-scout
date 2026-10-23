@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: ai-project-scout-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: SCOUT_API_HOST
+        value: 0.0.0.0
+      - key: SCOUT_ALLOWED_ORIGINS
+        value: https://norejaberahmed-design.github.io
+      - key: SCOUT_LLM_API_KEY
+        sync: false
+      - key: SCOUT_LLM_MODEL
+        sync: false
+      - key: SCOUT_LLM_API_URL
+        value: https://openrouter.ai/api/v1/chat/completions
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: SCOUT_AUTO_ACQUIRE_COMPONENTS
+        value: "false"
+      - key: SCOUT_SKILL_DB_PATH
+        value: data/skills.sqlite
