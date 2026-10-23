@@ -50,6 +50,7 @@ PLATFORM_DEPENDENCY_PATTERNS = (
     re.compile(r"\bDINGTALK_[A-Z0-9_]+\b|钉钉", re.I),
     re.compile(r"\bCowork\b|Skill Center", re.I),
     re.compile(r"\bAIRFLOW_(?:API_URL|AUTH_TOKEN|USERNAME|PASSWORD)\b|\brun_af\b|astro-airflow-mcp", re.I),
+    re.compile(r"\bsubagents?\b|\bparallel agents?\b|\bdispatch(?:ing)?[- ](?:parallel[- ])?agents?\b", re.I),
 )
 LOCAL_MARKDOWN_REFERENCE = re.compile(r"(?<![/:A-Za-z0-9])([A-Za-z0-9_.-]+\.md)(?:#[A-Za-z0-9_-]+)?")
 
