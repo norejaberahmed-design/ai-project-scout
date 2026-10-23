@@ -1,6 +1,15 @@
 name: Harvest Public Agent Skills
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "skill_harvester.py"
+      - "component_acquisition.py"
+      - "skill_runtime.py"
+      - "skill_registry.py"
+      - "tests/test_skill_harvester.py"
+      - ".github/workflows/harvest-public-skills.yml"
   schedule:
     - cron: "17 7 * * 1"
   workflow_dispatch:
