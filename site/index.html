@@ -185,6 +185,7 @@ async function loadSkillRegistry(){
      const meta="الحالة: "+(statusLabels[skill.status]||skill.status)+
       " · نتيجة الاختبار: "+(skill.test_result||"NOT_RUN")+
       " · الترخيص: "+(skill.license_spdx||"غير محدد")+
+      " · التحقق من الترخيص: "+(skill.license_verified?"متحقق":"غير متحقق")+
       (Array.isArray(skill.risk_flags)&&skill.risk_flags.length?" · مخاطر مفتوحة: "+skill.risk_flags.join(", "):"");
      addSkillCard(candidateEl,{
       name:skill.name+(skill.version?" v"+skill.version:""),
