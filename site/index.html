@@ -19,7 +19,7 @@
 <main class="wrap">
 <header class="top"><div class="mark" aria-hidden="true">✳</div><div class="brand"><h1>الإيجنت</h1><div class="muted">بحث موثّق · اكتشاف أدوات الذكاء الاصطناعي · تطوير مضبوط</div></div><div class="status" aria-live="polite"><span id="statusdot" class="dot"></span><span id="status">الخادم غير متصل</span></div></header>
 <section class="intro"><h2>ماذا تريد أن نبحث أو نبني؟</h2><p>اسأل سؤالًا، اكتشف مشروع ذكاء اصطناعي، أو اطلب تحليلًا هندسيًا. سنعرض المصادر وما تم التحقق منه بوضوح.</p><div class="examples"><button class="chipbtn" data-prompt="ابحث عن أحدث أدوات الوكلاء مفتوحة المصدر وقارن وظائفها ومصادرها">اكتشاف أدوات AI</button><button class="chipbtn" data-prompt="حلل هذا المشروع هندسيًا، وحدد ما يمكن اختباره بأمان وما لا يزال غير مثبت: https://github.com/">تحليل مشروع</button><button class="chipbtn" data-prompt="اقترح مهارة داخلية جديدة لتحسين البحث والتحقق، مع اختبار قبول ومخاطر واضحة">تطوير مهارة</button></div></section>
-<section id="chat" class="chat" role="log" aria-live="polite" aria-label="المحادثة"><div class="bubble assistant">أنا إيجنت بحث وتطوير. أستطيع البحث في مستودعات GitHub العامة ونتائج ويكيبيديا دون مفتاح، مع توضيح حدود البحث. لإجابة نموذج لغوي وبحث أوسع في الويب، اربط خادم API من الإعدادات. لا تضع مفاتيح API هنا.</div></section>
+<section id="chat" class="chat" role="log" aria-live="polite" aria-label="المحادثة"><div class="bubble assistant">مرحبًا، أنا إيجنت البحث والتطوير. أستطيع إجراء بحث احتياطي محدود في GitHub وويكيبيديا، لكن المحادثة الذكية الكاملة لا تعمل حتى يتصل خادم API بمزوّد نموذج لغوي. جرّب سؤالًا الآن؛ سأعرض نتيجة البحث أو سبب الفشل بوضوح. لا تضع مفاتيح API هنا.</div></section>
 <section class="skills-panel" aria-labelledby="skills-heading">
  <div class="skills-head"><div><h2 id="skills-heading">سجل المهارات</h2><p class="muted">هنا ترى ما أُضيف للإيجنت وما يزال قيد المراجعة.</p></div><button class="btn" id="refreshskills" type="button">تحديث السجل</button></div>
  <div id="skill-summary" class="skill-summary" aria-live="polite">جارٍ تحميل سجل المهارات المنشور…</div>
@@ -42,6 +42,7 @@ const $=id=>document.getElementById(id);
 const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$("question"),send=$("send"),apiurl=$("apiurl"),apihelp=$("apihelp");
 let apiBase=(localStorage.getItem("scoutApiBase")||"").trim().replace(/\/+$/,"");
 apiurl.value=apiBase;
+if(!apiBase){statusText.textContent="وضع بحث محدود · لا يوجد نموذج متصل";statusDot.className="dot";}
 function setStatus(message,state="neutral"){statusText.textContent=message;statusDot.className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");}
 function bubble(text,who="assistant",error=false){const el=document.createElement("div");el.className="bubble "+who+(error?" error":"");el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;return el;}
 function safeUrl(raw){try{const u=new URL(raw);return ["http:","https:"].includes(u.protocol)?u.href:null;}catch{return null;}}
@@ -93,31 +94,39 @@ async function publicFallback(q){
  return {answer,sources,coverage_note:"وضع احتياطي دون نموذج لغوي؛ المصدر هنا ويكيبيديا فقط، ولا يمثل بحثًا شاملًا في الويب."};
 }
 async function submit(text){
- const q=(text||question.value).trim();if(!q)return;
+ const q=(text||question.value).trim();if(!q||send.disabled)return;
  bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث…");
+ const pending=bubble("أبحث الآن في المصادر العامة…","assistant");
+ pending.setAttribute("aria-busy","true");
  try{
   let data;
   if(apiBase){
    try{
-    const r=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q})});
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),45000);
+    let r;
+    try{r=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q}),signal:controller.signal});}
+    finally{clearTimeout(timeout);}
     let body={};try{body=await r.json();}catch{}
     if(!r.ok)throw new Error(body.error||("فشل الطلب HTTP "+r.status));
     data=body;
    }catch(serverError){
     data=await publicFallback(q);
-    data.coverage_note="تعذر خادم الإيجنت ("+serverError.message+"). "+data.coverage_note;
+    data.coverage_note="تعذر خادم الإيجنت ("+(serverError.name==="AbortError"?"انتهت مهلة الاتصال":serverError.message)+"). "+data.coverage_note;
    }
   }else{
    data=await publicFallback(q);
   }
-  const answer=bubble(data.answer||"لم ترجع نتائج نصية.");
-  renderSources(answer,data.sources);
-  if(data.coverage_note){const note=document.createElement("p");note.className="notice";note.textContent=data.coverage_note;answer.appendChild(note);}
+  pending.textContent=data.answer||"لم ترجع نتائج نصية.";
+  pending.removeAttribute("aria-busy");
+  renderSources(pending,data.sources);
+  if(data.coverage_note){const note=document.createElement("p");note.className="notice";note.textContent=data.coverage_note;pending.appendChild(note);}
   const fullAgent=Boolean(apiBase)&&!String(data.coverage_note||"").startsWith("تعذر خادم الإيجنت");
   setStatus(fullAgent?"اكتملت إجابة الخادم":"اكتمل البحث الاحتياطي","ok");
  }catch(e){
-  bubble((e.message||"تعذر إكمال البحث.")+"\n\nيمكنك ضبط خادم HTTPS من «إعداد اتصال الخادم» لتفعيل البحث العام والنموذج اللغوي.", "assistant",true);
-  setStatus("تعذر البحث","bad");
+  pending.textContent=(e.message||"تعذر إكمال البحث.")+"\n\nلم يصل البحث إلى نتيجة. تحقق من اتصال الإنترنت أو اضبط خادم HTTPS من «إعداد اتصال الخادم».";
+  pending.classList.add("error");pending.removeAttribute("aria-busy");
+  setStatus("تعذر البحث — راجع الرسالة","bad");
  }finally{send.disabled=false;question.focus();}
 }
 $("form").addEventListener("submit",e=>{e.preventDefault();submit();});
