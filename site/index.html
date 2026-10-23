@@ -7,34 +7,75 @@
 <meta name="description" content="إيجنت بحث وبرمجة يتتبع أدوات الذكاء الاصطناعي ويجيب بمصادر واضحة.">
 <title>الإيجنت — بحث وتطوير ذاتي</title>
 <style>
-:root{color-scheme:dark;--bg:#090c12;--panel:#111722;--panel2:#171f2c;--line:#293448;--text:#edf2fa;--muted:#9ba9bc;--gold:#e3bd76;--green:#75d7b0;--red:#ff9e9e;--blue:#9fc4ff}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 85% -10%,#29324a 0,transparent 42%),var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;line-height:1.65;min-height:100vh}
-.wrap{max-width:900px;margin:auto;padding:clamp(14px,4vw,30px);display:flex;flex-direction:column;min-height:100vh}.top{display:flex;align-items:center;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--line)}.mark{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#e7c784,#8f6e39);color:#10131b;font-size:23px;font-weight:900;flex:none}.brand{flex:1}.brand h1{font-size:20px;margin:0}.muted{color:var(--muted);font-size:13px}.status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}.dot.ok{background:var(--green)}.dot.bad{background:var(--red)}
-.intro{padding:22px 0 12px}.intro h2{font-size:clamp(22px,5vw,30px);line-height:1.3;margin:0 0 9px}.intro p{margin:0;color:var(--muted)}.examples{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}.chipbtn,.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 12px;font:inherit;font-size:13px;cursor:pointer}.chipbtn:hover,.btn:hover{border-color:var(--gold)}
-.chat{flex:1;min-height:240px;max-height:calc(100vh - 340px);overflow:auto;padding:12px 0 18px;display:flex;flex-direction:column;gap:13px}.bubble{max-width:94%;white-space:pre-wrap;overflow-wrap:anywhere;padding:13px 15px;border:1px solid var(--line);border-radius:17px;background:var(--panel)}.bubble.user{align-self:flex-start;background:#202a3b;border-color:#39465d}.bubble.assistant{align-self:stretch}.bubble.error{border-color:#6d3b42}.sources{display:grid;gap:9px;margin-top:12px}.source{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#0c1119}.source a{color:var(--blue);font-weight:650;overflow-wrap:anywhere}.source p{margin:5px 0 0;color:var(--muted);font-size:13px}.composer{position:sticky;bottom:0;padding:12px 0 max(8px,env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 20%)}.composebox{display:flex;gap:9px;align-items:flex-end;border:1px solid #39465d;background:var(--panel);border-radius:17px;padding:8px}.composebox textarea{flex:1;resize:vertical;min-height:48px;max-height:160px;border:0;outline:0;background:transparent;color:var(--text);font:inherit;padding:9px}.send{background:var(--gold);color:#17130b;border:0;border-radius:12px;padding:12px 17px;font-weight:800;cursor:pointer}.send:disabled{opacity:.5;cursor:wait}.settings{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px}.settings summary{cursor:pointer;color:var(--muted);font-size:13px}.settings label{display:block;margin:10px 0 5px;font-size:13px}.settings input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;background:#090d14;color:var(--text);font:inherit;direction:ltr;text-align:left}.settingrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.notice{font-size:12px;color:var(--muted);margin-top:8px}.foot{font-size:11px;color:var(--muted);text-align:center;padding:14px 0 0}
-.skills-panel{margin:8px 0 16px;padding:15px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(150deg,#121925,#0d121b)}.skills-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.skills-head h2{font-size:17px;margin:0}.skills-head p{margin:3px 0 0}.skill-summary{margin:12px 0;padding:9px 11px;border-radius:10px;background:#0b1119;color:var(--muted);font-size:12px}.skill-columns{display:grid;grid-template-columns:1fr;gap:12px}.skill-group h3{font-size:13px;margin:0 0 8px;color:var(--gold)}.skill-list{display:grid;gap:8px}.skill-card{padding:10px 11px;border:1px solid var(--line);border-radius:12px;background:#0a0f17;min-width:0}.skill-card strong{display:block;font-size:13px;overflow-wrap:anywhere}.skill-card p{font-size:12px;color:var(--muted);margin:4px 0 0;overflow-wrap:anywhere}.skill-meta{font-size:11px;color:var(--muted);margin-top:5px}.skill-card a{font-size:12px;color:var(--blue);overflow-wrap:anywhere}.skill-empty{font-size:12px;color:var(--muted);padding:8px 0}@media(min-width:650px){.skill-columns{grid-template-columns:1fr 1fr}}@media(min-width:700px){.chat{max-height:calc(100vh - 320px)}.bubble{max-width:88%}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+:root{color-scheme:dark;--bg:#080b11;--panel:#101621;--panel2:#151e2b;--panel3:#0c111a;--line:#273347;--text:#edf2f8;--muted:#9aa9bd;--gold:#e6c17b;--gold-dark:#b28b45;--green:#76ddb6;--red:#ff9f9f;--blue:#a8caff;--radius:20px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse 70% 36% at 50% -12%,rgba(82,105,151,.23),transparent 72%),radial-gradient(ellipse 34% 26% at 100% 35%,rgba(121,91,55,.08),transparent 75%),var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;line-height:1.7}
+button,input,textarea{font:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.app{width:min(100%,1040px);margin:0 auto;padding:clamp(14px,3.5vw,34px);min-height:100vh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:13px;padding:5px 0 22px;border-bottom:1px solid rgba(130,151,182,.17)}
+.mark{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;flex:none;background:linear-gradient(145deg,#f0d79e,#a47a36);color:#17130b;font-size:25px;font-weight:900;box-shadow:0 8px 28px rgba(190,147,71,.13)}
+.brand{min-width:0;flex:1}.brand h1{margin:0;font-size:20px;letter-spacing:-.4px}.brand p{margin:1px 0 0;color:var(--muted);font-size:12px}
+.status{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(16,22,33,.78);padding:7px 11px;border-radius:99px;font-size:11px;color:var(--muted);max-width:48%}.status span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex:none}.dot.ok{background:var(--green);box-shadow:0 0 0 4px rgba(118,221,182,.09)}.dot.bad{background:var(--red)}
+.nav{display:flex;gap:6px;margin:20px 0 0;padding:5px;border:1px solid var(--line);background:rgba(14,19,28,.8);border-radius:15px;width:max-content;max-width:100%}
+.navbtn{border:1px solid transparent;background:transparent;color:var(--muted);padding:8px 15px;border-radius:10px;cursor:pointer;font-size:13px;white-space:nowrap}
+.navbtn[aria-selected="true"]{background:#202a39;border-color:#34435a;color:var(--text);box-shadow:inset 0 1px rgba(255,255,255,.04)}
+.view{min-width:0}.view[hidden]{display:none!important}
+.intro{padding:28px 0 12px}.eyebrow{display:inline-flex;align-items:center;gap:7px;color:var(--gold);font-size:11px;font-weight:750;letter-spacing:.2px;margin-bottom:7px}.intro h2{font-size:clamp(25px,5vw,36px);line-height:1.3;letter-spacing:-.8px;margin:0 0 9px}.intro p{color:var(--muted);margin:0;max-width:690px;font-size:14px}
+.examples{display:flex;flex-wrap:wrap;gap:8px;margin-top:19px}.chipbtn,.btn{border:1px solid var(--line);background:linear-gradient(145deg,#171f2c,#111722);color:var(--text);border-radius:12px;padding:9px 13px;font-size:12px;cursor:pointer;transition:border-color .15s,transform .15s}.chipbtn:hover,.btn:hover{border-color:#8d754c;transform:translateY(-1px)}
+.chat-shell{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(150deg,rgba(17,23,34,.96),rgba(11,15,23,.97));box-shadow:0 18px 60px rgba(0,0,0,.15);overflow:hidden;margin-top:10px}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid rgba(130,151,182,.14)}.chat-title{font-size:13px;font-weight:750}.chat-subtitle{font-size:11px;color:var(--muted)}
+.chat{min-height:230px;max-height:min(52vh,570px);overflow:auto;padding:18px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
+.bubble{max-width:94%;white-space:pre-wrap;overflow-wrap:anywhere;padding:13px 15px;border:1px solid var(--line);border-radius:17px;background:#141c29;font-size:13px;line-height:1.8}.bubble.user{align-self:flex-start;background:#202b3b;border-color:#394b65;border-bottom-right-radius:5px}.bubble.assistant{align-self:stretch;border-bottom-left-radius:5px}.bubble.error{border-color:#6d3b42}
+.sources{display:grid;gap:8px;margin-top:13px}.source{padding:11px 12px;border:1px solid #283449;border-radius:12px;background:#0c121c}.source a{color:var(--blue);font-size:12px;font-weight:700;overflow-wrap:anywhere;text-decoration:none}.source a:hover{text-decoration:underline}.source p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.7}
+.composer{padding:12px 14px 15px;border-top:1px solid rgba(130,151,182,.14);background:rgba(10,14,21,.72)}.composebox{display:flex;gap:10px;align-items:flex-end;border:1px solid #3a465b;background:#0d131d;border-radius:16px;padding:7px;transition:border-color .15s}.composebox:focus-within{border-color:#9c8457;box-shadow:0 0 0 3px rgba(230,193,123,.06)}.composebox textarea{flex:1;min-width:0;resize:vertical;min-height:48px;max-height:160px;border:0;outline:0;background:transparent;color:var(--text);padding:9px 10px;font-size:14px;line-height:1.65}.composebox textarea::placeholder{color:#77869a}.send{background:linear-gradient(145deg,#f0d393,#d7ad60);color:#17130b;border:0;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:850;cursor:pointer;min-height:46px}.send:disabled{opacity:.55;cursor:wait}.composer-note{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px;color:#8190a5;padding:8px 3px 0}
+.skills-panel{margin:24px 0 12px;padding:clamp(15px,3vw,23px);border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(19,27,40,.98),rgba(11,16,24,.98))}
+.skills-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.skills-head h2{font-size:20px;letter-spacing:-.4px;margin:0}.skills-head p{margin:3px 0 0}.muted{color:var(--muted);font-size:12px}
+.skill-summary{margin:17px 0;padding:12px 14px;border:1px solid rgba(130,151,182,.13);border-radius:13px;background:#0c121b;color:var(--muted);font-size:12px}
+.skill-columns{display:grid;grid-template-columns:1fr;gap:17px}.skill-group h3{font-size:13px;margin:0 0 10px;color:var(--gold)}.skill-list{display:grid;gap:9px}.skill-card{padding:13px;border:1px solid var(--line);border-radius:13px;background:rgba(9,14,22,.75);min-width:0}.skill-card strong{display:block;font-size:13px;overflow-wrap:anywhere}.skill-card p{font-size:12px;color:var(--muted);margin:5px 0 0;overflow-wrap:anywhere}.skill-meta{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8}.skill-card a{display:inline-block;margin-top:8px;font-size:11px;color:var(--blue);overflow-wrap:anywhere}.skill-empty{font-size:12px;color:var(--muted);padding:8px 0}
+.settings{margin:18px 0 0;border:1px solid var(--line);border-radius:15px;background:rgba(16,22,33,.75);padding:13px 15px}.settings summary{cursor:pointer;color:#d4deeb;font-size:12px;font-weight:700}.settings label{display:block;margin:12px 0 6px;font-size:12px}.settings input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;background:#090d14;color:var(--text);font:inherit;direction:ltr;text-align:left;font-size:13px}.settingrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.notice{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.7}.foot{font-size:10px;color:#77869a;text-align:center;padding:19px 0 5px}
+@media(min-width:680px){.skill-columns{grid-template-columns:1fr 1fr}.chat{padding:23px}.bubble{max-width:88%}.intro{padding-top:34px}}
+@media(max-width:480px){.app{padding:13px}.top{gap:10px}.mark{width:42px;height:42px;border-radius:13px}.brand h1{font-size:18px}.brand p{font-size:10px}.status{padding:6px 8px;max-width:45%;font-size:10px}.nav{width:100%}.navbtn{flex:1;padding:9px 7px}.intro{padding-top:23px}.intro h2{font-size:26px}.examples{display:grid;grid-template-columns:1fr}.chipbtn{text-align:right}.chat{padding:13px;min-height:220px;max-height:54vh}.bubble{max-width:100%;font-size:12px}.composer{padding:10px}.send{padding:11px 13px}.skills-head{align-items:flex-start}.skills-head h2{font-size:18px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
 <body>
-<main class="wrap">
-<header class="top"><div class="mark" aria-hidden="true">✳</div><div class="brand"><h1>الإيجنت</h1><div class="muted">بحث موثّق · اكتشاف أدوات الذكاء الاصطناعي · تطوير مضبوط</div></div><div class="status" aria-live="polite"><span id="statusdot" class="dot"></span><span id="status">الخادم غير متصل</span></div></header>
-<section class="intro"><h2>ماذا تريد أن نبحث أو نبني؟</h2><p>اسأل سؤالًا، اكتشف مشروع ذكاء اصطناعي، أو اطلب تحليلًا هندسيًا. سنعرض المصادر وما تم التحقق منه بوضوح.</p><div class="examples"><button class="chipbtn" data-prompt="ابحث عن أحدث أدوات الوكلاء مفتوحة المصدر وقارن وظائفها ومصادرها">اكتشاف أدوات AI</button><button class="chipbtn" data-prompt="حلل هذا المشروع هندسيًا، وحدد ما يمكن اختباره بأمان وما لا يزال غير مثبت: https://github.com/">تحليل مشروع</button><button class="chipbtn" data-prompt="اقترح مهارة داخلية جديدة لتحسين البحث والتحقق، مع اختبار قبول ومخاطر واضحة">تطوير مهارة</button></div></section>
-<section id="chat" class="chat" role="log" aria-live="polite" aria-label="المحادثة"><div class="bubble assistant">مرحبًا، أنا إيجنت البحث والتطوير. أستطيع إجراء بحث احتياطي محدود في GitHub وويكيبيديا، لكن المحادثة الذكية الكاملة لا تعمل حتى يتصل خادم API بمزوّد نموذج لغوي. جرّب سؤالًا الآن؛ سأعرض نتيجة البحث أو سبب الفشل بوضوح. لا تضع مفاتيح API هنا.</div></section>
-<section class="skills-panel" aria-labelledby="skills-heading">
- <div class="skills-head"><div><h2 id="skills-heading">سجل المهارات</h2><p class="muted">هنا ترى ما أُضيف للإيجنت وما يزال قيد المراجعة.</p></div><button class="btn" id="refreshskills" type="button">تحديث السجل</button></div>
- <div id="skill-summary" class="skill-summary" aria-live="polite">جارٍ تحميل سجل المهارات المنشور…</div>
- <div class="skill-columns">
-  <section class="skill-group" aria-labelledby="active-skills-heading"><h3 id="active-skills-heading">المهارات المضافة والمفعّلة</h3><div id="active-skills" class="skill-list">
-   <article class="skill-card"><strong>التخطيط والتحقق</strong><p>تحويل الطلب إلى خطوات واضحة ثم التحقق من النتائج والأدلة.</p></article>
-   <article class="skill-card"><strong>التطوير المدفوع بالاختبارات</strong><p>تحديد اختبار قبول قبل التغيير وتشغيل اختبارات الانحدار بعده.</p></article>
-   <article class="skill-card"><strong>مراجعة الأمان</strong><p>فحص المخاطر والأسرار والمدخلات غير الموثوقة قبل قبول التغييرات.</p></article>
-  </div></section>
-  <section class="skill-group" aria-labelledby="candidate-skills-heading"><h3 id="candidate-skills-heading">مهارات جديدة مرشّحة للمراجعة</h3><div id="candidate-skills" class="skill-list"><div class="skill-empty">سيعرض هنا ما يكتشفه الفحص الدوري من مهارات خارجية. لن تُفعّل مهارة خارجية تلقائيًا.</div></div></section>
- </div><p id="skills-updated" class="notice">المهارات الخارجية غير موثوقة حتى تُراجع وتُختبر؛ لا يُشغّل محتواها تلقائيًا.</p>
+<main class="app">
+<header class="top">
+ <div class="mark" aria-hidden="true">✳</div>
+ <div class="brand"><h1>الإيجنت</h1><p>بحث موثّق · اكتشاف أدوات الذكاء الاصطناعي · تطوير مضبوط</p></div>
+ <div class="status" aria-live="polite"><span id="statusdot" class="dot"></span><span id="status">جارٍ التحقق من الاتصال</span></div>
+</header>
+<nav class="nav" aria-label="التنقل الرئيسي" role="tablist">
+ <button class="navbtn" id="tab-chat" type="button" role="tab" aria-selected="true" aria-controls="view-chat">المحادثة</button>
+ <button class="navbtn" id="tab-skills" type="button" role="tab" aria-selected="false" aria-controls="view-skills">سجل المهارات</button>
+</nav>
+<section id="view-chat" class="view" role="tabpanel" aria-labelledby="tab-chat">
+ <section class="intro"><div class="eyebrow"><span aria-hidden="true">✦</span> مساعد البحث والتطوير</div><h2>ما الذي تريد اكتشافه اليوم؟</h2><p>اسأل بطريقتك المعتادة. يبحث الإيجنت في المصادر المتاحة، ويعرض الروابط وحدود التحقق بوضوح، دون إظهار تفاصيل المهارات الداخلية داخل المحادثة.</p>
+  <div class="examples"><button class="chipbtn" data-prompt="ابحث عن أحدث أدوات الوكلاء مفتوحة المصدر وقارن وظائفها ومصادرها">اكتشاف أدوات الذكاء الاصطناعي</button><button class="chipbtn" data-prompt="حلل هذا المشروع هندسيًا، وحدد ما يمكن اختباره بأمان وما لا يزال غير مثبت: https://github.com/">تحليل مستودع GitHub</button><button class="chipbtn" data-prompt="اقترح مهارة داخلية جديدة لتحسين البحث والتحقق، مع اختبار قبول ومخاطر واضحة">تحسين البحث والتحقق</button></div>
+ </section>
+ <section class="chat-shell" aria-label="منطقة المحادثة">
+  <div class="chat-head"><div><div class="chat-title">المحادثة</div><div class="chat-subtitle">إجابات واضحة ومصادر قابلة للفتح</div></div><span class="muted">● جلسة مباشرة</span></div>
+  <section id="chat" class="chat" role="log" aria-live="polite" aria-label="رسائل المحادثة"><div class="bubble assistant">مرحبًا! اكتب سؤالك وسأبحث في المصادر المتاحة. إذا لم يكن خادم الذكاء الاصطناعي متصلًا، سأوضح ذلك وأستخدم البحث الاحتياطي المحدود بدلًا من ادعاء إجابة ذكية غير متاحة. لا تضع مفاتيح API هنا.</div></section>
+  <form id="form" class="composer"><div class="composebox"><textarea id="question" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
+ </section>
 </section>
-<form id="form" class="composer"><div class="composebox"><textarea id="question" maxlength="500" placeholder="اكتب سؤالك هنا…" aria-label="سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال</button></div><div class="notice">المصادر العامة فقط. نتائج البحث لا تثبت وحدها أن المشروع يعمل أو أنه آمن.</div></form>
-<details class="settings"><summary>إعداد اتصال الخادم</summary><label for="apiurl">عنوان خادم الإيجنت (API base URL)</label><input id="apiurl" inputmode="url" autocomplete="url" placeholder="https://your-api-host.example" spellcheck="false"><div class="settingrow"><button class="btn" id="saveapi" type="button">حفظ العنوان</button><button class="btn" id="checkapi" type="button">اختبار الاتصال</button></div><div id="apihelp" class="notice">هذا العنوان ليس سرًا. يجب إعداد الخادم مع TAVILY_API_KEY وSCOUT_LLM_API_KEY وSCOUT_LLM_MODEL في بيئة الخادم، والسماح بأصل GitHub Pages ضمن SCOUT_ALLOWED_ORIGINS.</div></details>
-<footer class="foot">لا يتم تخزين مفاتيح API في هذه الصفحة. لا ينفّذ الإيجنت شيفرات خارجية تلقائيًا ولا يدمج تغييرات الإنتاج دون مراجعة.</footer>
+<section id="view-skills" class="view" role="tabpanel" aria-labelledby="tab-skills" hidden>
+ <section class="intro"><div class="eyebrow"><span aria-hidden="true">✦</span> الشفافية والتحقق</div><h2>سجل المهارات</h2><p>هذه الصفحة منفصلة عن المحادثة. تعرض المهارات المحمّلة فعلًا والمرشحات التي ما زالت قيد الفحص، مع المصادر والترخيص ونتائج الاختبار حيث تتوفر.</p></section>
+ <section class="skills-panel" aria-labelledby="skills-heading">
+  <div class="skills-head"><div><h2 id="skills-heading">حالة المكتبة</h2><p class="muted">لا تُفعّل مهارة خارجية لمجرد اكتشافها.</p></div><button class="btn" id="refreshskills" type="button">تحديث السجل ↻</button></div>
+  <div id="skill-summary" class="skill-summary" aria-live="polite">جارٍ تحميل سجل المهارات المنشور…</div>
+  <div class="skill-columns">
+   <section class="skill-group" aria-labelledby="active-skills-heading"><h3 id="active-skills-heading">المهارات المحمّلة في المحادثة</h3><div id="active-skills" class="skill-list"><div class="skill-empty">جارٍ التحقق من المهارات الفعلية…</div></div></section>
+   <section class="skill-group" aria-labelledby="candidate-skills-heading"><h3 id="candidate-skills-heading">مرشحات قيد المراجعة</h3><div id="candidate-skills" class="skill-list"><div class="skill-empty">لم يُعلن عن اكتساب أي مهارة قبل التحقق منها.</div></div></section>
+  </div>
+  <p id="skills-updated" class="notice">المحتوى الخارجي غير موثوق حتى يُراجع ويُختبر؛ لا يُشغّل تلقائيًا.</p>
+ </section>
+</section>
+<details class="settings"><summary>إعداد اتصال الخادم</summary><label for="apiurl">عنوان خادم الإيجنت (API base URL)</label><input id="apiurl" inputmode="url" autocomplete="url" placeholder="https://your-api-host.example" spellcheck="false"><div class="settingrow"><button class="btn" id="saveapi" type="button">حفظ العنوان</button><button class="btn" id="checkapi" type="button">اختبار الاتصال</button></div><div id="apihelp" class="notice">هذا العنوان ليس سرًا. تُضبط مفاتيح البحث والنموذج داخل بيئة الخادم فقط، ويُسمح بأصل GitHub Pages ضمن SCOUT_ALLOWED_ORIGINS.</div></details>
+<footer class="foot">المفاتيح السرية لا تُحفظ في الواجهة. اكتشاف المصدر لا يعني أنه آمن أو يعمل؛ التفعيل والدمج يتطلبان تحققًا ومراجعة.</footer>
 </main>
 <script>
 "use strict";
@@ -263,6 +304,23 @@ async function loadSkillRegistry(){
   updated.textContent="تحقق من اتصال الخادم أو من ملفات بيانات الواجهة. لا تُعرض المهارة على أنها مكتسبة دون دليل.";
  }
 }
+$("tab-chat").addEventListener("click",()=>switchView("chat"));
+$("tab-skills").addEventListener("click",()=>switchView("skills"));
+function switchView(view){
+ const chatView=view==="chat";
+ $("view-chat").hidden=!chatView;
+ $("view-skills").hidden=chatView;
+ $("tab-chat").setAttribute("aria-selected",String(chatView));
+ $("tab-skills").setAttribute("aria-selected",String(!chatView));
+ if(!chatView)loadSkillRegistry();
+}
+question.addEventListener("input",()=>{$("charcount").textContent=question.value.length+" / 500";});
+question.addEventListener("keydown",event=>{
+ if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){
+  event.preventDefault();
+  if(!$("form").requestSubmit){submit();}else{$("form").requestSubmit();}
+ }
+});
 $("refreshskills").addEventListener("click",()=>loadSkillRegistry());
 loadSkillRegistry();
 if(apiBase)checkApi();
