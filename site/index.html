@@ -99,7 +99,7 @@ const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$(
 let apiBase=(localStorage.getItem("scoutApiBase")||"").trim().replace(/\/+$/,"");
 let inspectedComponent=null;
 apiurl.value=apiBase;
-if(!apiBase){statusText.textContent="وضع بحث محدود · لا يوجد نموذج متصل";statusDot.className="dot";}
+if(!apiBase){statusText.textContent="الخادم غير مضبوط — البحث غير متاح";statusDot.className="dot";}
 function setStatus(message,state="neutral"){statusText.textContent=message;statusDot.className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");}
 function bubble(text,who="assistant",error=false){const el=document.createElement("div");el.className="bubble "+who+(error?" error":"");el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;return el;}
 function safeUrl(raw){try{const u=new URL(raw);return ["http:","https:"].includes(u.protocol)?u.href:null;}catch{return null;}}
