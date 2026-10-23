@@ -44,6 +44,23 @@ class AgentTests(unittest.TestCase):
         self.assertFalse(scorecard["willingness_to_pay_verified"])
         self.assertEqual(scorecard["dimensions"][-1]["score"], 0)
 
+    def test_arabic_ideas_get_distinct_report_filenames(self):
+        def fake_search(query):
+            return []
+        def fake_github():
+            return {"queries": 0, "successful_queries": 0, "unique_repositories": 0}
+        with tempfile.TemporaryDirectory() as tmp:
+            _, md_one, json_one = run_agent(
+                "تحليل الفواتير", search_fn=fake_search, github_fn=fake_github, report_dir=tmp
+            )
+            _, md_two, json_two = run_agent(
+                "تحليل المبيعات", search_fn=fake_search, github_fn=fake_github, report_dir=tmp
+            )
+            self.assertNotEqual(md_one.name, md_two.name)
+            self.assertNotEqual(json_one.name, json_two.name)
+            self.assertIn("تحليل", md_one.name)
+            self.assertIn("تحليل", md_two.name)
+
     def test_run_agent_writes_json_and_markdown(self):
         def fake_search(query):
             return [{"title": "Result", "url": "https://example.com/" + str(len(query)),
