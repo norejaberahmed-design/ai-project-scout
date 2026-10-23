@@ -1,0 +1,305 @@
+"""Discover and quarantine reusable public agent skills from licensed GitHub repositories.
+
+This module imports procedural SKILL.md documents only. It never imports Python modules,
+installs dependencies, executes upstream code, or activates a candidate.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import urllib.parse
+from datetime import datetime, timezone
+from pathlib import Path
+
+from component_acquisition import (
+    ALLOWED_LICENSES,
+    _decode_content,
+    inspect_repository,
+    parse_repository_url,
+    request_json,
+)
+from skill_registry import register_discovery, transition_skill
+from skill_runtime import inspect_candidate, save_proposal
+
+ROOT = Path(__file__).resolve().parent
+API = "https://api.github.com"
+MAX_REPOSITORIES = 10
+MAX_PROPOSALS = 3
+MAX_SKILL_BYTES = 20_000
+DENIED_NAMES = {"", "skill", "skills", "default", "template", "example"}
+SEARCH_QUERIES = (
+    "agent skills in:name,description stars:>=10",
+    "SKILL.md AI agent in:readme stars:>=10",
+)
+
+
+def search_skill_repositories(query: str, limit: int = MAX_REPOSITORIES, fetcher=request_json) -> list[dict]:
+    """Search public GitHub repositories; search results are leads, not trusted evidence."""
+    bounded = max(1, min(int(limit), MAX_REPOSITORIES))
+    params = urllib.parse.urlencode({
+        "q": query[:200],
+        "sort": "updated",
+        "order": "desc",
+        "per_page": str(bounded),
+    })
+    data = fetcher(f"{API}/search/repositories?{params}")
+    items = []
+    seen = set()
+    for item in data.get("items", []):
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("html_url") or "")
+        try:
+            owner, name = parse_repository_url(url)
+        except ValueError:
+            continue
+        canonical = f"https://github.com/{owner}/{name}"
+        if canonical.lower() in seen or item.get("archived") or item.get("fork"):
+            continue
+        seen.add(canonical.lower())
+        license_data = item.get("license") or {}
+        items.append({
+            "url": canonical,
+            "repository": str(item.get("full_name") or f"{owner}/{name}"),
+            "description": str(item.get("description") or "")[:400],
+            "stars": int(item.get("stargazers_count") or 0),
+            "license_spdx": str(license_data.get("spdx_id") or "UNKNOWN"),
+            "pushed_at": str(item.get("pushed_at") or ""),
+        })
+    return items
+
+
+def _slug(value: str) -> str:
+    value = (value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value).strip("-")
+    if not value or value in DENIED_NAMES:
+        return ""
+    return value[:64].rstrip("-")
+
+
+def _get_skill_text(repository_url: str, revision: str, path: str, fetcher=request_json) -> str:
+    owner, repo = parse_repository_url(repository_url)
+    encoded_path = urllib.parse.quote(path, safe="/")
+    encoded_revision = urllib.parse.quote(revision, safe="")
+    payload = fetcher(f"{API}/repos/{owner}/{repo}/contents/{encoded_path}?ref={encoded_revision}")
+    raw = _decode_content(payload)
+    if len(raw) > MAX_SKILL_BYTES:
+        raise ValueError("SKILL.md exceeds the bounded size limit.")
+    try:
+        document = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("SKILL.md is not valid UTF-8 text.") from None
+    if "\x00" in document:
+        raise ValueError("SKILL.md contains binary data.")
+    return document
+
+
+def harvest_repository(repository_url: str, *, root: Path | None = None,
+                       db_path: str | Path | None = None, fetcher=request_json) -> dict:
+    """Inspect one repository and save its eligible SKILL.md files as review-only proposals."""
+    owner, repo = parse_repository_url(repository_url)
+    canonical = f"https://github.com/{owner}/{repo}"
+    info = inspect_repository(canonical, fetcher=fetcher)
+    if info.get("license_spdx") not in ALLOWED_LICENSES or not info.get("license_text_verified"):
+        raise ValueError("A verified allowlisted license is required.")
+    candidates = [
+        item for item in info.get("eligible_files", [])
+        if Path(str(item.get("path", ""))).name.lower() == "skill.md"
+    ]
+    if not candidates:
+        return {"repository": info["repository"], "status": "NO_SKILL_DOCUMENT", "proposals": []}
+
+    proposals = []
+    for item in candidates[:MAX_PROPOSALS]:
+        upstream_path = str(item["path"])
+        upstream_document = _get_skill_text(canonical, info["revision"], upstream_path, fetcher)
+        checked = inspect_candidate(upstream_document)
+        if not checked.get("valid"):
+            proposals.append({
+                "source_path": upstream_path,
+                "status": "REJECTED_STATIC_CHECKS",
+                "errors": checked.get("errors", []),
+                "warnings": checked.get("warnings", []),
+            })
+            continue
+
+        name = _slug(checked["metadata"].get("name", ""))
+        if not name:
+            proposals.append({"source_path": upstream_path, "status": "REJECTED_INVALID_NAME"})
+            continue
+        document = upstream_document.rstrip() + (
+            "\n\n## Source provenance\n"
+            f"- Original repository: {info['repository_url']}\n"
+            f"- Original file: {info['repository_url']}/blob/{info['revision']}/"
+            f"{urllib.parse.quote(upstream_path, safe='/')}\n"
+            f"- Immutable source revision: {info['revision']}\n"
+            f"- Declared SPDX license: {info['license_spdx']}\n"
+            "- Import status: untrusted proposal; not executed, installed, or activated.\n"
+        )
+        if len(document.encode("utf-8")) > MAX_SKILL_BYTES:
+            proposals.append({"source_path": upstream_path, "name": name, "status": "REJECTED_SIZE_LIMIT"})
+            continue
+        checked_final = inspect_candidate(document)
+        if not checked_final.get("valid"):
+            proposals.append({
+                "source_path": upstream_path, "name": name,
+                "status": "REJECTED_PROVENANCE_CHECK",
+                "errors": checked_final.get("errors", []),
+            })
+            continue
+
+        proposal = save_proposal(document, root=root)
+        if not proposal.get("valid"):
+            proposals.append({
+                "source_path": upstream_path, "name": name, "status": "SKIPPED_EXISTING_OR_INVALID",
+                "errors": proposal.get("errors", []),
+            })
+            continue
+
+        source_url = (
+            f"{info['repository_url']}/blob/{info['revision']}/"
+            f"{urllib.parse.quote(upstream_path, safe='/')}"
+        )
+        digest = hashlib.sha256(upstream_document.encode("utf-8")).hexdigest()
+        try:
+            record = register_discovery(
+                name, source_url, version=checked_final["metadata"].get("version", "1"),
+                source_revision=info["revision"], license_spdx=info["license_spdx"],
+                license_evidence=(
+                    f"GitHub repository metadata and LICENSE text checked at revision {info['revision']}; "
+                    "license is on the explicit acquisition allowlist."
+                ),
+                inspected_files=[upstream_path, *info.get("license_file_paths", [])],
+                evidence={
+                    "capability": checked_final["metadata"].get("description", ""),
+                    "repository": info["repository"],
+                    "source_path": upstream_path,
+                    "source_revision": info["revision"],
+                    "license_text_verified": True,
+                    "static_skill_validation": checked_final,
+                    "policy": "proposal only; human review required",
+                },
+                risk_flags=[],
+                content=upstream_document,
+                source_content_sha256=digest,
+                db_path=db_path,
+            )
+            transition_skill(
+                record["skill_id"], "ANALYZED", db_path=db_path,
+                inspected_files=[upstream_path, *info.get("license_file_paths", [])],
+                evidence={
+                    "capability": checked_final["metadata"].get("description", ""),
+                    "source_revision": info["revision"],
+                    "license_text_verified": True,
+                    "static_validation": "passed",
+                },
+            )
+            transition_skill(
+                record["skill_id"], "PROPOSED", db_path=db_path, content=document
+            )
+            proposals.append({
+                "name": name, "skill_id": record["skill_id"],
+                "source_path": upstream_path, "source_url": source_url,
+                "revision": info["revision"], "license_spdx": info["license_spdx"],
+                "status": "PROPOSED_REVIEW_REQUIRED",
+                "proposal_path": proposal.get("saved_path"),
+                "auto_activated": False,
+            })
+        except Exception as exc:
+            # Do not label a proposal as lifecycle-complete if registry persistence failed.
+            proposals.append({
+                "name": name, "source_path": upstream_path, "status": "REGISTRY_ERROR",
+                "error": str(exc)[:300],
+                "proposal_path": proposal.get("saved_path"),
+            })
+    return {
+        "repository": info["repository"],
+        "revision": info["revision"],
+        "license_spdx": info["license_spdx"],
+        "license_text_verified": True,
+        "status": "INSPECTED",
+        "proposals": proposals,
+    }
+
+
+def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
+                db_path: str | Path | None = None, fetcher=request_json) -> dict:
+    """Search, inspect, and stage at most three eligible skill documents."""
+    max_proposals = max(1, min(int(limit), MAX_PROPOSALS))
+    report = {
+        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "policy": "Public sources only; verified permissive license; immutable revision; quarantined proposals; no code execution.",
+        "repositories_searched": 0,
+        "proposals_created": 0,
+        "results": [],
+    }
+    seen_repositories = set()
+    seen_names = set()
+    for query in SEARCH_QUERIES:
+        if report["proposals_created"] >= max_proposals:
+            break
+        try:
+            repositories = search_skill_repositories(query, fetcher=fetcher)
+        except (RuntimeError, ValueError) as exc:
+            report["results"].append({"query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]})
+            continue
+        for candidate in repositories:
+            if report["proposals_created"] >= max_proposals:
+                break
+            url = candidate["url"]
+            if url.lower() in seen_repositories:
+                continue
+            seen_repositories.add(url.lower())
+            report["repositories_searched"] += 1
+            if candidate.get("license_spdx") not in ALLOWED_LICENSES:
+                report["results"].append({
+                    "repository": candidate["repository"], "status": "SKIPPED_LICENSE_METADATA",
+                    "license_spdx": candidate.get("license_spdx", "UNKNOWN"),
+                })
+                continue
+            try:
+                result = harvest_repository(url, root=root, db_path=db_path, fetcher=fetcher)
+            except (RuntimeError, ValueError, OSError) as exc:
+                report["results"].append({
+                    "repository": candidate["repository"], "status": "SKIPPED",
+                    "reason": str(exc)[:300],
+                })
+                continue
+            for proposal in result.get("proposals", []):
+                if proposal.get("status") == "PROPOSED_REVIEW_REQUIRED":
+                    name = proposal.get("name", "")
+                    if name in seen_names:
+                        proposal["status"] = "DUPLICATE_NAME_IN_RUN"
+                    else:
+                        seen_names.add(name)
+                        report["proposals_created"] += 1
+            report["results"].append(result)
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Harvest licensed public agent skill documents into review-only proposals.")
+    parser.add_argument("--limit", type=int, default=2, choices=(1, 2, 3))
+    parser.add_argument("--repository", help="Inspect one public GitHub repository instead of searching.")
+    parser.add_argument("--report", default="reports/skill-harvest.json")
+    parser.add_argument("--root", default=None, help="Project root for proposal storage.")
+    args = parser.parse_args()
+    root = Path(args.root).resolve() if args.root else ROOT
+    db_path = os.getenv("SCOUT_SKILL_DB_PATH", str(root / "data" / "skills.sqlite"))
+    if args.repository:
+        report = {"generated_at": datetime.now(timezone.utc).isoformat(),
+                  "results": [harvest_repository(args.repository, root=root, db_path=db_path)]}
+    else:
+        report = run_harvest(limit=args.limit, root=root, db_path=db_path)
+    report_path = Path(args.report)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
