@@ -18,6 +18,7 @@
 - SKILL_LIFECYCLE_ARCHITECTURE.md: المعمارية المعتمدة، حالات دورة الحياة، خوارزميات الترتيب والقبول، وحدود الأمان.
 - skills_manager.py و reverse_engineer.py و autodev.py: اكتشاف وتحليل ساكن واقتراح تحسينات برمجية مع اختبارات وطلب مراجعة.
 - skill_proposer.py وسير عمل Guarded Skill Proposal: صياغة مهارة داخلية من فجوة موثقة، وفحصها، ووضعها في skills/proposed وفتح Draft PR؛ لا تُفعّل تلقائيًا.
+- `skills/active/receiving-code-review/` و`skills/active/finishing-development/`: مهارتان مكيّفتان من مهارات مفتوحة المصدر بترخيص MIT، مع نسبة المصدر ونص الترخيص محفوظين محليًا. تركزان على التحقق والاختبارات وتجنب الأسئلة الروتينية.
 - tests/: اختبارات آلية تشمل حدود البحث والأمان وتحليل GitHub واختيار المهارات.
 - Dockerfile و [API_DEPLOYMENT.md](API_DEPLOYMENT.md): أساس نشر الخادم وإعداد الأسرار.
 
