@@ -159,6 +159,15 @@ def select_skills(task: str, skills: list[dict] | None = None, limit: int = 4) -
         return []
     available = skills if skills is not None else load_active_skills()
     words = set(re.findall(r"[a-z0-9_+-]+|[\u0600-\u06ff]+", (task or "").lower()))
+    # Normalize common Arabic conjunctions, prepositions, and the definite article:
+    # "واختبره" -> "اختبره", "بخطة" -> "خطة", "التطبيق" -> "تطبيق".
+    arabic_prefixes = ("وال", "بال", "لل", "ال", "و", "ف", "ب", "ل", "ك")
+    normalized_words = set(words)
+    for word in words:
+        for prefix in arabic_prefixes:
+            if word.startswith(prefix) and len(word) > len(prefix) + 1:
+                normalized_words.add(word[len(prefix):])
+    words = normalized_words
     scored = []
     for skill in available:
         name = str(skill.get("name", ""))
