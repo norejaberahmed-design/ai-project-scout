@@ -66,7 +66,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 <section id="view-skills" class="view" role="tabpanel" aria-labelledby="tab-skills" hidden>
  <section class="intro"><div class="eyebrow"><span aria-hidden="true">✦</span> الشفافية والتحقق</div><h2>سجل المهارات</h2><p>هذه الصفحة منفصلة عن المحادثة. تعرض المهارات المحمّلة فعلًا والمرشحات التي ما زالت قيد الفحص، مع المصادر والترخيص ونتائج الاختبار حيث تتوفر.</p></section>
  <section class="skills-panel" aria-labelledby="skills-heading">
-  <div class="skills-head"><div><h2 id="skills-heading">حالة المكتبة</h2><p class="muted">لا تُفعّل مهارة خارجية لمجرد اكتشافها.</p></div><button class="btn" id="refreshskills" type="button">تحديث السجل ↻</button></div>
+  <div class="skills-head"><div><h2 id="skills-heading">حالة المكتبة</h2><p class="muted">لا تُفعّل مهارة خارجية لمجرد اكتشافها.</p></div><div class="settingrow"><button class="btn" id="discoverskills" type="button">اكتشف مهارات الآن</button><button class="btn" id="refreshskills" type="button">تحديث السجل ↻</button></div></div>
   <div id="skill-summary" class="skill-summary" aria-live="polite">جارٍ تحميل سجل المهارات المنشور…</div>
   <div class="skill-columns">
    <section class="skill-group" aria-labelledby="active-skills-heading"><h3 id="active-skills-heading">المهارات المحمّلة في المحادثة</h3><div id="active-skills" class="skill-list"><div class="skill-empty">جارٍ التحقق من المهارات الفعلية…</div></div></section>
@@ -416,6 +416,33 @@ question.addEventListener("keydown",event=>{
  }
 });
 $("refreshskills").addEventListener("click",()=>loadSkillRegistry());
+async function discoverSkills(){
+ const button=$("discoverskills"),summary=$("skill-summary"),updated=$("skills-updated");
+ if(!apiBase){
+  summary.textContent="خادم API غير متصل؛ لا يمكن جلب مهارات جديدة من المتصفح الثابت. انشر الخادم عبر رابط Render الظاهر في تبويب المحادثة، ثم احفظ عنوان HTTPS في إعداد الاتصال.";
+  return;
+ }
+ button.disabled=true;
+ summary.textContent="جارٍ البحث في الويب عن مهارات الوكلاء ومصادر الفيديو، ثم التحقق من المستودعات والتراخيص…";
+ updated.textContent="سيتم حفظ المرشحات غير المفعّلة فقط؛ لن ينفذ النظام كودًا خارجيًا.";
+ try{
+  const response=await fetch(apiBase+"/api/skills/discover",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:"{}"});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+   const wait=Number(data.retry_after_seconds||0);
+   throw new Error(data.error||(wait?"حاول بعد "+wait+" ثانية":"HTTP "+response.status));
+  }
+  const created=Number(data.proposals_created||0),searched=Number(data.repositories_searched||0);
+  const videos=Array.isArray(data.results)?data.results.filter(x=>x.status==="VIDEO_DISCOVERED_NOT_COPIED").length:0;
+  summary.textContent="اكتمل الاكتشاف: "+created+" مهارات مقترحة جديدة · "+searched+" مستودعات فُحصت · "+videos+" مصادر فيديو اكتُشفت. المقترحات لم تُفعّل تلقائيًا.";
+  updated.textContent="راجع مصدر كل مهارة وترخيصها واختباراتها. لا يُعد العثور على فيديو إذنًا لنسخ كوده؛ لا تُستورد إلا ملفات من مستودع مرخص ومثبت الإصدار.";
+  await loadSkillRegistry();
+ }catch(error){
+  summary.textContent="لم يكتمل اكتشاف المهارات: "+(error.message||"خطأ غير معروف");
+  updated.textContent="تحقق من اتصال الخادم والبحث العام. لا تُسجل أي مهارة على أنها مكتسبة ما لم تحفظ وتتحقق منها فعليًا.";
+ }finally{button.disabled=false;}
+}
+$("discoverskills").addEventListener("click",discoverSkills);
 loadSkillRegistry();
 if(apiBase)checkApi();
 </script>
