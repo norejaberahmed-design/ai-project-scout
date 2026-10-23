@@ -121,7 +121,7 @@ def skill_registry_payload() -> dict:
     return {"active_runtime": active_runtime, "lifecycle_records": records}
 
 
-def generate_answer(question: str, search_result: dict) -> str:
+def generate_answer(question: str, search_result: dict, skills: list[dict] | None = None) -> str:
     api_key = os.getenv("SCOUT_LLM_API_KEY", "").strip()
     model = os.getenv("SCOUT_LLM_MODEL", "").strip()
     endpoint = os.getenv("SCOUT_LLM_API_URL", "https://openrouter.ai/api/v1/chat/completions").strip()
@@ -130,7 +130,8 @@ def generate_answer(question: str, search_result: dict) -> str:
     parsed = urlparse(endpoint)
     if parsed.scheme != "https" or not parsed.netloc:
         raise RuntimeError("SCOUT_LLM_API_URL يجب أن يكون عنوان HTTPS صالحًا.")
-    skills = select_skills(question, load_active_skills(), limit=4)
+    if skills is None:
+        skills = select_skills(question, load_active_skills(), limit=4)
     payload = json.dumps({
         "model": model,
         "messages": make_chat_messages(question, search_result, skills),
@@ -257,9 +258,17 @@ class AgentHandler(BaseHTTPRequestHandler):
                 found["results"] = (github_sources + found.get("results", []))[:8]
                 found["result_count"] = len(found["results"])
                 found["provider"] = "Tavily + GitHub"
-            answer = generate_answer(question, found)
-            self._send(200, {"answer": answer, "sources": found["results"],
-                             "coverage_note": found["coverage_note"]})
+            selected_skills = select_skills(question, load_active_skills(), limit=4)
+            answer = generate_answer(question, found, skills=selected_skills)
+            self._send(200, {
+                "answer": answer,
+                "sources": found["results"],
+                "coverage_note": found["coverage_note"],
+                "skills_considered": [
+                    {"name": item["name"], "relevance_score": item.get("relevance_score", 0)}
+                    for item in selected_skills
+                ],
+            })
         except ValueError as exc:
             self._send(400, {"error": str(exc)})
         except RuntimeError as exc:

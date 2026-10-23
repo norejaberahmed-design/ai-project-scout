@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import api_server
 from skill_registry import register_discovery
@@ -40,6 +40,27 @@ class ApiServerTests(unittest.TestCase):
                 api_server.generate_answer("test", search.return_value)
         self.assertNotIn("tavily-secret", str(caught.exception))
         self.assertIn("SCOUT_LLM_API_KEY", str(caught.exception))
+
+    def test_chat_can_use_preselected_skills_without_reranking(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Evidence-backed answer"}}]
+        }).encode("utf-8")
+        selected = [{"name": "careful-research", "description": "Verify sources",
+                     "content": "Record sources and uncertainty.", "relevance_score": 2}]
+        with patch.dict(os.environ, {
+            "SCOUT_LLM_API_KEY": "test-secret",
+            "SCOUT_LLM_MODEL": "test-model",
+        }, clear=True), patch("api_server.urllib.request.urlopen", return_value=response) as opener, \
+             patch("api_server.select_skills") as rerank:
+            answer = api_server.generate_answer(
+                "Research this claim", {"results": [], "coverage_note": "test"}, skills=selected
+            )
+        self.assertEqual(answer, "Evidence-backed answer")
+        rerank.assert_not_called()
+        payload = json.loads(opener.call_args[0][0].data.decode("utf-8"))
+        user = json.loads(payload["messages"][1]["content"])
+        self.assertEqual(user["trusted_internal_skills"][0]["name"], "careful-research")
 
     def test_only_https_model_endpoint_is_allowed(self):
         with patch.dict(os.environ, {
