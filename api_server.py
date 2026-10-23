@@ -23,6 +23,7 @@ from skill_proposal_sync import sync_proposed_skill_records
 from web_search import search_web
 from github_discovery import discover_github
 from component_acquisition import acquire_repository, auto_acquire_repositories, inspect_repository, list_proposals
+from skill_harvester import run_harvest
 
 MAX_BODY_BYTES = 12_000
 MAX_QUERY_CHARS = 500
@@ -31,6 +32,9 @@ RATE_LIMIT_WINDOW = 60
 MAX_RATE_LIMIT_CLIENTS = 10_000
 RATE_LIMIT_LOCK = Lock()
 REQUEST_TIMES: dict[str, deque[float]] = defaultdict(deque)
+SKILL_DISCOVERY_LOCK = Lock()
+SKILL_DISCOVERY_COOLDOWN_SECONDS = 900
+LAST_SKILL_DISCOVERY = 0.0
 
 
 def allowed_origins() -> set[str]:
@@ -276,7 +280,7 @@ class AgentHandler(BaseHTTPRequestHandler):
         if origin and origin not in allowed_origins():
             self._send(403, {"error": "Origin not allowed"})
             return
-        allowed_paths = {"/api/search", "/api/chat", "/api/components/inspect", "/api/components/acquire"}
+        allowed_paths = {"/api/search", "/api/chat", "/api/skills/discover", "/api/components/inspect", "/api/components/acquire"}
         if self.path not in allowed_paths:
             self._send(404, {"error": "Not found"})
             return
@@ -299,6 +303,25 @@ class AgentHandler(BaseHTTPRequestHandler):
         except (UnicodeError, json.JSONDecodeError):
             self._send(400, {"error": "Invalid JSON"})
             return
+        if self.path == "/api/skills/discover":
+            global LAST_SKILL_DISCOVERY
+            now = time.monotonic()
+            with SKILL_DISCOVERY_LOCK:
+                remaining = SKILL_DISCOVERY_COOLDOWN_SECONDS - (now - LAST_SKILL_DISCOVERY)
+                if remaining > 0:
+                    self._send(429, {
+                        "error": "اكتشاف المهارات يعمل مرة كل 15 دقيقة لحماية الخدمة من إساءة الاستخدام.",
+                        "retry_after_seconds": int(remaining) + 1,
+                    })
+                    return
+                LAST_SKILL_DISCOVERY = now
+            try:
+                report = run_harvest(limit=2)
+                self._send(200, report)
+            except (RuntimeError, ValueError, OSError) as exc:
+                self._send(502, {"error": "تعذر اكتشاف المهارات من المصادر العامة.", "detail": str(exc)[:250]})
+            return
+
         if self.path in {"/api/components/inspect", "/api/components/acquire"}:
             repository_url = data.get("repository_url", "") if isinstance(data, dict) else ""
             if not isinstance(repository_url, str) or not repository_url.strip() or len(repository_url) > 500:
