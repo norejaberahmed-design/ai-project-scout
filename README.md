@@ -15,7 +15,7 @@
 - web_search.py: محول بحث Tavily من جهة الخادم.
 - github_discovery.py: بحث في مستودعات GitHub العامة وفحص ساكن لبيانات المشروع وREADME وأسماء الملفات؛ لا ينفذ الشيفرة.
 - skill_runtime.py: اختيار المهارات الموثوقة والتحقق من المرشحات وحفظها خارج مجلد المهارات النشطة.
-- skills_manager.py و reverse_engineer.py و autodev.py: اكتشاف وتحليل ساكن واقتراح تحسينات برمجية مع اختبارات وطلب مراجعة.\n- skill_proposer.py وسير عمل Guarded Skill Proposal: صياغة مهارة داخلية من فجوة موثقة، وفحصها، ووضعها في skills/proposed وفتح Draft PR؛ لا تُفعّل تلقائيًا.
+- skills_manager.py و reverse_engineer.py و autodev.py: اكتشاف وتحليل ساكن واقتراح تحسينات برمجية مع اختبارات وطلب مراجعة.- skill_proposer.py وسير عمل Guarded Skill Proposal: صياغة مهارة داخلية من فجوة موثقة، وفحصها، ووضعها في skills/proposed وفتح Draft PR؛ لا تُفعّل تلقائيًا.
 - tests/: اختبارات آلية تشمل حدود البحث والأمان وتحليل GitHub واختيار المهارات.
 - Dockerfile و [API_DEPLOYMENT.md](API_DEPLOYMENT.md): أساس نشر الخادم وإعداد الأسرار.
 
