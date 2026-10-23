@@ -5,6 +5,12 @@ const vm = require("node:vm");
 const html = fs.readFileSync("site/index.html", "utf8");
 const match = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(match, "inline app script must exist");
+assert.match(html, /id="view-components"/, "component acquisition view must exist");
+assert.match(match[1], /\/api\/components\/inspect/, "UI must call component inspection API");
+assert.match(match[1], /\/api\/components\/acquire/, "UI must call guarded acquisition API");
+assert.match(match[1], /Authorization.*Bearer/, "acquisition token must be sent as an authorization header");
+assert.doesNotMatch(match[1], /localStorage\.(?:setItem|getItem)\([^)]*component-token/i,
+  "admin import token must not be persisted in localStorage");
 
 class FakeElement {
   constructor() {
