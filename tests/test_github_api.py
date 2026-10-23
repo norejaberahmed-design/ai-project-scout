@@ -47,7 +47,7 @@ class GitHubApiTests(unittest.TestCase):
         self.assertEqual(result, {"items": []})
         self.assertEqual(captured["headers"].get("Authorization"), "Bearer fake-test-token")
         with github_api._cache_lock:
-            self.assertIn("https://api.github.com/search/repositories?q=skills", github_api._cache)
+            self.assertTrue(any(key.startswith("https://api.github.com/search/repositories?q=skills|") for key in github_api._cache))
 
     def test_transient_503_retries_with_bounded_deterministic_backoff(self):
         calls = []
