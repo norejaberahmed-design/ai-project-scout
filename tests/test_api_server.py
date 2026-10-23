@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import urllib.error
 import threading
 import unittest
 import urllib.request
