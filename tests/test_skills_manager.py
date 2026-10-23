@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from skills_manager import build_catalog, inspect_risks, parse_skill, persist_candidates, quality_score, scan_repository
+from skills_manager import (SEED_REPOSITORIES, build_catalog, discover_repositories, inspect_risks, parse_skill, persist_candidates, quality_score, scan_repository)
 from skill_registry import list_skills
 
 
@@ -24,6 +24,26 @@ class SkillsManagerTests(unittest.TestCase):
         unknown = quality_score(5000, 200, "2026-10-20T00:00:00Z", "UNKNOWN", document)
         self.assertTrue(0 <= permissive <= 100)
         self.assertTrue(permissive > unknown)
+
+    def test_discovery_uses_multiple_query_lenses_and_deduplicates(self):
+        responses = [
+            {"items": [{"full_name": "org/a"}, {"full_name": "org/a"}]},
+            {"items": [{"full_name": "org/b"}, {"full_name": "org/a"}]},
+            {"items": [{"full_name": "org/c"}]},
+            {"items": [{"full_name": "org/d"}]},
+            {"items": [{"full_name": "org/e"}]},
+            {"items": [{"full_name": "org/f"}]},
+        ]
+        calls = []
+        def fake_fetch(url):
+            calls.append(url)
+            return responses[len(calls) - 1]
+        names = discover_repositories(fake_fetch)
+        self.assertEqual(len(calls), 6)
+        self.assertEqual(names[:len(SEED_REPOSITORIES)], SEED_REPOSITORIES)
+        self.assertEqual(len(names), len(set(names)))
+        for candidate in ("org/a", "org/b", "org/c", "org/d", "org/e", "org/f"):
+            self.assertIn(candidate, names)
 
     def test_scans_skill_document_without_executing_it(self):
         text = "---\nname: example\ndescription: Safe example\n---\nUse small tests.\n"
