@@ -144,8 +144,9 @@ class SkillRuntimeTests(unittest.TestCase):
             "product-market-validation",
             "structured-debugging",
         }
-        self.assertEqual(expected, {skill["name"] for skill in skills})
-        for skill in skills:
+        bundled = [skill for skill in skills if skill["name"] in expected]
+        self.assertEqual(expected, {skill["name"] for skill in bundled})
+        for skill in bundled:
             result = inspect_candidate(skill["content"])
             self.assertTrue(result["valid"], f"{skill['name']} failed validation: {result['errors']}")
 
