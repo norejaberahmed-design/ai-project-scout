@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Lock
 from urllib.parse import urlparse
 
+from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, select_skills
 from web_search import search_web
 from github_discovery import discover_github
@@ -82,6 +83,40 @@ def make_chat_messages(question: str, search_result: dict, skills: list[dict]) -
         {"role": "system", "content": system},
         {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
     ]
+
+
+def skill_registry_payload() -> dict:
+    """Return runtime-active skills separately from untrusted lifecycle candidates."""
+    active_runtime = [{
+        "name": item["name"],
+        "description": item["description"],
+        "status": "ACTIVE",
+        "origin": "maintainer-controlled skills/active directory",
+    } for item in load_active_skills()]
+    records = []
+    for item in list_skill_records():
+        records.append({
+            "skill_id": item["skill_id"],
+            "name": item["name"],
+            "version": item["version"],
+            "status": item["status"],
+            "source_url": item["source_url"],
+            "source_revision": item["source_revision"],
+            "license_spdx": item["license_spdx"],
+            "license_evidence": item["license_evidence"],
+            "inspected_files": item["inspected_files"],
+            "evidence": item["evidence"],
+            "risk_flags": item["risk_flags"],
+            "content_sha256": item["content_sha256"],
+            "test_result": item["test_result"],
+            "test_command": item["test_command"],
+            "test_report": item["test_report"],
+            "reviewer": item["reviewer"],
+            "created_at": item["created_at"],
+            "updated_at": item["updated_at"],
+            "activated_at": item["activated_at"],
+        })
+    return {"active_runtime": active_runtime, "lifecycle_records": records}
 
 
 def generate_answer(question: str, search_result: dict) -> str:
@@ -160,6 +195,9 @@ class AgentHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if self.path == "/api/skills":
+            self._send(200, skill_registry_payload())
+            return
         if self.path != "/api/health":
             self._send(404, {"error": "Not found"})
             return
