@@ -1,0 +1,73 @@
+---
+name: airflow
+description: Queries, manages, and troubleshoots Apache Airflow using Astronomer Agents, astro-airflow-mcp, and the af CLI. Use for DAGs, DAG runs, task logs, import errors, Airflow health, connections, variables, pools, and REST API exploration.
+kind: knowledge
+source_type: bundled_plugin
+default_enabled: false
+---
+
+# Airflow Operations
+
+Use this skill for Apache Airflow operations and troubleshooting. It follows the Astronomer Agents Airflow workflow and supports both MCP and the `af` CLI.
+
+## Setup
+
+Configure the skill in Skill Center:
+
+- `AIRFLOW_API_URL`: Airflow webserver base URL.
+- `AIRFLOW_AUTH_TOKEN`: preferred token auth.
+- `AIRFLOW_USERNAME` and `AIRFLOW_PASSWORD`: alternative username/password auth.
+- `AF_READ_ONLY`: defaults to `true`; keep enabled unless the user explicitly wants write operations.
+
+Authentication requires either `AIRFLOW_AUTH_TOKEN` or `AIRFLOW_USERNAME` plus `AIRFLOW_PASSWORD`.
+
+## MCP Server
+
+Saving the Skill configuration automatically creates, updates, and enables the managed `airflow` MCP entry. The separate **Test Connection** action starts it only when diagnostics are requested. During normal use, Cowork installs `astro-airflow-mcp` into the isolated Skill Python environment and starts it on demand with `--transport stdio` for tool discovery or calls, injecting the configured Airflow environment. No separately managed MCP daemon or system `uvx` installation is required.
+
+## CLI Workflow
+
+Use the `run_af` script entry for direct `af` commands:
+
+```json
+{
+  "skill_name": "airflow",
+  "script_name": "run_af",
+  "args": ["health"]
+}
+```
+
+Common `af` commands:
+
+| Intent | Command |
+| --- | --- |
+| Health check | `af health` |
+| List DAGs | `af dags list` |
+| Inspect DAG | `af dags explore <dag_id>` |
+| List runs | `af runs list --dag-id <dag_id>` |
+| Diagnose failed run | `af runs diagnose <dag_id> <run_id>` |
+| Task logs | `af tasks logs <dag_id> <run_id> <task_id>` |
+| Direct API discovery | `af api ls` |
+
+See `api-reference.md` for direct REST API examples.
+
+`run_af` invokes the installed Python CLI entry directly inside the same Skill sandbox, so MCP and CLI calls use the same declared dependencies and environment variables.
+
+## Safety Rules
+
+- Default to read-only operations.
+- Do not trigger DAGs, pause/unpause DAGs, clear/delete runs, or create/update/delete variables/connections unless the user explicitly confirms the exact target.
+- `run_af` blocks common write operations while `AF_READ_ONLY` is `true`.
+- Run discovery commands with dry-run first when they can create tokens or persistent config.
+
+## Related Upstream
+
+This skill is adapted from Astronomer Agents and the local `D:\下载\airflow-main` skill package. Astronomer Agents provides `astro-airflow-mcp` and the `af` CLI used by this integration.
+
+## Source provenance
+- Original repository: https://github.com/chuancyzhang/deepseek-cowork
+- Original file: https://github.com/chuancyzhang/deepseek-cowork/blob/7ccdd0415be8cf24b6aee44e82994eb3959740ef/ai_skills/airflow/SKILL.md
+- Immutable source revision: 7ccdd0415be8cf24b6aee44e82994eb3959740ef
+- Declared SPDX license: Apache-2.0
+- Import status: untrusted proposal; not executed, installed, or activated.
+- The original license text is preserved in UPSTREAM_LICENSE.txt.
