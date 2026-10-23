@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 
 from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, select_skills
+from skill_proposal_sync import sync_proposed_skill_records
 from web_search import search_web
 from github_discovery import discover_github
 from component_acquisition import acquire_repository, auto_acquire_repositories, inspect_repository, list_proposals
@@ -89,6 +90,7 @@ def make_chat_messages(question: str, search_result: dict, skills: list[dict]) -
 
 def skill_registry_payload() -> dict:
     """Return runtime-active skills separately from untrusted lifecycle candidates."""
+    proposal_sync = sync_proposed_skill_records()
     active_runtime = [{
         "name": item["name"],
         "description": item["description"],
@@ -120,7 +122,7 @@ def skill_registry_payload() -> dict:
             "updated_at": item["updated_at"],
             "activated_at": item["activated_at"],
         })
-    return {"active_runtime": active_runtime, "lifecycle_records": records}
+    return {"active_runtime": active_runtime, "lifecycle_records": records, "proposal_sync": proposal_sync}
 
 
 def plan_search_query(question: str, skills: list[dict]) -> str:
