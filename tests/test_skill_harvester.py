@@ -80,7 +80,7 @@ class SkillHarvesterTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["status"], "PROPOSED")
             self.assertEqual(records[0]["license_spdx"], "MIT")
-            self.assertTrue(records[0]["license_verified"] is False)
+            self.assertFalse(records[0]["license_verified"])
             self.assertEqual(list((root / "skills" / "active").glob("*/SKILL.md")), [])
 
     def test_harvest_rejects_risky_skill_instead_of_saving_it(self):
