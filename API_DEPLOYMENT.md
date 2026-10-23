@@ -7,15 +7,16 @@
 - TAVILY_API_KEY: مفتاح البحث العام.
 - SCOUT_LLM_API_KEY: مفتاح مزود نموذج متوافق مع واجهة OpenAI Chat Completions.
 - SCOUT_LLM_MODEL: معرّف النموذج الذي يسمح به حسابك.
+- SCOUT_LLM_API_URL: اختياري؛ عنوان Chat Completions المتوافق مع OpenAI. لـ Gemini API استخدم `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`، واختر معرّف نموذج متاحًا في حساب Google AI Studio. لا تضع مفتاح Gemini في هذا المتغير.
 - SCOUT_ALLOWED_ORIGINS: أصل الواجهة المسموح، افتراضيًا https://norejaberahmed-design.github.io.
 - SCOUT_API_HOST=0.0.0.0 عند التشغيل داخل حاوية.
 - SCOUT_API_PORT=8787 أو المنفذ الذي تتطلبه منصة الاستضافة.
 
-لا تضع المفاتيح في GitHub Pages أو HTML أو JavaScript أو سجلات النشر. لا حاجة إلى قاعدة بيانات لتشغيل نقطة المحادثة الأولية.
+لا تضع المفاتيح في GitHub Pages أو HTML أو JavaScript أو سجلات النشر. إذا كنت تستخدم Gemini، ضع قيمة المفتاح في السر `SCOUT_LLM_API_KEY`، وعنوان Gemini في المتغير `SCOUT_LLM_API_URL`، واسم النموذج في `SCOUT_LLM_MODEL`؛ طبّق الإعدادات نفسها على الخادم المستضاف. لا تشارك قيمة المفتاح في المحادثة. لا حاجة إلى قاعدة بيانات لتشغيل نقطة المحادثة الأولية.
 
 ## التشغيل المحلي
     python -m unittest discover -s tests -v
-    TAVILY_API_KEY=... SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... python api_server.py
+    TAVILY_API_KEY=... SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... SCOUT_LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions python api_server.py
 
 ثم افتح http://127.0.0.1:8787/api/health. واجهة Pages لن تتمكن من الاتصال بعنوان localhost على هاتف المستخدم؛ يجب أن يكون الخادم منشورًا بعنوان HTTPS يمكن الوصول إليه.
 
