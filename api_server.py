@@ -163,7 +163,7 @@ def plan_search_query(question: str, skills: list[dict]) -> str:
             data = json.loads(response.read(100_000).decode("utf-8"))
         query = data["choices"][0]["message"]["content"]
         if isinstance(query, str):
-            query = " ".join(query.strip().split()).strip('"\\' ')
+            query = " ".join(query.strip().split()).strip().strip('"').strip("'")
             if query and len(query) <= 300 and "\\n" not in query:
                 return query
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, UnicodeError,
