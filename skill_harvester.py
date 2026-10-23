@@ -30,10 +30,28 @@ MAX_REPOSITORIES = 10
 MAX_PROPOSALS = 3
 MAX_SKILL_BYTES = 20_000
 DENIED_NAMES = {"", "skill", "skills", "default", "template", "example"}
+# Seed a high-value, MIT-licensed general agent-skills repository before broad discovery.
+SEED_REPOSITORIES = ("https://github.com/obra/superpowers",)
 SEARCH_QUERIES = (
-    "agent skills in:name,description stars:>=10",
-    "SKILL.md AI agent in:readme stars:>=10",
+    "agent skills research coding in:name,description stars:>=10",
+    "SKILL.md software engineering agent in:readme stars:>=10",
 )
+SKILL_PRIORITY = {
+    "verification-before-completion": 100,
+    "writing-plans": 90,
+    "receiving-code-review": 80,
+    "requesting-code-review": 75,
+    "systematic-debugging": 70,
+    "test-driven-development": 65,
+    "brainstorming": 50,
+}
+PLATFORM_DEPENDENCY_PATTERNS = (
+    re.compile(r"\\bbrowser_skill_cli\\b", re.I),
+    re.compile(r"\\bDINGTALK_[A-Z0-9_]+\\b|钉钉", re.I),
+    re.compile(r"\\bCowork\\b|Skill Center", re.I),
+    re.compile(r"\\bAIRFLOW_(?:API_URL|AUTH_TOKEN|USERNAME|PASSWORD)\\b|\\brun_af\\b|astro-airflow-mcp", re.I),
+)
+LOCAL_MARKDOWN_REFERENCE = re.compile(r"(?<![/:A-Za-z0-9])([A-Za-z0-9_.-]+\\.md)(?:#[A-Za-z0-9_-]+)?")
 
 
 def search_skill_repositories(query: str, limit: int = MAX_REPOSITORIES, fetcher=request_json) -> list[dict]:
@@ -105,10 +123,15 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
     info = inspect_repository(canonical, fetcher=fetcher)
     if info.get("license_spdx") not in ALLOWED_LICENSES or not info.get("license_text_verified"):
         raise ValueError("A verified allowlisted license is required.")
+    all_paths = {str(item.get("path", "")) for item in info.get("eligible_files", [])}
     candidates = [
         item for item in info.get("eligible_files", [])
         if Path(str(item.get("path", ""))).name.lower() == "skill.md"
     ]
+    candidates.sort(key=lambda item: (
+        -SKILL_PRIORITY.get(Path(str(item.get("path", ""))).parent.name.lower(), 0),
+        str(item.get("path", "")).lower(),
+    ))
     if not candidates:
         return {"repository": info["repository"], "status": "NO_SKILL_DOCUMENT", "proposals": []}
 
@@ -116,6 +139,28 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
     for item in candidates[:MAX_PROPOSALS]:
         upstream_path = str(item["path"])
         upstream_document = _get_skill_text(canonical, info["revision"], upstream_path, fetcher)
+        unsupported = [pattern.pattern for pattern in PLATFORM_DEPENDENCY_PATTERNS
+                       if pattern.search(upstream_document)]
+        if unsupported:
+            proposals.append({
+                "source_path": upstream_path,
+                "status": "SKIPPED_PLATFORM_SPECIFIC",
+                "reason": "Skill depends on an external integration not provided by this agent.",
+            })
+            continue
+        skill_dir = str(Path(upstream_path).parent)
+        referenced_docs = set(LOCAL_MARKDOWN_REFERENCE.findall(upstream_document))
+        missing_local_docs = [
+            name for name in referenced_docs
+            if name not in {Path(path).name for path in all_paths if str(Path(path).parent) == skill_dir}
+        ]
+        if missing_local_docs:
+            proposals.append({
+                "source_path": upstream_path,
+                "status": "SKIPPED_MISSING_SUPPORT_FILES",
+                "missing_files": sorted(missing_local_docs)[:12],
+            })
+            continue
         checked = inspect_candidate(upstream_document)
         if not checked.get("valid"):
             proposals.append({
@@ -261,15 +306,19 @@ def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
     }
     seen_repositories = set()
     seen_names = set()
+    discovered = [
+        {"url": url, "repository": url.rstrip("/").split("/")[-2] + "/" + url.rstrip("/").split("/")[-1],
+         "license_spdx": "MIT", "description": "Seeded general-purpose agent skill repository"}
+        for url in SEED_REPOSITORIES
+    ]
     for query in SEARCH_QUERIES:
-        if report["proposals_created"] >= max_proposals:
-            break
         try:
-            repositories = search_skill_repositories(query, fetcher=fetcher)
+            discovered.extend(search_skill_repositories(query, fetcher=fetcher))
         except (RuntimeError, ValueError) as exc:
             report["results"].append({"query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]})
-            continue
-        for candidate in repositories:
+    for candidate in discovered:
+        if report["proposals_created"] >= max_proposals:
+            break
             if report["proposals_created"] >= max_proposals:
                 break
             url = candidate["url"]
