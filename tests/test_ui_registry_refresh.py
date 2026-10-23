@@ -6,7 +6,7 @@ class SkillRegistryRefreshTests(unittest.TestCase):
     def test_registry_refresh_clears_old_live_state_before_network_requests(self):
         source = (Path(__file__).resolve().parents[1] / "site" / "index.html").read_text(encoding="utf-8")
         start = source.index("async function loadSkillRegistry(){")
-        end = source.index('\n}\n$("tab-chat")', start)
+        end = source.index('\n}\nasync function inspectComponent()', start)
         function = source[start:end]
         clear_active = function.index('activeEl.replaceChildren();')
         clear_candidates = function.index('candidateEl.replaceChildren();')
