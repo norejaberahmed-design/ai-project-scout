@@ -10,11 +10,10 @@ class DeploymentArtifactTests(unittest.TestCase):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         server = (ROOT / "api_server.py").read_text(encoding="utf-8")
         for module in ("web_search", "skill_runtime", "skill_proposal_sync", "skill_harvester", "component_acquisition"):
-            if module in {"skill_harvester", "component_acquisition"}:
-                self.assertIn(f"from {module} import", server)
-            else:
-                self.assertIn(f"from {module} import", server)
+            self.assertIn(f"from {module} import", server)
             self.assertIn(f"{module}.py", dockerfile)
+        self.assertNotIn("from github_discovery import", server)
+        self.assertNotIn("github_discovery.py", dockerfile)
         self.assertIn("COPY --chown=scout:scout skills/proposed ./skills/proposed", dockerfile)
         self.assertIn("USER scout", dockerfile)
         self.assertIn('CMD ["python", "-u", "api_server.py"]', dockerfile)
