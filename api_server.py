@@ -21,8 +21,7 @@ from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, select_skills
 from skill_proposal_sync import sync_proposed_skill_records
 from web_search import search_web
-from github_discovery import discover_github
-from component_acquisition import acquire_repository, auto_acquire_repositories, inspect_repository, list_proposals
+from component_acquisition import acquire_repository, inspect_repository, list_proposals
 from skill_harvester import run_harvest
 
 MAX_BODY_BYTES = 12_000
@@ -369,29 +368,15 @@ class AgentHandler(BaseHTTPRequestHandler):
             self._send(503, {"error": "إعداد النموذج ناقص: اضبط SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL في الخادم."})
             return
         try:
-            # Select active skills before research so they can guide search and answer generation.
+            # User queries search the public web. GitHub is reserved for the separate
+            # SKILL.md discovery pipeline; repository metadata is never used as user-answer evidence.
+            # Active internal skills guide query planning and answer generation.
             selected_skills = select_skills(question, load_active_skills(), limit=4)
             search_query = plan_search_query(question, selected_skills) if self.path == "/api/chat" else question
             found = search_web(search_query)
-            # Search the general public web for every query. For software/tool/repository
-            # intent, also search GitHub and merge those results into the same answer.
-            # discover_github returns no repositories for unrelated everyday questions.
-            try:
-                github_sources = discover_github(search_query)
-            except RuntimeError:
-                github_sources = []
-            if github_sources:
-                found["results"] = (github_sources + found.get("results", []))[:8]
-                found["result_count"] = len(found["results"])
-                found["provider"] = str(found.get("provider") or "Web search") + " + GitHub"
             if self.path == "/api/search":
                 self._send(200, found)
                 return
-            component_acquisition = {"enabled": False}
-            if github_sources:
-                # Opt-in server-side acquisition stages eligible repository code in quarantine.
-                # It never installs or executes third-party code and cannot block the answer.
-                component_acquisition = auto_acquire_repositories(github_sources)
             answer = generate_answer(question, found, skills=selected_skills)
             response_payload = {
                 "answer": answer,
@@ -399,9 +384,8 @@ class AgentHandler(BaseHTTPRequestHandler):
                 "search_provider": found.get("provider", "غير محدد"),
                 "source_count": len(found.get("results", [])),
                 "coverage_note": found.get("coverage_note", "لا تتوفر ملاحظة تغطية من مزود البحث."),
+                "skills_used": [item["name"] for item in selected_skills],
             }
-            if component_acquisition.get("enabled"):
-                response_payload["component_acquisition"] = component_acquisition
             self._send(200, response_payload)
         except ValueError as exc:
             self._send(400, {"error": str(exc)})
