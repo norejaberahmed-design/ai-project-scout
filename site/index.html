@@ -59,7 +59,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  </section>
  <section class="chat-shell" aria-label="منطقة المحادثة">
   <div class="chat-head"><div><div class="chat-title">المحادثة</div><div class="chat-subtitle">إجابات واضحة ومصادر قابلة للفتح</div></div><span class="muted">● جلسة محادثة</span></div>
-  <section id="chat" class="chat" role="log" aria-live="polite" aria-label="رسائل المحادثة"><div class="bubble assistant">مرحبًا! اكتب سؤالك وسأبحث في المصادر المتاحة. إذا لم يكن خادم الذكاء الاصطناعي متصلًا، سأوضح ذلك وأستخدم البحث الاحتياطي المحدود بدلًا من ادعاء إجابة ذكية غير متاحة. لا تضع مفاتيح API هنا.</div></section>
+  <section id="chat" class="chat" role="log" aria-live="polite" aria-label="رسائل المحادثة"><div class="bubble assistant">مرحبًا! اكتب سؤالك وسأبحث في المصادر المتاحة. إذا لم يكن خادم الذكاء الاصطناعي متصلًا، سأوضح ذلك ولن أقدّم نتائج محدودة على أنها بحث شامل. لا تضع مفاتيح API هنا.</div></section>
   <form id="form" class="composer"><div class="composebox"><textarea id="question" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
  </section>
 </section>
@@ -111,38 +111,30 @@ function isProjectQuery(q){return /github|repository|repositories|repo|project|p
 function githubQueryFor(q){if(/[\u0600-\u06ff]/.test(q)){if(/صوت|كلام|audio|voice/i.test(q))return '"AI voice" OR "speech recognition"';if(/صورة|رؤية|vision|صور/i.test(q))return '"computer vision" AI';if(/قاعدة|بيانات|database|sql/i.test(q))return 'LLM database AI';return '"AI agent" OR "AI tools"';}return q.slice(0,180);}
 function publicSearchLinks(q){\n const encoded=encodeURIComponent(q);\n const queries=[\n  {title:"بحث الويب — Google",url:"https://www.google.com/search?q="+encoded,snippet:"افتح نتائج البحث العامة على Google."},\n  {title:"بحث الويب — Bing",url:"https://www.bing.com/search?q="+encoded,snippet:"افتح نتائج البحث العامة على Bing."},\n  {title:"بحث الويب — DuckDuckGo",url:"https://duckduckgo.com/?q="+encoded,snippet:"بديل مستقل لبحث الويب."},\n  {title:"فيديوهات YouTube",url:"https://www.youtube.com/results?search_query="+encoded,snippet:"ابحث عن شروحات وفيديوهات مرتبطة بسؤالك."},\n  {title:"فيديوهات الويب",url:"https://www.google.com/search?tbm=vid&q="+encoded,snippet:"ابحث عن الفيديوهات عبر الويب."},\n  {title:"مناقشات Reddit",url:"https://www.reddit.com/search/?q="+encoded,snippet:"ابحث عن تجارب ومناقشات المجتمع؛ تحقق من الادعاءات من مصادر أولية."}\n ];\n return {\n  answer:"خادم البحث الذكي غير متصل بهذه الواجهة حاليًا. لن أستبدل البحث العام ببحث GitHub أو ويكيبيديا، ولن أخترع إجابة. جهز خادم API في إعدادات الاتصال لتفعيل البحث داخل المحادثة والإجابة بالنموذج. إلى أن يتصل الخادم، افتح أحد محركات البحث أدناه؛ روابط البحث تستخدم سؤالك مباشرة.",\n  sources:queries,\n  coverage_note:"وضع بديل: هذه روابط بحث مباشرة وليست نتائج جلبها الإيجنت. لتظهر النتائج والإجابة هنا، يلزم نشر API وضبط مفاتيح البحث والنموذج على الخادم."\n };\n}\nasync function submit(text){
  const q=(text||question.value).trim();if(!q||send.disabled)return;
- bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث…");
- const pending=bubble("أبحث الآن في المصادر العامة…","assistant");
+ bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث في الويب…");
+ const pending=bubble("أبحث في الويب ثم أتحقق من المصادر…","assistant");
  pending.setAttribute("aria-busy","true");
  try{
-  let data;
-  if(apiBase){
-   try{
-    const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),45000);
-    let r;
-    try{r=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q}),signal:controller.signal});}
-    finally{clearTimeout(timeout);}
-    let body={};try{body=await r.json();}catch{}
-    if(!r.ok)throw new Error(body.error||("فشل الطلب HTTP "+r.status));
-    data=body;
-   }catch(serverError){
-    data=await publicFallback(q);
-    data.coverage_note="تعذر خادم الإيجنت ("+(serverError.name==="AbortError"?"انتهت مهلة الاتصال":serverError.message)+"). "+data.coverage_note;
-   }
-  }else{
-   data=await publicFallback(q);
-  }
-  pending.textContent=data.answer||"لم ترجع نتائج نصية.";
+  if(!apiBase)throw new Error("البحث العام والإجابة الذكية يحتاجان إلى خادم API. افتح «إعداد اتصال الخادم»، وضع عنوان خادم HTTPS المنشور، ثم اضغط «اختبار الاتصال». GitHub Pages وحدها لا تشغّل Python ولا تحتفظ بأسرار البحث والنموذج. أُلغي البحث الاحتياطي المحدود حتى لا يظهر على أنه بحث شامل.");
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),45000);
+  let response;
+  try{
+   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q}),signal:controller.signal});
+  }finally{clearTimeout(timeout);}
+  let data={};try{data=await response.json();}catch{}
+  if(!response.ok)throw new Error(data.error||("فشل طلب البحث HTTP "+response.status));
+  if(typeof data.answer!=="string"||!data.answer.trim())throw new Error("عاد الخادم دون إجابة نصية. راجع سجلات الخادم.");
+  pending.textContent=data.answer;
   pending.removeAttribute("aria-busy");
   renderSources(pending,data.sources);
   if(data.coverage_note){const note=document.createElement("p");note.className="notice";note.textContent=data.coverage_note;pending.appendChild(note);}
-  const fullAgent=Boolean(apiBase)&&!String(data.coverage_note||"").startsWith("تعذر خادم الإيجنت");
-  setStatus(fullAgent?"اكتملت إجابة الخادم":"اكتمل البحث الاحتياطي","ok");
+  setStatus("اكتملت إجابة الخادم","ok");
  }catch(e){
-  pending.textContent=(e.message||"تعذر إكمال البحث.")+"\n\nلم يصل البحث إلى نتيجة. تحقق من اتصال الإنترنت أو اضبط خادم HTTPS من «إعداد اتصال الخادم».";
+  const detail=e.name==="AbortError"?"انتهت مهلة البحث بعد 45 ثانية.":(e.message||"تعذر إكمال البحث.");
+  pending.textContent=detail+"\n\nلم أعرض نتائج احتياطية محدودة على أنها بحث شامل. اختبر عنوان الخادم من «إعداد اتصال الخادم» وتأكد أن البحث والنموذج مهيآن على الخادم.";
   pending.classList.add("error");pending.removeAttribute("aria-busy");
-  setStatus("تعذر البحث — راجع الرسالة","bad");
+  setStatus("البحث غير متاح — يلزم فحص الخادم","bad");
  }finally{send.disabled=false;question.focus();}
 }
 $("form").addEventListener("submit",e=>{e.preventDefault();submit();});
