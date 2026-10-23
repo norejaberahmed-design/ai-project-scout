@@ -257,9 +257,11 @@ def transition_skill(
             effective_flags = json.loads(updates.get("risk_flags_json", row["risk_flags_json"]))
             if row["test_result"] != "PASSED":
                 raise ValueError("Approval blocked: passing test evidence is required")
-            effective_license_verified = bool(updates.get("license_verified", row["license_verified"]))
-            if effective_license.lower() in UNKNOWN_LICENSES or not effective_license_evidence or not effective_license_verified:
-                raise ValueError("Approval blocked: license must be verified with supporting evidence")
+            effective_license_verified = bool(updates.get("license_verified", False))
+            if ("license_verified" not in updates or not effective_license_verified
+                    or "license_evidence" not in updates or not effective_license_evidence
+                    or effective_license.lower() in UNKNOWN_LICENSES):
+                raise ValueError("Approval blocked: provide explicit license verification and supporting evidence in this review")
             if effective_flags:
                 raise ValueError("Approval blocked: unresolved risk flags remain")
             if not reviewer.strip():
