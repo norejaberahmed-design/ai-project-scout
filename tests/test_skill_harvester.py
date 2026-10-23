@@ -27,6 +27,20 @@ Check source identity, date, and direct support for every key claim.
 """
 
 
+def fake_tree_fetcher(url):
+    if "/git/trees/" not in url:
+        raise AssertionError("Unexpected URL: " + url)
+    return {
+        "truncated": False,
+        "tree": [{
+            "path": "SKILL.md",
+            "type": "blob",
+            "mode": "100644",
+            "size": len(SKILL.encode("utf-8")),
+        }],
+    }
+
+
 class SkillHarvesterTests(unittest.TestCase):
     def test_slug_rejects_generic_and_normalizes_names(self):
         self.assertEqual(skill_harvester._slug("Evidence Checking!"), "evidence-checking")
@@ -64,7 +78,8 @@ class SkillHarvesterTests(unittest.TestCase):
             with patch("skill_harvester.inspect_repository", return_value=info), \
                  patch("skill_harvester._get_skill_text", return_value=SKILL):
                 result = skill_harvester.harvest_repository(
-                    "https://github.com/example/skill-pack", root=root, db_path=db
+                    "https://github.com/example/skill-pack", root=root, db_path=db,
+                    fetcher=fake_tree_fetcher
                 )
             self.assertEqual(result["status"], "INSPECTED")
             proposal = result["proposals"][0]
@@ -99,7 +114,8 @@ class SkillHarvesterTests(unittest.TestCase):
             with patch("skill_harvester.inspect_repository", return_value=info), \
                  patch("skill_harvester._get_skill_text", return_value=risky):
                 result = skill_harvester.harvest_repository(
-                    "https://github.com/example/risky-pack", root=root, db_path=root / "skills.sqlite"
+                    "https://github.com/example/risky-pack", root=root,
+                    db_path=root / "skills.sqlite", fetcher=fake_tree_fetcher
                 )
             self.assertEqual(result["proposals"][0]["status"], "REJECTED_STATIC_CHECKS")
             self.assertFalse((root / "skills" / "proposed").exists())
@@ -127,7 +143,7 @@ class SkillHarvesterTests(unittest.TestCase):
                      patch("skill_harvester._get_skill_text", return_value=candidate):
                     result = skill_harvester.harvest_repository(
                         "https://github.com/example/platform-skills", root=root,
-                        db_path=root / "skills.sqlite"
+                        db_path=root / "skills.sqlite", fetcher=fake_tree_fetcher
                     )
                 self.assertEqual(result["proposals"][0]["status"], expected_status)
                 self.assertFalse((root / "skills" / "proposed").exists())
