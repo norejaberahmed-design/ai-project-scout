@@ -373,19 +373,22 @@ class AgentHandler(BaseHTTPRequestHandler):
             selected_skills = select_skills(question, load_active_skills(), limit=4)
             search_query = plan_search_query(question, selected_skills) if self.path == "/api/chat" else question
             found = search_web(search_query)
-            if self.path == "/api/search":
-                self._send(200, found)
-                return
-            # For project/tool questions, enrich web results with read-only GitHub metadata.
+            # Search the general public web for every query. For software/tool/repository
+            # intent, also search GitHub and merge those results into the same answer.
+            # discover_github returns no repositories for unrelated everyday questions.
             try:
                 github_sources = discover_github(search_query)
             except RuntimeError:
                 github_sources = []
-            component_acquisition = {"enabled": False}
             if github_sources:
                 found["results"] = (github_sources + found.get("results", []))[:8]
                 found["result_count"] = len(found["results"])
-                found["provider"] = "Tavily + GitHub"
+                found["provider"] = str(found.get("provider") or "Web search") + " + GitHub"
+            if self.path == "/api/search":
+                self._send(200, found)
+                return
+            component_acquisition = {"enabled": False}
+            if github_sources:
                 # Opt-in server-side acquisition stages eligible repository code in quarantine.
                 # It never installs or executes third-party code and cannot block the answer.
                 component_acquisition = auto_acquire_repositories(github_sources)
