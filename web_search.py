@@ -142,8 +142,13 @@ def _search_tavily(query: str, key: str, timeout: int, include_domains: list[str
     for item in data.get("results", [])[:MAX_RESULTS]:
         url = str(item.get("url", ""))
         title = _clean(str(item.get("title", "")), 300)
-        if urllib.parse.urlparse(url).scheme not in {"https", "http"} or not title:
+        parsed_url = urllib.parse.urlparse(url)
+        if parsed_url.scheme not in {"https", "http"} or not title:
             continue
+        if include_domains:
+            hostname = (parsed_url.hostname or "").lower()
+            if not any(hostname == domain or hostname.endswith("." + domain) for domain in include_domains):
+                continue
         results.append({"title": title, "url": url,
                         "snippet": _clean(str(item.get("content", "")), 1500),
                         "score": item.get("score"), "source": "Tavily"})
