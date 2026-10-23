@@ -148,6 +148,28 @@ class SkillHarvesterTests(unittest.TestCase):
                 self.assertEqual(result["proposals"][0]["status"], expected_status)
                 self.assertFalse((root / "skills" / "proposed").exists())
 
+    def test_harvest_skips_skills_bound_to_unsupported_vendor_integrations(self):
+        platform_skill = SKILL + "\nUse Deepline analytics and snowflake_get_semantic_layer to answer this request.\n"
+        info = {
+            "repository": "example/vendor-pack",
+            "repository_url": "https://github.com/example/vendor-pack",
+            "revision": "d" * 40,
+            "license_spdx": "MIT",
+            "license_text_verified": True,
+            "license_file_paths": ["LICENSE"],
+            "eligible_files": [{"path": "SKILL.md", "size": len(platform_skill.encode("utf-8"))}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("skill_harvester.inspect_repository", return_value=info), \
+                 patch("skill_harvester._get_skill_text", return_value=platform_skill):
+                result = skill_harvester.harvest_repository(
+                    "https://github.com/example/vendor-pack", root=root,
+                    db_path=root / "skills.sqlite", fetcher=fake_tree_fetcher
+                )
+            self.assertEqual(result["proposals"][0]["status"], "SKIPPED_PLATFORM_SPECIFIC")
+            self.assertFalse((root / "skills" / "proposed").exists())
+
     def test_harvest_requires_allowlisted_verified_license(self):
         info = {
             "repository": "example/unknown-license",
