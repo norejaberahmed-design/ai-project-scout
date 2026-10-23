@@ -91,6 +91,8 @@ def _safe_relative_path(raw: str) -> Path | None:
     name = path.name.lower()
     if name in DENIED_NAMES or name.endswith((".pem", ".key", ".p12", ".pfx", ".crt", ".sqlite", ".db")):
         return None
+    if name in {"license", "license.md", "license.txt", "copying"}:
+        return Path(*path.parts)
     if name in {"package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock", "uv.lock", "cargo.lock"}:
         return None
     if path.suffix.lower() not in ALLOWED_SUFFIXES:
