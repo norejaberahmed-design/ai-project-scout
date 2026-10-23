@@ -15,6 +15,17 @@
 
 لا تضع المفاتيح في GitHub Pages أو HTML أو JavaScript أو سجلات النشر. إذا كنت تستخدم Gemini، ضع قيمة المفتاح في السر `SCOUT_LLM_API_KEY`، وعنوان Gemini في المتغير `SCOUT_LLM_API_URL`، واسم النموذج في `SCOUT_LLM_MODEL`؛ طبّق الإعدادات نفسها على الخادم المستضاف. لا تشارك قيمة المفتاح في المحادثة. نقطة /api/skills تعرض المهارات المحمّلة فعليًا من skills/active/ وسجلات دورة الحياة منفصلة عن المهارات النشطة. لا تعتبر الحالة ACTIVE في سجل SQLite دليلًا وحدها على أن ملف المهارة موجود ومحمل. يستخدم سجل دورة الحياة SQLite؛ على الاستضافة التي تمسح نظام الملفات عند إعادة التشغيل اضبط SCOUT_SKILL_DB_PATH على قرص دائم.
 
+## نشر مبدئي على Render
+
+يوجد ملف Blueprint في [render.yaml](render.yaml) يعرّف خادم Docker وخط فحص الصحة. ابدأ من [لوحة Render](https://dashboard.render.com/) واختر New → Blueprint، ثم اربط مستودع GitHub هذا. بعد إنشاء الخدمة، أضف القيم السرية في لوحة Render فقط:
+- `SCOUT_LLM_API_KEY`: مفتاح مزود النموذج.
+- `SCOUT_LLM_MODEL`: اسم النموذج المتاح لحسابك.
+- `TAVILY_API_KEY`: مفتاح البحث.
+
+لا تضع هذه القيم في GitHub Pages أو ملفات المستودع أو المحادثة. بعد اكتمال النشر، افتح `https://عنوان-الخدمة/api/health` وتأكد من أن `web_search_configured` و`model_configured` تساويان `true`. بعدها ضع عنوان الخدمة الأساسي HTTPS في إعداد اتصال الخادم داخل الواجهة المنشورة، ثم اختبر سؤالًا حقيقيًا وتحقق من المصادر.
+
+**قيود الخطة المجانية:** قد تدخل الخدمة في وضع السكون، وملفاتها المحلية ليست تخزينًا دائمًا مضمونًا. لذلك سجل SQLite داخل الحاوية قد يُفقد عند إعادة النشر أو إعادة التشغيل؛ لا تعتبر حالة المهارات أو السجل مستدامة حتى يُضبط تخزين دائم. كذلك لم يتم إنشاء خدمة Render أو إدخال الأسرار نيابةً عنك من هذا المستودع؛ النشر الحي لا يُثبت إلا بعد تنفيذ الخطوات والتحقق من عنوان الخدمة.
+
 ## التشغيل المحلي
     python -m unittest discover -s tests -v
     TAVILY_API_KEY=... SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... SCOUT_LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions python api_server.py
