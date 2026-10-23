@@ -175,7 +175,7 @@ def plan_search_query(question: str, skills: list[dict]) -> str:
             if query and len(query) <= 300 and "\\n" not in query:
                 # Keep the original Arabic terms while adding the model's focused
                 # query; bilingual discovery must not silently discard Arabic intent.
-                if any("\\u0600" <= char <= "\\u06ff" for char in question) and not any("\\u0600" <= char <= "\\u06ff" for char in query):
+                if any(0x0600 <= ord(char) <= 0x06ff for char in question) and not any(0x0600 <= ord(char) <= 0x06ff for char in query):
                     return (question.strip() + " " + query)[:MAX_QUERY_CHARS]
                 return query
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, UnicodeError,
