@@ -130,6 +130,15 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         if not name:
             proposals.append({"source_path": upstream_path, "status": "REJECTED_INVALID_NAME"})
             continue
+        license_paths = info.get("license_file_paths", [])
+        if not license_paths:
+            proposals.append({"source_path": upstream_path, "name": name, "status": "REJECTED_MISSING_LICENSE_TEXT"})
+            continue
+        try:
+            upstream_license = _get_skill_text(canonical, info["revision"], str(license_paths[0]), fetcher)
+        except (RuntimeError, ValueError):
+            proposals.append({"source_path": upstream_path, "name": name, "status": "REJECTED_LICENSE_TEXT_UNAVAILABLE"})
+            continue
         document = upstream_document.rstrip() + (
             "\n\n## Source provenance\n"
             f"- Original repository: {info['repository_url']}\n"
@@ -138,6 +147,7 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
             f"- Immutable source revision: {info['revision']}\n"
             f"- Declared SPDX license: {info['license_spdx']}\n"
             "- Import status: untrusted proposal; not executed, installed, or activated.\n"
+            "- The original license text is preserved in UPSTREAM_LICENSE.txt.\n"
         )
         if len(document.encode("utf-8")) > MAX_SKILL_BYTES:
             proposals.append({"source_path": upstream_path, "name": name, "status": "REJECTED_SIZE_LIMIT"})
@@ -159,6 +169,19 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
             })
             continue
 
+        proposal_dir = Path(proposal["saved_path"]).parent
+        attribution = (
+            f"# Upstream skill attribution\n\n"
+            f"- Repository: {info['repository_url']}\n"
+            f"- Skill file: {info['repository_url']}/blob/{info['revision']}/"
+            f"{urllib.parse.quote(upstream_path, safe='/')}\n"
+            f"- Immutable revision: {info['revision']}\n"
+            f"- Declared SPDX license: {info['license_spdx']}\n"
+            f"- Original license file: {', '.join(str(p) for p in license_paths)}\n"
+            "- This is an untrusted proposal. It has not been executed, installed, approved, or activated.\n"
+        )
+        (proposal_dir / "ATTRIBUTION.md").write_text(attribution, encoding="utf-8")
+        (proposal_dir / "UPSTREAM_LICENSE.txt").write_text(upstream_license, encoding="utf-8")
         source_url = (
             f"{info['repository_url']}/blob/{info['revision']}/"
             f"{urllib.parse.quote(upstream_path, safe='/')}"
