@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, patch
 
 import api_server
 from skill_registry import register_discovery
@@ -42,7 +42,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("SCOUT_LLM_API_KEY", str(caught.exception))
 
     def test_chat_can_use_preselected_skills_without_reranking(self):
-        response = Mock()
+        response = MagicMock()
         response.__enter__.return_value.read.return_value = json.dumps({
             "choices": [{"message": {"content": "Evidence-backed answer"}}]
         }).encode("utf-8")
