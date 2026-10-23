@@ -23,26 +23,9 @@ REPO_URL = re.compile(r"(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([
 
 
 def request_json(url: str, timeout: int = 12) -> dict:
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "AI-Project-Scout/1.0",
-               "X-GitHub-Api-Version": "2022-11-28"}
-    token = os.getenv("GITHUB_TOKEN", "").strip()
-    if token:
-        headers["Authorization"] = "Bearer " + token
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            raw = response.read(1_000_000)
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError("GitHub API returned HTTP " + str(exc.code) + ".") from None
-    except (urllib.error.URLError, TimeoutError):
-        raise RuntimeError("GitHub API is unreachable.") from None
-    try:
-        data = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError):
-        raise RuntimeError("GitHub returned invalid JSON.") from None
-    if not isinstance(data, dict):
-        raise RuntimeError("GitHub returned an unexpected response.")
-    return data
+    """Use the shared rate-aware client; failures remain explicit, never empty results."""
+    from github_api import request_json as _request_json
+    return _request_json(url, timeout=timeout)
 
 
 def repository_from_url(text: str) -> tuple[str, str] | None:
