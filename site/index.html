@@ -252,7 +252,7 @@ async function searchBrowserSources(q){
  const answer=unique.length
   ?"استُرجعت نتائج فعلية من المصادر العامة التالية: "+notes.join("، ")+". هذه نسخة بحث احتياطية داخل المتصفح وليست إجابة مولّدة بنموذج لغوي. افتح المصادر وتحقق من المعلومات؛ للبحث العام الأوسع والإجابة الذكية، اربط خادم API."
   :"لم تُسترجع نتائج من Wikipedia أو GitHub لهذه المحاولة. قد تكون واجهة المصدر محجوبة أو وصل البحث إلى حد الطلبات؛ لا أعرض روابط بحث مباشرة على أنها نتائج مسترجعة.";
- return {answer,sources:unique.slice(0,10),provider:"Wikipedia"+(isSoftware+" + GitHub"),result_count:unique.length,
+ return {answer,sources:unique.slice(0,10),provider:"Wikipedia"+(isSoftware?" + GitHub":""),result_count:unique.length,
   coverage_note:"نطاق هذا الوضع الاحتياطي محدود إلى Wikipedia وGitHub عند ملاءمة السؤال. لا يمثّل تغطية شاملة للويب ولا يستخدم نموذجًا لغويًا."};
 }
 
