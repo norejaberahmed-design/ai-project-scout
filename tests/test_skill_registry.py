@@ -29,9 +29,33 @@ class SkillRegistryTests(unittest.TestCase):
         transition_skill(skill_id, "ANALYZED", db_path=self.db,
                         inspected_files=["README.md", "LICENSE"],
                         evidence={"observed": "test files exist"})
-        transition_skill(skill_id, "PROPOSED", db_path=self.db,
-                        content="candidate skill body")
+        proposed = transition_skill(skill_id, "PROPOSED", db_path=self.db,
+                                    content="candidate skill body")
+        self.assertEqual(len(proposed["content_sha256"]), 64)
         return skill_id
+
+    def test_analysis_requires_inspected_files_and_evidence(self):
+        candidate = register_discovery(
+            "no-evidence", "https://github.com/example/no-evidence", db_path=self.db
+        )
+        with self.assertRaisesRegex(ValueError, "inspected files"):
+            transition_skill(candidate["skill_id"], "ANALYZED", db_path=self.db)
+
+    def test_proposal_requires_its_own_content_hash(self):
+        candidate = register_discovery(
+            "empty-proposal", "https://github.com/example/empty-proposal", db_path=self.db
+        )
+        transition_skill(candidate["skill_id"], "ANALYZED", db_path=self.db,
+                         inspected_files=["README.md"], evidence={"observed": "procedure described"})
+        with self.assertRaisesRegex(ValueError, "content hash"):
+            transition_skill(candidate["skill_id"], "PROPOSED", db_path=self.db)
+
+    def test_passing_test_result_cannot_hide_reported_failures(self):
+        skill_id = self.advance_to_proposed()
+        with self.assertRaisesRegex(ValueError, "cannot include failures"):
+            transition_skill(skill_id, "TESTED", db_path=self.db,
+                             test_result="PASSED", test_command="python -m unittest",
+                             test_report={"tests": 4, "failures": 1})
 
     def test_new_discovery_is_not_active(self):
         self.assertEqual(self.skill["status"], "DISCOVERED")
@@ -88,7 +112,8 @@ class SkillRegistryTests(unittest.TestCase):
             register_discovery("bad-source", "javascript:alert(1)", db_path=self.db)
 
     def test_content_hash_is_recorded(self):
-        self.assertEqual(len(self.skill["content_sha256"]), 64)
+        self.assertEqual(len(self.skill["source_content_sha256"]), 64)
+        self.assertEqual(self.skill["content_sha256"], "")
 
 
 if __name__ == "__main__":
