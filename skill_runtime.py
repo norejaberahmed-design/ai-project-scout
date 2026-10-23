@@ -94,6 +94,33 @@ def load_active_skills(root: Path | None = None) -> list[dict]:
     return loaded
 
 
+def load_proposed_skills(root: Path | None = None, limit: int = 50) -> list[dict]:
+    """Load statically valid proposals as untrusted reference material, never as trusted instructions."""
+    directory = (root or ROOT) / "skills" / "proposed"
+    loaded = []
+    if limit < 1 or not directory.exists():
+        return loaded
+    for path in sorted(directory.glob("*/SKILL.md"))[:min(int(limit), 100)]:
+        try:
+            document = path.read_text(encoding="utf-8")
+            checked = inspect_candidate(document)
+            if not checked.get("valid"):
+                continue
+            metadata = checked["metadata"]
+            if path.parent.name != metadata.get("name"):
+                continue
+            loaded.append({
+                "name": metadata["name"],
+                "description": metadata["description"],
+                "path": str(path),
+                "content": document,
+                "trust_level": "UNTRUSTED_PROPOSAL",
+            })
+        except (OSError, UnicodeError, ValueError):
+            continue
+    return loaded
+
+
 def activate_approved_skill(skill_id: str, reviewer: str, root: Path | None = None,
                            db_path: str | Path | None = None) -> dict:
     """Activate one reviewed registry record only when its saved proposal matches the approved hash."""
