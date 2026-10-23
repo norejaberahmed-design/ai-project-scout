@@ -205,6 +205,52 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
+    def test_chat_runs_opt_in_component_acquisition_for_analyzed_github_candidates(self):
+        github_candidate = {
+            "title": "GitHub repository: example/safe-ai-tool",
+            "url": "https://github.com/example/safe-ai-tool",
+            "snippet": "License: MIT",
+            "source": "GitHub repository inspection",
+            "score": None,
+        }
+        search_result = {"results": [], "coverage_note": "Mocked source coverage"}
+        acquisition_result = {
+            "enabled": True, "attempted": 1, "copied": 1,
+            "items": [{"repository": "example/safe-ai-tool", "status": "PROPOSED_REVIEW_REQUIRED"}],
+        }
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch.dict(os.environ, {
+                "SCOUT_LLM_API_KEY": "test-secret",
+                "SCOUT_LLM_MODEL": "test-model",
+                "TAVILY_API_KEY": "test-search-key",
+            }, clear=True), \
+                 patch("api_server.select_skills", return_value=[]), \
+                 patch("api_server.plan_search_query", return_value="find AI tools"), \
+                 patch("api_server.search_web", return_value=search_result), \
+                 patch("api_server.discover_github", return_value=[github_candidate]), \
+                 patch("api_server.auto_acquire_repositories", return_value=acquisition_result) as acquire, \
+                 patch("api_server.generate_answer", return_value="تم فحص مرشح المصدر.") :
+                payload = json.dumps({"question": "ابحث عن أدوات الذكاء الاصطناعي"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/chat",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+                acquire.assert_called_once_with([github_candidate])
+                self.assertEqual(body["component_acquisition"]["copied"], 1)
+                self.assertEqual(body["sources"][0]["url"], github_candidate["url"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
+
     def test_origins_are_explicitly_configurable(self):
         with patch.dict(os.environ, {"SCOUT_ALLOWED_ORIGINS": "https://app.example, https://test.example/"}):
             self.assertEqual(api_server.allowed_origins(), {"https://app.example", "https://test.example"})
