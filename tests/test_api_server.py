@@ -33,6 +33,25 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(body["trusted_internal_skills"][0]["name"], "testing")
 
     @patch("api_server.search_web")
+    def test_search_query_planner_uses_skill_procedures_without_exposing_them(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Saudi AI agent skills GitHub source evaluation"}}]
+        }).encode("utf-8")
+        skills = [{"name": "research-method", "content": "Search primary sources and verify dates."}]
+        with patch.dict(os.environ, {
+            "SCOUT_LLM_API_KEY": "test-secret",
+            "SCOUT_LLM_MODEL": "test-model",
+        }, clear=True), patch("api_server.urllib.request.urlopen", return_value=response) as opener:
+            query = api_server.plan_search_query("Find AI agent tools", skills)
+        self.assertEqual(query, "Saudi AI agent skills GitHub source evaluation")
+        payload = json.loads(opener.call_args[0][0].data.decode("utf-8"))
+        self.assertNotIn("Search primary sources", payload["messages"][0]["content"])
+        self.assertIn("Search primary sources", payload["messages"][1]["content"])
+
+    def test_search_query_planner_falls_back_to_original_without_skills(self):
+        self.assertEqual(api_server.plan_search_query("  ابحث عن أدوات AI  ", []), "ابحث عن أدوات AI")
+
     def test_chat_requires_model_configuration_without_exposing_keys(self, search):
         search.return_value = {"results": [], "coverage_note": "public web"}
         with patch.dict(os.environ, {"TAVILY_API_KEY": "tavily-secret"}, clear=True):
