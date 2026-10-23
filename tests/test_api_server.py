@@ -162,7 +162,7 @@ class ApiServerTests(unittest.TestCase):
             worker.join(timeout=2)
 
     def test_skill_discovery_endpoint_is_rate_limited_and_returns_harvest_report(self):
-        api_server.LAST_SKILL_DISCOVERY = time.monotonic() - api_server.SKILL_DISCOVERY_COOLDOWN_SECONDS - 1
+        api_server.LAST_SKILL_DISCOVERY = None
         api_server.REQUEST_TIMES.clear()
         report = {"proposals_created": 1, "repositories_searched": 2,
                   "results": [{"status": "PROPOSED_REVIEW_REQUIRED"}]}
