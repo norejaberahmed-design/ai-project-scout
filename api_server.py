@@ -279,7 +279,7 @@ class AgentHandler(BaseHTTPRequestHandler):
             "status": "ok",
             "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
             "web_search_available": True,
-            "web_search_provider": "Tavily with DuckDuckGo fallback",
+            "web_search_provider": "Tavily with DuckDuckGo and Bing RSS fallbacks",
             "model_configured": bool(os.getenv("SCOUT_LLM_API_KEY") and os.getenv("SCOUT_LLM_MODEL")),
         })
 
