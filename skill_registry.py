@@ -207,15 +207,33 @@ def transition_skill(
             updates["evidence_json"] = _json(evidence)
         if content is not None:
             updates["content_sha256"] = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        if target_status == "ANALYZED":
+            effective_files = updates.get("inspected_files_json", row["inspected_files_json"])
+            effective_evidence = updates.get("evidence_json", row["evidence_json"])
+            if not json.loads(effective_files):
+                raise ValueError("Analysis requires a record of inspected files")
+            if not json.loads(effective_evidence):
+                raise ValueError("Analysis requires concrete evidence")
+        if target_status == "PROPOSED":
+            effective_hash = updates.get("content_sha256", row["content_sha256"])
+            if not effective_hash:
+                raise ValueError("Proposal requires a skill document content hash")
         if test_result is not None:
             if target_status != "TESTED" or test_result not in {"PASSED", "FAILED"}:
                 raise ValueError("A TESTED transition requires test_result PASSED or FAILED")
             if not test_command or not test_command.strip():
                 raise ValueError("A reproducible test command is required")
+            if not isinstance(test_report, dict) or not test_report:
+                raise ValueError("A structured test report is required")
+            failures = int(test_report.get("failures", 0) or 0)
+            errors = int(test_report.get("errors", 0) or 0)
+            exit_code = test_report.get("exit_code", 0)
+            if test_result == "PASSED" and (failures or errors or exit_code != 0):
+                raise ValueError("A passing test result cannot include failures, errors, or a nonzero exit code")
             updates.update({
                 "test_result": test_result,
                 "test_command": test_command.strip()[:1000],
-                "test_report_json": _json(test_report or {}),
+                "test_report_json": _json(test_report),
             })
         elif target_status == "TESTED":
             raise ValueError("A TESTED transition requires an explicit test result")
@@ -237,6 +255,12 @@ def transition_skill(
                 raise ValueError("Activation requires an explicit reviewer")
             if row["status"] != "APPROVED":
                 raise ValueError("Activation requires APPROVED status")
+            if row["test_result"] != "PASSED":
+                raise ValueError("Activation blocked: passing test evidence is required")
+            if (row["license_spdx"] or "").strip().lower() in UNKNOWN_LICENSES or not row["license_evidence"].strip():
+                raise ValueError("Activation blocked: license evidence is missing")
+            if json.loads(row["risk_flags_json"]):
+                raise ValueError("Activation blocked: unresolved risk flags remain")
             updates["reviewer"] = reviewer.strip()[:200]
             updates["activated_at"] = _now()
         assignments = ",".join(f"{key}=?" for key in updates)
