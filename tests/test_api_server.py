@@ -56,6 +56,21 @@ class ApiServerTests(unittest.TestCase):
     def test_search_query_planner_falls_back_to_original_without_skills(self):
         self.assertEqual(api_server.plan_search_query("  ابحث عن أدوات AI  ", []), "ابحث عن أدوات AI")
 
+    def test_search_query_planner_preserves_arabic_terms_when_model_returns_english(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "open source AI agent skills tutorial"}}]
+        }).encode("utf-8")
+        skills = [{"name": "research-method", "content": "Search the public web."}]
+        with patch.dict(os.environ, {
+            "SCOUT_LLM_API_KEY": "test-secret",
+            "SCOUT_LLM_MODEL": "test-model",
+        }, clear=True), patch("api_server.urllib.request.urlopen", return_value=response):
+            query = api_server.plan_search_query("ابحث عن مهارات الوكلاء ومصادرها", skills)
+        self.assertIn("ابحث عن مهارات الوكلاء ومصادرها", query)
+        self.assertIn("open source AI agent skills tutorial", query)
+        self.assertLessEqual(len(query), api_server.MAX_QUERY_CHARS)
+
     @patch("api_server.search_web")
     def test_chat_requires_model_configuration_without_exposing_keys(self, search):
         search.return_value = {"results": [], "coverage_note": "public web"}
