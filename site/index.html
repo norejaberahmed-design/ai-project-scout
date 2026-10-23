@@ -130,17 +130,17 @@ async function submit(text){
  bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث في الويب…");
  const pending=bubble("أبحث في الويب ثم أتحقق من المصادر…","assistant");
  pending.setAttribute("aria-busy","true");
- const showData=(data,status,message)=>{
+ const showData=(data,status,message,state="ok")=>{
   pending.textContent=data.answer||message||"اكتمل البحث.";
   pending.removeAttribute("aria-busy");
   renderSources(pending,data.sources);
   if(data.coverage_note){const note=document.createElement("p");note.className="notice";note.textContent=data.coverage_note;pending.appendChild(note);}
-  setStatus(status,"ok");
+  setStatus(status,state);
  };
  try{
   if(!apiBase){
    const fallback=publicSearchLinks(q);
-   showData(fallback,"روابط بحث مباشرة — الخادم غير متصل");
+   showData(fallback,"روابط بحث مباشرة — الخادم غير متصل",undefined,"neutral");
    return;
   }
   const controller=new AbortController();
