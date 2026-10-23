@@ -55,6 +55,7 @@ PLATFORM_DEPENDENCY_PATTERNS = (
     re.compile(r"\bCowork\b|Skill Center", re.I),
     # Reject instructions tied to a third-party analytics CLI/integration absent from this app.
     re.compile(r"\bdeepline\b|snowflake_(?:get_semantic_layer|run_semantic_query)", re.I),
+    re.compile(r"\\bagentskillshub\\b|@agentskillshub/", re.I),
     re.compile(r"\bAIRFLOW_(?:API_URL|AUTH_TOKEN|USERNAME|PASSWORD)\b|\brun_af\b|astro-airflow-mcp", re.I),
     re.compile(r"\bsubagents?\b|\bparallel agents?\b|\bdispatch(?:ing)?[- ](?:parallel[- ])?agents?\b", re.I),
 )
