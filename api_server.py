@@ -34,7 +34,7 @@ RATE_LIMIT_LOCK = Lock()
 REQUEST_TIMES: dict[str, deque[float]] = defaultdict(deque)
 SKILL_DISCOVERY_LOCK = Lock()
 SKILL_DISCOVERY_COOLDOWN_SECONDS = 900
-LAST_SKILL_DISCOVERY = 0.0
+LAST_SKILL_DISCOVERY: float | None = None
 
 
 def allowed_origins() -> set[str]:
@@ -307,7 +307,7 @@ class AgentHandler(BaseHTTPRequestHandler):
             global LAST_SKILL_DISCOVERY
             now = time.monotonic()
             with SKILL_DISCOVERY_LOCK:
-                remaining = SKILL_DISCOVERY_COOLDOWN_SECONDS - (now - LAST_SKILL_DISCOVERY)
+                remaining = (SKILL_DISCOVERY_COOLDOWN_SECONDS - (now - LAST_SKILL_DISCOVERY)) if LAST_SKILL_DISCOVERY is not None else 0
                 if remaining > 0:
                     self._send(429, {
                         "error": "اكتشاف المهارات يعمل مرة كل 15 دقيقة لحماية الخدمة من إساءة الاستخدام.",
