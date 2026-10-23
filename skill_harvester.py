@@ -23,7 +23,6 @@ from component_acquisition import (
 )
 from skill_registry import register_discovery, transition_skill
 from skill_runtime import inspect_candidate, save_proposal
-from web_search import search_web
 
 ROOT = Path(__file__).resolve().parent
 API = "https://api.github.com"
@@ -305,91 +304,6 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
 
 
 
-def discover_video_related_repositories(*, searcher=search_web, fetcher=request_json) -> tuple[list[dict], list[dict]]:
-    """Use public web/YouTube tutorials as discovery leads, then resolve linked source repos.
-
-    A video is never treated as a license or permission to copy its code. Only linked
-    repositories whose GitHub metadata names an allowlisted license can proceed.
-    """
-    repository_candidates: list[dict] = []
-    video_leads: list[dict] = []
-    seen_videos: set[str] = set()
-    seen_repositories: set[str] = set()
-    discovery_results: list[dict] = []
-    search_errors: list[str] = []
-    # Search in both languages so Arabic tutorials and English source repositories
-    # can lead to the same licensed-skill review pipeline.
-    for query in (
-        "open source AI agent skills tutorial source code",
-        "مهارات وكلاء الذكاء الاصطناعي شرح فيديو كود المصدر مفتوح المصدر",
-    ):
-        try:
-            discovery = searcher(query, timeout=12)
-            discovery_results.extend(
-                item for item in discovery.get("results", []) if isinstance(item, dict)
-            )
-        except (RuntimeError, ValueError, TypeError) as exc:
-            search_errors.append(str(exc)[:200])
-    if not discovery_results:
-        reason = "; ".join(search_errors)[:200] or "No usable public-web results."
-        return [], [{"status": "VIDEO_DISCOVERY_UNAVAILABLE", "reason": reason}]
-
-    videos = [item for item in discovery_results
-              if "youtube.com/watch" in str(item.get("url", "")) or "youtu.be/" in str(item.get("url", ""))]
-    for video in videos[:3]:
-        video_url = str(video.get("url", ""))
-        if not video_url or video_url in seen_videos:
-            continue
-        seen_videos.add(video_url)
-        title = str(video.get("title", ""))[:180]
-        video_leads.append({
-            "status": "VIDEO_DISCOVERED_NOT_COPIED",
-            "title": title,
-            "url": video_url,
-            "reason": "Video is a discovery lead only; source code is imported only from a separately verified, licensed repository.",
-        })
-        try:
-            related = searcher(f'"{title}" source code GitHub repository license', timeout=12)
-        except (RuntimeError, ValueError, TypeError):
-            continue
-        possible_urls = [str(item.get("url", "")) for item in related.get("results", [])]
-        possible_urls += re.findall(
-            r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
-            " ".join(str(item.get("snippet", "")) for item in related.get("results", []))
-        )
-        for candidate_url in possible_urls:
-            try:
-                owner, name = parse_repository_url(candidate_url)
-            except ValueError:
-                continue
-            canonical = f"https://github.com/{owner}/{name}"
-            if canonical.lower() in seen_repositories:
-                continue
-            seen_repositories.add(canonical.lower())
-            try:
-                meta = fetcher(f"{API}/repos/{owner}/{name}")
-            except (RuntimeError, ValueError):
-                continue
-            if meta.get("archived") or meta.get("fork"):
-                continue
-            license_data = meta.get("license") or {}
-            license_id = str(license_data.get("spdx_id") or "UNKNOWN")
-            if license_id not in ALLOWED_LICENSES:
-                continue
-            repository_candidates.append({
-                "url": canonical,
-                "repository": str(meta.get("full_name") or f"{owner}/{name}"),
-                "description": str(meta.get("description") or "")[:400],
-                "stars": int(meta.get("stargazers_count") or 0),
-                "license_spdx": license_id,
-                "pushed_at": str(meta.get("pushed_at") or ""),
-                "discovered_from_video": video_url,
-                "video_title": title,
-            })
-            if len(repository_candidates) >= 5:
-                return repository_candidates, video_leads
-    return repository_candidates, video_leads
-
 def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
                 db_path: str | Path | None = None, fetcher=request_json) -> dict:
     """Search, inspect, and stage at most three eligible skill documents."""
@@ -419,10 +333,6 @@ def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
             report["results"].append({
                 "query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]
             })
-
-    video_repositories, video_leads = discover_video_related_repositories(fetcher=fetcher)
-    report["results"].extend(video_leads)
-    discovered.extend(video_repositories)
 
     for candidate in discovered:
         remaining = max_proposals - report["proposals_created"]
