@@ -1,5 +1,6 @@
 """AI Project Scout research agent: public-web leads + GitHub signals, without fake market claims."""
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -195,8 +196,10 @@ def run_agent(idea, buyer="الشركات الصغيرة والمتوسطة", ma
     report = make_report(idea, buyer, market, deduplicate_results(results), github_stats, errors)
     output_dir = Path(report_dir or REPORT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", idea).strip("-")[:35] or "idea"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    # Preserve Arabic names and add a stable digest so non-Latin ideas do not all collapse to "idea".
+    safe_name = re.sub(r"[^\\w-]+", "-", idea, flags=re.UNICODE).strip("-_")[:35] or "idea"
+    safe_name = f"{safe_name}-{hashlib.sha256(idea.encode('utf-8')).hexdigest()[:8]}"
     json_path = output_dir / f"agent-{safe_name}-{stamp}.json"
     md_path = output_dir / f"agent-{safe_name}-{stamp}.md"
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
