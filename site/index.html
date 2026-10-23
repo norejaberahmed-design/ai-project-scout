@@ -168,9 +168,13 @@ async function loadSkillRegistry(){
   if(review.length){
    candidateEl.replaceChildren();
    review.forEach(skill=>addSkillCard(candidateEl,{name:skill.name,description:skill.description,meta:"الحالة: "+(skill.status==="candidate_requires_review"?"تحتاج مراجعة واختبار":"محجوبة حتى مراجعة الترخيص والأمان")+" · الترخيص: "+(skill.license_spdx||"غير معروف")+" · التقييم الاستدلالي: "+Number(skill.quality_score||0)+"/100",url:skill.source_url,label:"فتح المصدر"}));
+  }else{
+   candidateEl.replaceChildren();
+   const empty=document.createElement("div");empty.className="skill-empty";empty.textContent="لا توجد مهارات خارجية مرشّحة مسجلة حاليًا. لم يُسجّل بعد اكتساب مهارة خارجية مع مصدر واختبار ناجح ومراجعة.";candidateEl.appendChild(empty);
   }
   const generated=candidateData?.generated_at||activeData?.generated_at||"غير متوفر";
-  summary.textContent="المهارات المفعّلة: "+(active.length||3)+" · مرشحات الفحص الخارجي: "+candidates.length+" · لا يُعد التقييم الاستدلالي شهادة جودة.";
+  const externallyActive=active.filter(skill=>skill.origin==="external"&&skill.status==="active").length;
+  summary.textContent="المهارات الداخلية المفعّلة: "+active.length+" · المهارات الخارجية المعتمدة: "+externallyActive+" · المرشحات قيد المراجعة: "+review.length+". لا توجد مهارة خارجية معتمدة حتى الآن.";
   updated.textContent="آخر تحديث لبيانات الفحص: "+generated+". المرشحات الخارجية لا تُفعّل تلقائيًا؛ الإضافة للمكتبة النشطة تتطلب اختبارًا ومراجعة.";
  }catch(e){
   summary.textContent="تعذر تحميل ملف سجل المهارات؛ المعروض أعلاه هو سجل المهارات الداخلية الأساسية.";
