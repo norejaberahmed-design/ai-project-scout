@@ -114,27 +114,50 @@ function publicSearchLinks(q){\n const encoded=encodeURIComponent(q);\n const qu
  bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث في الويب…");
  const pending=bubble("أبحث في الويب ثم أتحقق من المصادر…","assistant");
  pending.setAttribute("aria-busy","true");
- try{
-  if(!apiBase)throw new Error("البحث العام والإجابة الذكية يحتاجان إلى خادم API. افتح «إعداد اتصال الخادم»، وضع عنوان خادم HTTPS المنشور، ثم اضغط «اختبار الاتصال». GitHub Pages وحدها لا تشغّل Python ولا تحتفظ بأسرار البحث والنموذج. أُلغي البحث الاحتياطي المحدود حتى لا يظهر على أنه بحث شامل.");
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),45000);
-  let response;
-  try{
-   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q}),signal:controller.signal});
-  }finally{clearTimeout(timeout);}
-  let data={};try{data=await response.json();}catch{}
-  if(!response.ok)throw new Error(data.error||("فشل طلب البحث HTTP "+response.status));
-  if(typeof data.answer!=="string"||!data.answer.trim())throw new Error("عاد الخادم دون إجابة نصية. راجع سجلات الخادم.");
-  pending.textContent=data.answer;
+ const showData=(data,status,message)=>{
+  pending.textContent=data.answer||message||"اكتمل البحث.";
   pending.removeAttribute("aria-busy");
   renderSources(pending,data.sources);
   if(data.coverage_note){const note=document.createElement("p");note.className="notice";note.textContent=data.coverage_note;pending.appendChild(note);}
-  setStatus("اكتملت إجابة الخادم","ok");
+  setStatus(status,"ok");
+ };
+ try{
+  if(!apiBase){
+   const fallback=publicSearchLinks(q);
+   showData(fallback,"روابط بحث مباشرة — الخادم غير متصل");
+   return;
+  }
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),45000);
+  let response,data={};
+  try{
+   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q}),signal:controller.signal});
+   try{data=await response.json();}catch{data={};}
+  }finally{clearTimeout(timeout);}
+  if(response.ok&&typeof data.answer==="string"&&data.answer.trim()){
+   showData(data,"اكتملت إجابة الإيجنت");
+   return;
+  }
+  const chatError=data.error||("فشل طلب الإجابة HTTP "+response.status);
+  // If the model is missing or unavailable, still run the web-search endpoint and show real results.
+  const searchResponse=await fetch(apiBase+"/api/search",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({query:q})});
+  const searchData=await searchResponse.json().catch(()=>({}));
+  if(searchResponse.ok&&Array.isArray(searchData.results)&&searchData.results.length){
+   const bullets=searchData.results.slice(0,8).map((item,i)=>(i+1)+". "+String(item.title||"مصدر")+"\n"+String(item.snippet||"")).join("\n\n");
+   showData({
+    answer:"نفّذت بحث الويب، لكن الإجابة الذكية لم تعمل: "+chatError+"\n\nنتائج البحث:\n\n"+bullets,
+    sources:searchData.results,
+    coverage_note:(searchData.coverage_note||"نتائج ويب عامة.")+" هذه نتائج بحث فعلية؛ لم يتمكن النموذج من صياغة إجابة كاملة."
+   },"اكتمل البحث؛ النموذج غير متاح");
+   return;
+  }
+  throw new Error(chatError+"؛ وفشل البحث الاحتياطي داخل الخادم: "+(searchData.error||("HTTP "+searchResponse.status)));
  }catch(e){
   const detail=e.name==="AbortError"?"انتهت مهلة البحث بعد 45 ثانية.":(e.message||"تعذر إكمال البحث.");
-  pending.textContent=detail+"\n\nلم أعرض نتائج احتياطية محدودة على أنها بحث شامل. اختبر عنوان الخادم من «إعداد اتصال الخادم» وتأكد أن البحث والنموذج مهيآن على الخادم.";
+  pending.textContent=detail+"\n\nسأعرض روابط بحث عامة مباشرة بدل الاكتفاء ببحث GitHub أو ويكيبيديا. لإظهار نتائج جلبها الإيجنت وإجابة النموذج داخل المحادثة، تأكد من نشر خادم HTTPS وضبط أسرار البحث والنموذج.";
   pending.classList.add("error");pending.removeAttribute("aria-busy");
-  setStatus("البحث غير متاح — يلزم فحص الخادم","bad");
+  renderSources(pending,publicSearchLinks(q).sources);
+  setStatus("البحث الذكي غير متاح — روابط بديلة جاهزة","bad");
  }finally{send.disabled=false;question.focus();}
 }
 $("form").addEventListener("submit",e=>{e.preventDefault();submit();});
