@@ -196,7 +196,7 @@ class ApiServerTests(unittest.TestCase):
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            with patch("api_server.search_web", return_value=web) as search, \\
+            with patch("api_server.search_web", return_value=web) as search, \
                  patch("api_server.discover_github", return_value=github) as discover:
                 request = urllib.request.Request(
                     f"http://127.0.0.1:{server.server_port}/api/search",
