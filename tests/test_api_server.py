@@ -1,9 +1,11 @@
 import json
 import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
 import api_server
+from skill_registry import register_discovery
 
 
 class ApiServerTests(unittest.TestCase):
@@ -47,6 +49,20 @@ class ApiServerTests(unittest.TestCase):
         }, clear=True):
             with self.assertRaisesRegex(RuntimeError, "HTTPS"):
                 api_server.generate_answer("test", {"results": []})
+
+    def test_skill_registry_api_separates_runtime_active_from_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"SCOUT_SKILL_DB_PATH": os.path.join(tmp, "skills.sqlite")}):
+                register_discovery(
+                    "candidate-skill", "https://github.com/example/candidate-skill",
+                    license_spdx="MIT", license_evidence="LICENSE inspected",
+                )
+                payload = api_server.skill_registry_payload()
+        self.assertIn("active_runtime", payload)
+        self.assertIn("lifecycle_records", payload)
+        self.assertTrue(any(item["name"] == "candidate-skill" and item["status"] == "DISCOVERED"
+                            for item in payload["lifecycle_records"]))
+        self.assertFalse(any(item["name"] == "candidate-skill" for item in payload["active_runtime"]))
 
     def test_origins_are_explicitly_configurable(self):
         with patch.dict(os.environ, {"SCOUT_ALLOWED_ORIGINS": "https://app.example, https://test.example/"}):

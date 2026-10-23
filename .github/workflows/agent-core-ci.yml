@@ -70,14 +70,19 @@ jobs:
         run: |
           docker run -d --name agent-api-test -p 8787:8787 ai-project-scout-api:test
           trap 'docker rm -f agent-api-test >/dev/null 2>&1 || true' EXIT
+          ready=0
           for attempt in $(seq 1 10); do
             if curl --fail --silent http://127.0.0.1:8787/api/health; then
-              exit 0
+              ready=1
+              break
             fi
             sleep 1
           done
-          docker logs agent-api-test
-          exit 1
+          if [ "$ready" != "1" ]; then
+            docker logs agent-api-test
+            exit 1
+          fi
+          curl --fail --silent http://127.0.0.1:8787/api/skills | python -c 'import json,sys; data=json.load(sys.stdin); assert isinstance(data.get("active_runtime"), list); assert isinstance(data.get("lifecycle_records"), list); print("Skill registry endpoint passed")'
       - name: Ensure secrets are not embedded in the public UI
         run: |
           if grep -E 'TAVILY_API_KEY=|SCOUT_LLM_API_KEY=|sk-or-v1-[A-Za-z0-9]+' site/index.html; then

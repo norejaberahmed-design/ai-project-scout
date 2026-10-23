@@ -150,7 +150,60 @@ function skillDescription(content){
 }
 async function loadSkillRegistry(){
  const activeEl=$("active-skills"),candidateEl=$("candidate-skills"),summary=$("skill-summary"),updated=$("skills-updated");
+ const statusLabels={
+  DISCOVERED:"اكتُشفت فقط — لم تُحلل بعد",
+  ANALYZED:"حُللت ساكنًا — لم تُبنَ المهارة بعد",
+  PROPOSED:"مهارة مقترحة — لم تُختبر بعد",
+  TESTED:"اختُبرت — النتيجة موضحة أدناه",
+  APPROVED:"اجتازت البوابات وتنتظر التفعيل الصريح",
+  ACTIVE:"مسجلة نشطة لكن لم يُثبت تحميلها في مسار التشغيل",
+  REJECTED:"مرفوضة",
+  RETIRED:"متقاعدة — لا تستخدمها المحادثة"
+ };
  try{
+  let live=null;
+  if(apiBase){
+   try{
+    const response=await fetch(apiBase+"/api/skills",{cache:"no-store"});
+    if(response.ok)live=await response.json();
+   }catch{}
+  }
+  if(live && Array.isArray(live.active_runtime) && Array.isArray(live.lifecycle_records)){
+   const active=live.active_runtime;
+   activeEl.replaceChildren();
+   if(active.length)active.forEach(skill=>addSkillCard(activeEl,{
+    name:String(skill.name||"").replace(/-/g," "),
+    description:skill.description,
+    meta:"الحالة: موجودة في مجلد المهارات النشطة ويحمّلها مسار المحادثة"
+   }));
+   else activeEl.textContent="لا توجد مهارات نشطة محملة في الخادم.";
+   const activeNames=new Set(active.map(s=>s.name));
+   const records=live.lifecycle_records.filter(s=>!["REJECTED","RETIRED"].includes(s.status)&&!(s.status==="ACTIVE"&&activeNames.has(s.name)));
+   candidateEl.replaceChildren();
+   if(records.length){
+    records.forEach(skill=>{
+     const meta="الحالة: "+(statusLabels[skill.status]||skill.status)+
+      " · نتيجة الاختبار: "+(skill.test_result||"NOT_RUN")+
+      " · الترخيص: "+(skill.license_spdx||"غير محدد")+
+      (Array.isArray(skill.risk_flags)&&skill.risk_flags.length?" · مخاطر مفتوحة: "+skill.risk_flags.join(", "):"");
+     addSkillCard(candidateEl,{
+      name:skill.name+(skill.version?" v"+skill.version:""),
+      description:(skill.evidence&&skill.evidence.capability)||"مرشح مسجل؛ لم يُعتبر مهارة مكتسبة.",
+      meta,
+      url:skill.source_url,
+      label:"فتح مصدر المرشح"
+     });
+    });
+   }else{
+    candidateEl.textContent="لا توجد مهارات خارجية مرشحة مسجلة حتى الآن. لم تُعلن أي مهارة خارجية مكتسبة.";
+   }
+   const proposed=records.filter(s=>["DISCOVERED","ANALYZED","PROPOSED","TESTED","APPROVED"].includes(s.status)).length;
+   const approved=records.filter(s=>s.status==="APPROVED").length;
+   summary.textContent="المهارات النشطة في المحادثة: "+active.length+
+    " · المرشحات غير المفعلة: "+proposed+" · تنتظر التفعيل: "+approved;
+   updated.textContent="السجل حي من خادم الإيجنت. المهارة لا تُعد مكتسبة إلا بعد نجاح الاختبارات والاعتماد وظهورها ضمن المهارات النشطة المحملة.";
+   return;
+  }
   const [activeResponse,candidateResponse]=await Promise.all([
    fetch("./data/active-skills.json",{cache:"no-store"}),
    fetch("./data/skills-catalog.json",{cache:"no-store"})
@@ -162,23 +215,21 @@ async function loadSkillRegistry(){
   const candidates=Array.isArray(candidateData?.skills)?candidateData.skills:[];
   if(active.length){
    activeEl.replaceChildren();
-   active.forEach(skill=>addSkillCard(activeEl,{name:String(skill.name||"").replace(/-/g," "),description:skillDescription(skill.content),meta:"حالة: مفعّلة داخل الإيجنت · مهارة داخلية معتمدة"}));
+   active.forEach(skill=>addSkillCard(activeEl,{name:String(skill.name||"").replace(/-/g," "),description:skillDescription(skill.content),meta:"حالة: مهارة داخلية معتمدة وموجودة في المستودع"}));
   }
   const review=candidates.filter(s=>s.status==="candidate_requires_review"||s.status==="blocked_until_license_or_security_review").slice(0,5);
   if(review.length){
    candidateEl.replaceChildren();
    review.forEach(skill=>addSkillCard(candidateEl,{name:skill.name,description:skill.description,meta:"الحالة: "+(skill.status==="candidate_requires_review"?"تحتاج مراجعة واختبار":"محجوبة حتى مراجعة الترخيص والأمان")+" · الترخيص: "+(skill.license_spdx||"غير معروف")+" · التقييم الاستدلالي: "+Number(skill.quality_score||0)+"/100",url:skill.source_url,label:"فتح المصدر"}));
   }else{
-   candidateEl.replaceChildren();
-   const empty=document.createElement("div");empty.className="skill-empty";empty.textContent="لا توجد مهارات خارجية مرشّحة مسجلة حاليًا. لم يُسجّل بعد اكتساب مهارة خارجية مع مصدر واختبار ناجح ومراجعة.";candidateEl.appendChild(empty);
+   candidateEl.textContent="لا توجد مهارات خارجية مرشحة مسجلة. لم تُعلن أي مهارة خارجية مكتسبة.";
   }
   const generated=candidateData?.generated_at||activeData?.generated_at||"غير متوفر";
-  const externallyActive=active.filter(skill=>skill.origin==="external"&&skill.status==="active").length;
-  summary.textContent="المهارات الداخلية المفعّلة: "+active.length+" · المهارات الخارجية المعتمدة: "+externallyActive+" · المرشحات قيد المراجعة: "+review.length+". لا توجد مهارة خارجية معتمدة حتى الآن.";
-  updated.textContent="آخر تحديث لبيانات الفحص: "+generated+". المرشحات الخارجية لا تُفعّل تلقائيًا؛ الإضافة للمكتبة النشطة تتطلب اختبارًا ومراجعة.";
+  summary.textContent="المهارات الداخلية في السجل: "+active.length+" · مرشحات الفحص الخارجي: "+candidates.length+" · التقييم الاستدلالي ليس شهادة جودة.";
+  updated.textContent="آخر تحديث لبيانات الفحص: "+generated+". المهارات الخارجية لا تُفعّل تلقائيًا.";
  }catch(e){
-  summary.textContent="تعذر تحميل ملف سجل المهارات؛ المعروض أعلاه هو سجل المهارات الداخلية الأساسية.";
-  updated.textContent="تعذر تحديث بيانات المرشحات الخارجية. لا يعني ذلك فشل المحادثة أو البحث.";
+  summary.textContent="تعذر تحميل سجل المهارات من المصدر؛ لم يتم إثبات اكتساب مهارات خارجية.";
+  updated.textContent="تحقق من اتصال الخادم أو من ملفات بيانات الواجهة. لا تُعرض المهارة على أنها مكتسبة دون دليل.";
  }
 }
 $("refreshskills").addEventListener("click",()=>loadSkillRegistry());
