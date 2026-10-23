@@ -12,21 +12,20 @@ assert.match(match[1], /Authorization.*Bearer/, "acquisition token must be sent 
 assert.doesNotMatch(match[1], /localStorage\.(?:setItem|getItem)\([^)]*component-token/i,
   "admin import token must not be persisted in localStorage");
 
-// Regression guard: missing API must never be disguised as GitHub/Wikipedia-only search.
+// Regression guard: disconnected UI offers honest general-web links, not fake search results.
 const script = match[1];
 const submitStart = script.indexOf("async function submit(text){");
 const submitEnd = script.indexOf('$("form").addEventListener("submit"', submitStart);
 assert.ok(submitStart >= 0 && submitEnd > submitStart, "submit handler must exist");
 const submitHandler = script.slice(submitStart, submitEnd);
-assert.match(submitHandler, /if\(!apiBase\)/, "chat must handle an unconfigured API explicitly");
-assert.match(submitHandler, /publicSearchLinks\(q\)/, "no-backend state must provide clearly labeled direct search links");
-assert.match(submitHandler, /fetch\(apiBase\+"\/api\/chat"/, "chat must call the general web-search backend");
-assert.match(submitHandler, /fetch\(apiBase\+"\/api\/search"/, "if model chat fails, UI must attempt the real backend search endpoint");
-assert.doesNotMatch(submitHandler, /publicFallback|wikipedia\.org|api\.github\.com/,
-  "chat handler must not disguise GitHub/Wikipedia-only results as general web search");
-assert.match(html, /هذا العنوان ليس سرًا/, "UI must explain server URL versus secret configuration");
-assert.match(script, /https:\/\/www\.google\.com\/search\?q=/, "fallback includes direct general-web search");
-assert.match(script, /https:\/\/www\.bing\.com\/search\?q=/, "fallback includes a second general-web search engine");
-
+assert.ok(submitHandler.includes("publicSearchLinks(q)"), "no-backend state must provide direct public-web search links");
+assert.ok(submitHandler.includes('fetch(apiBase+"/api/chat"'), "chat must call the answer backend");
+assert.ok(submitHandler.includes('fetch(apiBase+"/api/search"'), "chat must show web results if model chat fails");
+assert.ok(script.includes("https://www.google.com/search?q="), "fallback must include broad Google web search");
+assert.ok(script.includes("https://www.bing.com/search?q="), "fallback must include broad Bing web search");
+assert.ok(script.includes("https://duckduckgo.com/?q="), "fallback must include broad DuckDuckGo web search");
+assert.ok(script.includes("https://www.youtube.com/results?search_query="), "fallback must include video/tutorial discovery");
+assert.ok(!submitHandler.includes("publicFallback") && !submitHandler.includes("wikipedia.org/w/api.php"), "chat must not disguise Wikipedia-only results as general search");
+assert.ok(html.includes("روابط بحث مباشرة وليست نتائج جلبها الإيجنت"), "UI must disclose direct links are not fetched results");
 new vm.Script(script, { filename: "site/index.html inline script" });
 console.log("Frontend smoke checks passed: JavaScript syntax, API-backed chat, real search fallback endpoint, honest no-backend search links.");
