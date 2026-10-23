@@ -9,7 +9,6 @@ on:
       - "skill_runtime.py"
       - "skill_registry.py"
       - "tests/test_skill_harvester.py"
-      - ".github/workflows/harvest-public-skills.yml"
   schedule:
     - cron: "17 7 * * 1"
   workflow_dispatch:
@@ -111,13 +110,19 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git commit -m "Propose licensed public agent skills for review"
           git push origin "$BRANCH_NAME"
-          gh pr create \
+          if gh pr create \
             --repo "$GITHUB_REPOSITORY" \
             --base main \
             --head "$BRANCH_NAME" \
             --draft \
             --title "Skill harvest: licensed public skill proposals" \
-            --body "Automatically discovered public SKILL.md documents. Every candidate passed the repository license allowlist and static skill checks and is staged under skills/proposed only. Each document records its immutable source revision. No imported code was executed, installed, or activated. Review attribution, license obligations, usefulness, prompt-injection risks, and behavior before merging. Activation remains a separate explicit lifecycle step."
+            --body "Automatically discovered public SKILL.md documents. Every candidate passed the repository license allowlist and static skill checks and is staged under skills/proposed only. Each document records its immutable source revision. No imported code was executed, installed, or activated. Review attribution, license obligations, usefulness, prompt-injection risks, and behavior before merging. Activation remains a separate explicit lifecycle step."; then
+            echo "Draft pull request created."
+          else
+            echo "::warning::The branch was pushed, but repository settings may block pull requests created by GITHUB_TOKEN."
+            echo "Branch: $BRANCH_NAME" >> "$GITHUB_STEP_SUMMARY"
+            echo "If no PR appears, enable GitHub Actions to create pull requests in Settings → Actions → General, or open a draft PR from this branch." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload harvest report
         if: always()
         uses: actions/upload-artifact@v4
