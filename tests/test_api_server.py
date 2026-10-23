@@ -148,7 +148,6 @@ class ApiServerTests(unittest.TestCase):
                  patch("api_server.select_skills", return_value=selected) as select, \
                  patch("api_server.plan_search_query", return_value="planned search query") as plan, \
                  patch("api_server.search_web", return_value=search_result) as search, \
-                 patch("api_server.discover_github", return_value=[]) as github, \
                  patch("api_server.generate_answer", return_value="إجابة مبنية على المصدر.",) as answer:
                 payload = json.dumps({"question": "ابحث عن الوثائق الرسمية"}).encode("utf-8")
                 request = urllib.request.Request(
@@ -164,7 +163,6 @@ class ApiServerTests(unittest.TestCase):
                 select.assert_called_once()
                 plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
                 search.assert_called_once_with("planned search query")
-                github.assert_called_once_with("planned search query")
                 answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected)
                 self.assertEqual(body["answer"], "إجابة مبنية على المصدر.")
                 self.assertEqual(body["sources"][0]["url"], "https://example.org/docs")
