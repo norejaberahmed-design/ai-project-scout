@@ -124,11 +124,9 @@ def _search_duckduckgo(query: str, timeout: int = 20) -> dict:
 def _search_tavily(query: str, key: str, timeout: int) -> dict:
     parameters = {
         "api_key": key, "query": query, "search_depth": "basic",
-        "topic": "general", "max_results": YOUTUBE_RESULTS if include_domains else MAX_RESULTS,
+        "topic": "general", "max_results": MAX_RESULTS,
         "include_answer": False, "include_raw_content": False,
     }
-    if include_domains:
-        parameters["include_domains"] = include_domains
     payload = json.dumps(parameters).encode("utf-8")
     raw = _request(API_URL, data=payload, timeout=timeout,
                    headers={"Content-Type": "application/json", "Accept": "application/json"})
