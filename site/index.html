@@ -112,12 +112,11 @@ function renderSources(parent,sources){if(!Array.isArray(sources)||!sources.leng
 function renderCoverage(parent,data){
  const sources=Array.isArray(data.sources)?data.sources:[];
  if(!sources.length)return;
- const counts={youtube:0,github:0,web:0};
+ const counts={github:0,web:0};
  const domains=new Set();
  for(const item of sources){
   const url=safeUrl(item.url);if(!url)continue;
   let host="";try{host=new URL(url).hostname.toLowerCase().replace(/^www\\./,"");}catch{}
-  if(host==="youtube.com"||host==="youtu.be"||host.endsWith(".youtube.com"))counts.youtube++;
   else if(host==="github.com"||host.endsWith(".github.com"))counts.github++;
   else counts.web++;
   if(host)domains.add(host);
@@ -125,7 +124,7 @@ function renderCoverage(parent,data){
  const panel=document.createElement("div");panel.className="coverage";
  const heading=document.createElement("strong");heading.textContent="تغطية البحث في هذه الإجابة";panel.appendChild(heading);
  const detail=document.createElement("p");
- detail.textContent="مصادر معروضة: "+sources.length+" · مواقع مستقلة: "+domains.size+" · الويب العام: "+counts.web+" · GitHub: "+counts.github+" · YouTube: "+counts.youtube;
+ detail.textContent="مصادر معروضة: "+sources.length+" · مواقع مستقلة: "+domains.size+" · الويب العام: "+counts.web+" · GitHub: "+counts.github;
  panel.appendChild(detail);
  const provider=document.createElement("p");provider.textContent="مزود البحث: "+String(data.search_provider||data.provider||"غير محدد من الخادم");panel.appendChild(provider);
  const limitation=document.createElement("p");limitation.className="coverage-limit";limitation.textContent="هذا وصف للمصادر التي أعادها هذا الطلب فقط، وليس قياسًا لتغطية الإنترنت كله. صفر نتائج من موقع ما لا يعني أنه جرى البحث فيه.";panel.appendChild(limitation);
