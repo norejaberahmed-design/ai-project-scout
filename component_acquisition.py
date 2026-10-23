@@ -100,6 +100,20 @@ def _safe_relative_path(raw: str) -> Path | None:
     return Path(*path.parts)
 
 
+def _license_text_matches(spdx: str, text: str) -> bool:
+    lowered = (text or "").lower()
+    indicators = {
+        "MIT": ("mit license", "permission is hereby granted, free of charge"),
+        "Apache-2.0": ("apache license", "version 2.0"),
+        "BSD-2-Clause": ("redistribution and use in source and binary forms", "all rights reserved"),
+        "BSD-3-Clause": ("redistribution and use in source and binary forms", "neither the name"),
+        "ISC": ("isc license", "permission to use, copy, modify, and/or distribute"),
+        "0BSD": ("permission to use, copy, modify, and/or distribute this software", "hereby granted"),
+    }
+    required = indicators.get(spdx, ())
+    return bool(required) and all(fragment in lowered for fragment in required)
+
+
 def inspect_repository(url: str, fetcher=request_json) -> dict:
     """Inspect public metadata, revision, file inventory, and declared license only."""
     owner, repo = parse_repository_url(url)
@@ -124,6 +138,20 @@ def inspect_repository(url: str, fetcher=request_json) -> dict:
     license_paths = [i for i in items if i.get("type") == "blob" and PurePosixPath(str(i.get("path", ""))).name.lower() in {"license", "license.md", "license.txt", "copying"}]
     if not license_paths:
         raise ValueError("No license text file was found; manual license verification is required.")
+    license_verified = False
+    for license_item in license_paths[:5]:
+        license_path = str(license_item.get("path") or "")
+        encoded_license_path = urllib.parse.quote(license_path, safe="/")
+        payload = fetcher(f"{base}/contents/{encoded_license_path}?ref={urllib.parse.quote(revision, safe='')}")
+        try:
+            license_text = _decode_content(payload).decode("utf-8", errors="replace")[:40_000]
+        except (RuntimeError, UnicodeError):
+            continue
+        if _license_text_matches(license_spdx, license_text):
+            license_verified = True
+            break
+    if not license_verified:
+        raise ValueError("The license text does not match the repository's declared SPDX license; manual legal review is required.")
     candidates = []
     for item in items:
         if item.get("type") != "blob" or item.get("mode") == "120000":
@@ -155,6 +183,7 @@ def inspect_repository(url: str, fetcher=request_json) -> dict:
         "default_branch": branch,
         "revision": revision,
         "license_spdx": license_spdx,
+        "license_text_verified": True,
         "license_file_paths": [str(i.get("path")) for i in license_paths[:5]],
         "stars": int(meta.get("stargazers_count") or 0),
         "last_pushed_at": str(meta.get("pushed_at") or ""),
