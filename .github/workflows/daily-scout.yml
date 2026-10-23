@@ -107,6 +107,14 @@ jobs:
         run: python feature_hunter.py
       - name: Build self-improvement plan
         run: python self_improve.py
+      - name: Propose one internal skill for the highest-priority documented gap
+        if: ${{ secrets.SCOUT_LLM_API_KEY != '' && vars.SCOUT_LLM_MODEL != '' }}
+        env:
+          SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
+          SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
+          SCOUT_LLM_API_URL: ${{ vars.SCOUT_LLM_API_URL || 'https://openrouter.ai/api/v1/chat/completions' }}
+          SCOUT_REPORT_DIR: reports
+        run: python skill_proposer.py
       - name: Reverse engineer candidate architectures (read-only)
         run: python reverse_engineer.py
       - name: Discover and rank reusable agent skills
@@ -147,6 +155,14 @@ jobs:
               "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }, ensure_ascii=False, indent=2), encoding="utf-8")
           PY
+      - name: Upload proposed internal skills for human review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-project-scout-proposed-skills-${{ github.run_number }}
+          path: skills/proposed/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Upload reports for download
         uses: actions/upload-artifact@v4
         with:
