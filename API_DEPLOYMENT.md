@@ -26,6 +26,12 @@
 
 **قيود الخطة المجانية:** قد تدخل الخدمة في وضع السكون، وملفاتها المحلية ليست تخزينًا دائمًا مضمونًا. لذلك سجل SQLite داخل الحاوية قد يُفقد عند إعادة النشر أو إعادة التشغيل؛ لا تعتبر حالة المهارات أو السجل مستدامة حتى يُضبط تخزين دائم. كذلك لم يتم إنشاء خدمة Render أو إدخال الأسرار نيابةً عنك من هذا المستودع؛ النشر الحي لا يُثبت إلا بعد تنفيذ الخطوات والتحقق من عنوان الخدمة.
 
+## تفعيل إنشاء طلبات المراجعة تلقائيًا
+
+للسماح لحصاد المهارات الأسبوعي بفتح Draft Pull Request بنفسه، افتح إعدادات المستودع في GitHub: **Settings → Actions → General → Workflow permissions** ثم فعّل **Allow GitHub Actions to create and approve pull requests**. من دون هذا الإذن، سيظل سير العمل يبحث ويختبر ويحفظ الفرع والتقرير، لكنه قد لا يستطيع فتح طلب المراجعة تلقائيًا.
+
+ولتشغيل اقتراح المهارات الداخلية واختبارها بالنموذج، أضف `SCOUT_LLM_API_KEY` في **Settings → Secrets and variables → Actions → Secrets**، وأضف `SCOUT_LLM_MODEL` و`SCOUT_LLM_API_URL` كـ **Variables**. هذه الإعدادات مستقلة عن أسرار خدمة Render؛ يجب ضبط الأسرار في كل بيئة تحتاجها، ولا تضعها في الملفات أو المحادثة.
+
 ## التشغيل المحلي
     python -m unittest discover -s tests -v
     TAVILY_API_KEY=... SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... SCOUT_LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions python api_server.py
