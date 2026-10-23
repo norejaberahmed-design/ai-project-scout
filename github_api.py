@@ -121,6 +121,8 @@ def request_json(
         except urllib.error.HTTPError as exc:
             status = int(exc.code)
             response_headers = exc.headers
+            if status == 304 and cached:
+                return dict(cached[1])
             now = clock()
             delay = _retry_delay(response_headers, status, now, attempt, jitter)
             if delay is None:
