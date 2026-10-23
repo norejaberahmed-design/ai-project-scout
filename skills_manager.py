@@ -20,8 +20,16 @@ from skill_registry import register_discovery, transition_skill
 ROOT = Path(__file__).resolve().parent
 REPORT_DIR = Path(os.getenv("SCOUT_REPORT_DIR", str(ROOT / "reports")))
 API = "https://api.github.com"
-MAX_REPOSITORIES = 8
-MAX_SKILLS_PER_REPOSITORY = 3
+MAX_REPOSITORIES = 12
+MAX_SKILLS_PER_REPOSITORY = 1
+SKILL_DISCOVERY_QUERIES = [
+    "topic:agent-skills",
+    "topic:ai-agents",
+    "topic:mcp-server",
+    "topic:llm-tools",
+    '"SKILL.md" "AI agent"',
+    "topic:generative-ai agents",
+]
 MAX_SKILL_BYTES = 40_000
 USER_AGENT = "ai-project-scout-skills/1.0"
 RISK_PATTERNS = [
@@ -124,18 +132,45 @@ def quality_score(stars, forks, pushed_at, license_spdx, skill_text):
 
 
 def discover_repositories(fetcher=request_json):
-    """Combine a small seed set with a live GitHub search; cap requests and results."""
-    names = list(SEED_REPOSITORIES)
-    try:
-        query = urllib.parse.urlencode({"q": "topic:agent-skills", "sort": "stars", "order": "desc", "per_page": "10"})
-        result = fetcher(API + "/search/repositories?" + query)
-        for repo in result.get("items", []):
-            name = repo.get("full_name", "")
-            if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", name) and name not in names:
-                names.append(name)
-    except Exception:
-        # Seed repositories keep the daily catalog useful when search rate limits are hit.
-        pass
+    """Use multiple GitHub search lenses and round-robin results under a strict request budget."""
+    candidates_by_query = []
+    for query_text in SKILL_DISCOVERY_QUERIES:
+        candidates = []
+        try:
+            query = urllib.parse.urlencode({
+                "q": query_text,
+                "sort": "updated",
+                "order": "desc",
+                "per_page": "10",
+            })
+            result = fetcher(API + "/search/repositories?" + query)
+            for repo in result.get("items", []):
+                name = repo.get("full_name", "") if isinstance(repo, dict) else ""
+                if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", name) and name not in candidates:
+                    candidates.append(name)
+        except Exception:
+            # A failed search lens does not discard results from other lenses or trusted seeds.
+            pass
+        candidates_by_query.append(candidates)
+
+    names = []
+    for seed in SEED_REPOSITORIES:
+        if seed not in names:
+            names.append(seed)
+    positions = [0] * len(candidates_by_query)
+    while len(names) < MAX_REPOSITORIES:
+        added = False
+        for index, candidates in enumerate(candidates_by_query):
+            while positions[index] < len(candidates) and candidates[positions[index]] in names:
+                positions[index] += 1
+            if positions[index] < len(candidates):
+                names.append(candidates[positions[index]])
+                positions[index] += 1
+                added = True
+                if len(names) >= MAX_REPOSITORIES:
+                    break
+        if not added:
+            break
     return names[:MAX_REPOSITORIES]
 
 
