@@ -31,6 +31,7 @@ jobs:
       SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
       SCOUT_LLM_API_URL: ${{ vars.SCOUT_LLM_API_URL }}
       SCOUT_REPORT_DIR: reports
+      SCOUT_SKILL_DB_PATH: data/skills.sqlite
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,6 +39,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Restore skill lifecycle history cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/skills.sqlite
+          key: ai-scout-skills-db-${{ github.run_id }}
+          restore-keys: |
+            ai-scout-skills-db-
       - name: Configure git identity
         run: |
           git config user.name "github-actions[bot]"
@@ -125,3 +133,10 @@ jobs:
           git commit -m "Propose one internally generated agent skill"
           git push origin "$BRANCH_NAME"
           gh pr create             --repo "$GITHUB_REPOSITORY"             --base main             --head "$BRANCH_NAME"             --draft             --title "Skill proposal: evidence-based agent improvement"             --body "Automatically drafted from a documented capability gap. The skill remains in skills/proposed and is not loaded by the runtime. The proposal was validated and the offline regression suite passed. Review its content, provenance, usefulness, and tests before any manual activation. No third-party skill text was copied and no external code was executed."
+
+      - name: Save skill lifecycle history cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/skills.sqlite
+          key: ai-scout-skills-db-${{ github.run_id }}

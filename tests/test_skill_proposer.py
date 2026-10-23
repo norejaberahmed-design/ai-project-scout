@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from skill_proposer import build_messages, choose_gap, create_proposal
+from skill_proposer import build_messages, choose_gap, create_proposal, record_proposal_lifecycle
+from skill_registry import list_skills
 
 
 SAFE_DOCUMENT = """---
@@ -55,6 +56,24 @@ class SkillProposerTests(unittest.TestCase):
             self.assertTrue(saved.is_file())
             self.assertIn("skills/proposed/evidence-first-review/SKILL.md", str(saved))
             self.assertFalse((Path(tmp) / "skills" / "active" / "evidence-first-review").exists())
+
+    def test_generated_proposal_is_recorded_as_proposed_not_tested_or_active(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "project"
+            db = Path(tmp) / "skills.sqlite"
+            proposal = create_proposal(SAFE_DOCUMENT, root)
+            lifecycle = record_proposal_lifecycle(
+                {"id": "test-gap", "title": "Evidence verification", "status": "partial"},
+                SAFE_DOCUMENT, proposal, db_path=db,
+                repository="example/agent", revision="a" * 40, branch="skill-proposal-test",
+            )
+            records = list_skills(db_path=db)
+        self.assertEqual(lifecycle["status"], "PROPOSED")
+        self.assertFalse(lifecycle["auto_activated"])
+        self.assertEqual(lifecycle["test_result"], "NOT_RUN")
+        self.assertEqual(records[0]["status"], "PROPOSED")
+        self.assertFalse(records[0]["license_verified"])
+        self.assertEqual(records[0]["evidence"]["skill_specific_runtime_test"], "NOT_RUN")
 
     def test_duplicate_skill_name_does_not_overwrite_existing_proposal(self):
         with tempfile.TemporaryDirectory() as tmp:

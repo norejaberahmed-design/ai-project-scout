@@ -5,6 +5,7 @@ skill, changes application code, executes generated content, or copies third-par
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -14,6 +15,7 @@ import urllib.request
 from pathlib import Path
 
 from skill_runtime import inspect_candidate, save_proposal
+from skill_registry import register_discovery, transition_skill
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_REPORT_DIR = Path(os.getenv("SCOUT_REPORT_DIR", str(ROOT / "reports")))
@@ -123,6 +125,61 @@ def create_proposal(document: str, root: Path | None = None) -> dict:
     return result
 
 
+def record_proposal_lifecycle(gap: dict, document: str, proposal: dict,
+                               db_path: str | Path | None = None,
+                               repository: str | None = None,
+                               revision: str | None = None,
+                               branch: str | None = None) -> dict:
+    """Record a generated proposal; it remains PROPOSED and is never activated here."""
+    if not proposal.get("valid") or not proposal.get("saved_path"):
+        raise ValueError("Only a successfully saved proposal can enter the lifecycle registry")
+    metadata = inspect_candidate(document)["metadata"]
+    repo = (repository or os.getenv("GITHUB_REPOSITORY", "norejaberahmed-design/ai-project-scout")).strip()
+    source_revision = (revision or os.getenv("GITHUB_SHA", "local")).strip()
+    branch_name = (branch or ("skill-proposal-" + os.getenv("GITHUB_RUN_ID", "local"))).strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        raise ValueError("Invalid repository identity for proposal provenance")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", branch_name):
+        raise ValueError("Invalid branch name for proposal provenance")
+    source_url = "https://github.com/" + repo + "/blob/" + branch_name + "/skills/proposed/" + metadata["name"] + "/SKILL.md"
+    evidence = {
+        "capability_gap": gap,
+        "generation": "internally generated procedural skill",
+        "proposal_path": "skills/proposed/" + metadata["name"] + "/SKILL.md",
+        "static_validation": "passed",
+        "external_skill_text_copied": False,
+        "skill_specific_runtime_test": "NOT_RUN",
+    }
+    record = register_discovery(
+        metadata["name"], source_url,
+        version=str(metadata.get("version", "1")),
+        source_revision=source_revision,
+        license_spdx="internal",
+        license_evidence="Generated internally; review required before approval or activation.",
+        inspected_files=["reports/self-improvement-plan.json"],
+        evidence=evidence,
+        risk_flags=[],
+        source_content_sha256=hashlib.sha256(document.encode("utf-8")).hexdigest(),
+        db_path=db_path,
+    )
+    if record["status"] == "DISCOVERED":
+        record = transition_skill(
+            record["skill_id"], "ANALYZED", db_path=db_path,
+            inspected_files=["reports/self-improvement-plan.json"],
+            evidence=evidence,
+        )
+    if record["status"] == "ANALYZED":
+        record = transition_skill(
+            record["skill_id"], "PROPOSED", db_path=db_path, content=document,
+            evidence=evidence,
+        )
+    if record["status"] != "PROPOSED":
+        raise ValueError("Proposal registry did not reach PROPOSED state")
+    return {"skill_id": record["skill_id"], "status": record["status"],
+            "name": record["name"], "source_url": record["source_url"],
+            "test_result": record["test_result"], "auto_activated": False}
+
+
 def main() -> int:
     gap = choose_gap()
     if not gap:
@@ -137,7 +194,16 @@ def main() -> int:
     except RuntimeError as exc:
         print(json.dumps({"status": "PROPOSAL_FAILED", "error": str(exc)}, ensure_ascii=False))
         return 1
-    print(json.dumps({"gap": gap, **result}, ensure_ascii=False))
+    lifecycle = None
+    if result.get("valid"):
+        try:
+            lifecycle = record_proposal_lifecycle(gap, document, result)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(json.dumps({"status": "LIFECYCLE_REGISTRATION_FAILED",
+                              "error": type(exc).__name__, "proposal_created": True,
+                              "auto_activated": False}, ensure_ascii=False))
+            return 1
+    print(json.dumps({"gap": gap, **result, "lifecycle": lifecycle}, ensure_ascii=False))
     errors = result.get("errors", [])
     if any("already exists" in str(error).lower() for error in errors):
         # A previously reviewed or proposed skill should not make scheduled runs fail.
