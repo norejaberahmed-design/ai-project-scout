@@ -196,8 +196,7 @@ class ApiServerTests(unittest.TestCase):
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            with patch("api_server.search_web", return_value=web) as search, \
-                 patch("api_server.discover_github", return_value=github) as discover:
+            with patch("api_server.search_web", return_value=web) as search:
                 request = urllib.request.Request(
                     f"http://127.0.0.1:{server.server_port}/api/search",
                     data=json.dumps({"query": "open source agent framework"}).encode("utf-8"),
@@ -208,11 +207,9 @@ class ApiServerTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     body = json.loads(response.read().decode("utf-8"))
             search.assert_called_once_with("open source agent framework")
-            discover.assert_called_once_with("open source agent framework")
-            self.assertEqual(body["provider"], "DuckDuckGo + GitHub")
-            self.assertEqual(body["result_count"], 2)
-            self.assertEqual(body["results"][0]["url"], "https://github.com/example/agent")
-            self.assertEqual(body["results"][1]["url"], "https://example.org/guide")
+            self.assertEqual(body["provider"], "DuckDuckGo")
+            self.assertEqual(body["result_count"], 1)
+            self.assertEqual(body["results"][0]["url"], "https://example.org/guide")
             self.assertIn("Public web results only.", body["coverage_note"])
         finally:
             server.shutdown()
@@ -301,18 +298,11 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
-    def test_chat_runs_opt_in_component_acquisition_for_analyzed_github_candidates(self):
-        github_candidate = {
-            "title": "GitHub repository: example/safe-ai-tool",
-            "url": "https://github.com/example/safe-ai-tool",
-            "snippet": "License: MIT",
-            "source": "GitHub repository inspection",
-            "score": None,
-        }
-        search_result = {"results": [], "coverage_note": "Mocked source coverage"}
-        acquisition_result = {
-            "enabled": True, "attempted": 1, "copied": 1,
-            "items": [{"repository": "example/safe-ai-tool", "status": "PROPOSED_REVIEW_REQUIRED"}],
+    def test_chat_does_not_use_github_repository_search_for_user_answers(self):
+        search_result = {
+            "results": [{"title": "Public web result", "url": "https://example.org",
+                         "snippet": "Web evidence", "source": "DuckDuckGo"}],
+            "coverage_note": "Mocked public web coverage",
         }
         server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
         worker = threading.Thread(target=server.serve_forever, daemon=True)
@@ -321,14 +311,14 @@ class ApiServerTests(unittest.TestCase):
             with patch.dict(os.environ, {
                 "SCOUT_LLM_API_KEY": "test-secret",
                 "SCOUT_LLM_MODEL": "test-model",
-                "TAVILY_API_KEY": "test-search-key",
             }, clear=True), \
-                 patch("api_server.select_skills", return_value=[]), \
-                 patch("api_server.plan_search_query", return_value="find AI tools"), \
-                 patch("api_server.search_web", return_value=search_result), \
-                 patch("api_server.discover_github", return_value=[github_candidate]), \
-                 patch("api_server.auto_acquire_repositories", return_value=acquisition_result) as acquire, \
-                 patch("api_server.generate_answer", return_value="تم فحص مرشح المصدر.") :
+                 patch("api_server.select_skills", return_value=[{
+                     "name": "research-method", "description": "Use evidence",
+                     "content": "Use public-web evidence only.", "relevance_score": 1,
+                 }]), \
+                 patch("api_server.plan_search_query", return_value="planned public web query"), \
+                 patch("api_server.search_web", return_value=search_result) as search, \
+                 patch("api_server.generate_answer", return_value="إجابة من نتائج الويب.") as answer:
                 payload = json.dumps({"question": "ابحث عن أدوات الذكاء الاصطناعي"}).encode("utf-8")
                 request = urllib.request.Request(
                     f"http://127.0.0.1:{server.server_port}/api/chat",
@@ -338,9 +328,11 @@ class ApiServerTests(unittest.TestCase):
                 )
                 with urllib.request.urlopen(request, timeout=3) as response:
                     body = json.loads(response.read().decode("utf-8"))
-                acquire.assert_called_once_with([github_candidate])
-                self.assertEqual(body["component_acquisition"]["copied"], 1)
-                self.assertEqual(body["sources"][0]["url"], github_candidate["url"])
+                search.assert_called_once_with("planned public web query")
+                answer.assert_called_once()
+                self.assertEqual(body["sources"][0]["url"], "https://example.org")
+                self.assertEqual(body["skills_used"], ["research-method"])
+                self.assertNotIn("component_acquisition", body)
         finally:
             server.shutdown()
             server.server_close()
