@@ -108,7 +108,7 @@ jobs:
       - name: Build self-improvement plan
         run: python self_improve.py
       - name: Propose one internal skill for the highest-priority documented gap
-        if: ${{ secrets.SCOUT_LLM_API_KEY != '' && vars.SCOUT_LLM_MODEL != '' }}
+        if: ${{ vars.SCOUT_LLM_MODEL != '' }}
         env:
           SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
           SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
