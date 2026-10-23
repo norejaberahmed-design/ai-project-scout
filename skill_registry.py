@@ -142,7 +142,7 @@ def register_discovery(
     init_db(db_path)
     with _connect(db_path) as conn:
         conn.execute("""
-            INSERT INTO skill_records (
+            INSERT OR IGNORE INTO skill_records (
                 skill_id,name,version,status,source_url,source_revision,license_spdx,
                 license_evidence,license_verified,inspected_files_json,evidence_json,risk_flags_json,
                 source_content_sha256,content_sha256,created_at,updated_at
@@ -151,10 +151,6 @@ def register_discovery(
               str(source_revision)[:200], str(license_spdx)[:80],
               str(license_evidence)[:2000], 0, _json(files), _json(evidence or {}),
               _json(flags), digest, "", now, now))
-        conn.execute("INSERT OR IGNORE INTO skill_records (skill_id,name,version,status,source_url,source_revision,license_spdx,license_evidence,license_verified,inspected_files_json,evidence_json,risk_flags_json,source_content_sha256,content_sha256,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                     (skill_id, name, str(version)[:80], "DISCOVERED", source_url.strip(),
-                      str(source_revision)[:200], str(license_spdx)[:80], str(license_evidence)[:2000],
-                      0, _json(files), _json(evidence or {}), _json(flags), digest, "", now, now))
     return get_skill(skill_id, db_path)
 
 
