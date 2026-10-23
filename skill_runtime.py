@@ -146,6 +146,7 @@ ENGLISH_SKILL_TERMS = {
     "accessibility-check": {"accessibility", "accessible", "contrast", "alt", "labels", "keyboard", "screen-reader", "wcag"},
     "api-docs-writer": {"api", "documentation", "docs", "endpoint", "openapi", "schema", "reference"},
     "changelog-writer": {"changelog", "release", "release-notes", "version", "breaking", "changes"},
+    "csv-cleaner": {"csv", "clean", "cleaning", "normalize", "normalise", "duplicate", "spreadsheet", "rows", "columns", "data"},
 }
 
 
@@ -160,6 +161,7 @@ ARABIC_SKILL_TERMS = {
     "accessibility-check": {"إتاحة", "اتاحة", "سهولة", "الوصول", "قارئ", "الشاشة", "تباين", "تسميات", "تسمية", "بديل", "صور", "الصور", "لوحة", "مفاتيح", "افحص", "فحص", "أزرار", "ازرار", "الأزرار"},
     "api-docs-writer": {"توثيق", "وثق", "واجهة", "برمجية", "نقطة", "نقاط", "النهاية", "نهايات", "وثائق"},
     "changelog-writer": {"سجل", "السجل", "التغييرات", "تغيير", "تغييرات", "إصدار", "اصدار", "الإصدار", "ملاحظات", "إطلاق", "اطلاق"},
+    "csv-cleaner": {"ملف", "csv", "تنظيف", "نظف", "بيانات", "جدول", "جداول", "صفوف", "اعمدة", "أعمدة", "مكرر", "تكرار"},
 }
 
 
