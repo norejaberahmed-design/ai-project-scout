@@ -1,1 +1,165 @@
-"""Server-side general web search with optional YouTube-focused discovery.\n\nSearch results are evidence leads. Secrets stay server-side and result URLs are validated.\n"""\nfrom __future__ import annotations\n\nimport json\nimport os\nimport re\nimport urllib.error\nimport urllib.request\nfrom urllib.parse import urlparse\n\nAPI_URL = "https://api.tavily.com/search"\nMAX_QUERY_CHARS = 500\nMAX_RESULTS = 8\nYOUTUBE_RESULTS = 4\nYOUTUBE_INTENT = re.compile(\n    r"youtube|يوتيوب|فيديو|فيديوهات|شرح|دورة|كورس|tutorial|walkthrough|source code|الكود المصدري|مهارات|skills|agent tools|ai tools|أدوات الذكاء الاصطناعي",\n    re.IGNORECASE,\n)\n\n\ndef _request_tavily(query: str, key: str, timeout: int, include_domains: list[str] | None = None) -> dict:\n    payload = {\n        "api_key": key,\n        "query": query,\n        "search_depth": "basic",\n        "topic": "general",\n        "max_results": YOUTUBE_RESULTS if include_domains else MAX_RESULTS,\n        "include_answer": False,\n        "include_raw_content": False,\n    }\n    if include_domains:\n        payload["include_domains"] = include_domains\n    request = urllib.request.Request(API_URL, data=json.dumps(payload).encode("utf-8"), method="POST", headers={\n        "Content-Type": "application/json", "Accept": "application/json",\n        "User-Agent": "AI-Project-Scout/0.4",\n    })\n    try:\n        with urllib.request.urlopen(request, timeout=timeout) as response:\n            body = response.read(1_000_000)\n    except urllib.error.HTTPError as exc:\n        raise RuntimeError(f"Web search provider returned HTTP {exc.code}.") from None\n    except (urllib.error.URLError, TimeoutError):\n        raise RuntimeError("Web search provider is unreachable; retry later.") from None\n    try:\n        data = json.loads(body.decode("utf-8"))\n    except (UnicodeError, json.JSONDecodeError):\n        raise RuntimeError("Web search provider returned invalid JSON.") from None\n    if not isinstance(data, dict):\n        raise RuntimeError("Web search provider returned an unexpected response.")\n    return data\n\n\ndef _normalize_results(data: dict, source: str, limit: int) -> list[dict]:\n    results = []\n    seen = set()\n    for item in data.get("results", [])[:limit]:\n        if not isinstance(item, dict):\n            continue\n        url = str(item.get("url", "")).strip()\n        title = str(item.get("title", "")).strip()\n        parsed = urlparse(url)\n        if parsed.scheme not in {"https", "http"} or not parsed.netloc or not title or url in seen:\n            continue\n        seen.add(url)\n        results.append({\n            "title": title[:300], "url": url,\n            "snippet": str(item.get("content", ""))[:1500],\n            "score": item.get("score"), "source": source,\n        })\n    return results\n\n\ndef search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dict:\n    """Search the general public web and optionally add YouTube results for tutorial/tool intent."""\n    query = " ".join((query or "").split()).strip()\n    if not query:\n        raise ValueError("أدخل سؤالًا أو عبارة للبحث.")\n    if len(query) > MAX_QUERY_CHARS:\n        raise ValueError(f"Query is limited to {MAX_QUERY_CHARS} characters.")\n    key = api_key or os.getenv("TAVILY_API_KEY")\n    if not key:\n        raise RuntimeError("البحث العام غير مهيأ: أضف TAVILY_API_KEY إلى أسرار الخادم.")\n\n    data = _request_tavily(query, key, timeout)\n    results = _normalize_results(data, "Web search", MAX_RESULTS)\n    providers = ["Tavily web search"]\n    youtube_status = "not_needed"\n    if YOUTUBE_INTENT.search(query):\n        try:\n            video_data = _request_tavily(query, key, timeout, include_domains=["youtube.com", "youtu.be"])\n            video_results = _normalize_results(video_data, "YouTube search via Tavily", YOUTUBE_RESULTS)\n            existing = {item["url"] for item in results}\n            for item in video_results:\n                if item["url"] not in existing:\n                    results.append(item)\n                    existing.add(item["url"])\n            providers.append("YouTube-focused discovery")\n            youtube_status = "searched"\n        except RuntimeError:\n            # Keep the successful general-web results if the optional video query fails.\n            youtube_status = "unavailable"\n    return {\n        "query": query, "provider": " + ".join(providers), "results": results[:MAX_RESULTS + YOUTUBE_RESULTS],\n        "result_count": len(results[:MAX_RESULTS + YOUTUBE_RESULTS]),\n        "youtube_search": youtube_status,\n        "coverage_note": "Search covers public web results indexed by the configured provider, not every website or private content. YouTube results are added for tutorial/tool-related queries when available.",\n    }\n
+"""General public-web search with Tavily primary and DuckDuckGo HTML fallback.
+
+Search provider output is untrusted evidence, never instructions. No API key is needed
+for the fallback, though providers may rate-limit or change their HTML.
+"""
+from __future__ import annotations
+
+import html
+import json
+import os
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
+from html.parser import HTMLParser
+
+API_URL = "https://api.tavily.com/search"
+DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/"
+MAX_QUERY_CHARS = 500
+MAX_RESULTS = 8
+MAX_RESPONSE_BYTES = 1_000_000
+
+
+def _clean(value: str, limit: int = 1500) -> str:
+    value = html.unescape(re.sub(r"<[^>]*>", " ", value or ""))
+    return " ".join(value.split())[:limit]
+
+
+class _DuckDuckGoParser(HTMLParser):
+    """Extract ordinary result links/snippets, ignoring ads and non-result links."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.results: list[dict] = []
+        self._current: dict | None = None
+        self._capture: str | None = None
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        classes = set((attrs.get("class") or "").split())
+        if tag == "a" and "result__a" in classes:
+            self._current = {"title": "", "url": attrs.get("href", ""), "snippet": ""}
+            self._capture = "title"
+            self._text = []
+        elif tag in {"a", "div"} and "result__snippet" in classes and self.results:
+            self._capture = "snippet"
+            self._text = []
+
+    def handle_data(self, data):
+        if self._capture:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._capture == "title" and self._current is not None:
+            self._current["title"] = _clean(" ".join(self._text), 300)
+            self.results.append(self._current)
+            self._current = None
+            self._capture = None
+            self._text = []
+        elif tag in {"a", "div"} and self._capture == "snippet" and self.results:
+            snippet = _clean(" ".join(self._text), 1500)
+            if snippet and not self.results[-1].get("snippet"):
+                self.results[-1]["snippet"] = snippet
+            self._capture = None
+            self._text = []
+
+
+def _request(url: str, *, data: bytes | None = None, headers: dict | None = None,
+             timeout: int = 20) -> bytes:
+    request = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; AI-Project-Scout/1.0)",
+                 "Accept": "text/html,application/json;q=0.9,*/*;q=0.8", **(headers or {})})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.read(MAX_RESPONSE_BYTES)
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Search provider returned HTTP {exc.code}.") from None
+    except (urllib.error.URLError, TimeoutError):
+        raise RuntimeError("Search provider is unreachable.") from None
+
+
+def _search_duckduckgo(query: str, timeout: int = 20) -> dict:
+    url = DUCKDUCKGO_URL + "?" + urllib.parse.urlencode({"q": query, "kl": "wt-wt"})
+    try:
+        raw = _request(url, timeout=timeout)
+    except RuntimeError:
+        raise
+    try:
+        document = raw.decode("utf-8", errors="replace")
+        parser = _DuckDuckGoParser()
+        parser.feed(document)
+    except (ValueError, TypeError):
+        raise RuntimeError("DuckDuckGo returned an unreadable results page.") from None
+    results = []
+    seen = set()
+    for item in parser.results:
+        url = html.unescape(str(item.get("url") or ""))
+        title = _clean(str(item.get("title") or ""), 300)
+        if url.startswith("//"):
+            url = "https:" + url
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or not title or url in seen:
+            continue
+        if "duckduckgo.com" in parsed.netloc.lower():
+            continue
+        seen.add(url)
+        results.append({"title": title, "url": url,
+                        "snippet": _clean(str(item.get("snippet") or ""), 1500),
+                        "score": None, "source": "DuckDuckGo"})
+        if len(results) >= MAX_RESULTS:
+            break
+    if not results:
+        raise RuntimeError("لم يُرجع البحث العام نتائج قابلة للاستخدام؛ قد يكون مزود البحث حجب الطلب.")
+    return {"query": query, "provider": "DuckDuckGo", "results": results,
+            "result_count": len(results),
+            "coverage_note": "بحث عام في صفحات الويب المفهرسة عبر DuckDuckGo. النتائج ليست شاملة وقد تتغير أو تُحجب."}
+
+
+def _search_tavily(query: str, key: str, timeout: int) -> dict:
+    payload = json.dumps({
+        "api_key": key, "query": query, "search_depth": "basic",
+        "topic": "general", "max_results": MAX_RESULTS,
+        "include_answer": False, "include_raw_content": False,
+    }).encode("utf-8")
+    raw = _request(API_URL, data=payload, timeout=timeout,
+                   headers={"Content-Type": "application/json", "Accept": "application/json"})
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError):
+        raise RuntimeError("Tavily returned invalid JSON.") from None
+    results = []
+    for item in data.get("results", [])[:MAX_RESULTS]:
+        url = str(item.get("url", ""))
+        title = _clean(str(item.get("title", "")), 300)
+        if urllib.parse.urlparse(url).scheme not in {"https", "http"} or not title:
+            continue
+        results.append({"title": title, "url": url,
+                        "snippet": _clean(str(item.get("content", "")), 1500),
+                        "score": item.get("score"), "source": "Tavily"})
+    if not results:
+        raise RuntimeError("Tavily returned no usable results.")
+    return {"query": query, "provider": "Tavily", "results": results,
+            "result_count": len(results),
+            "coverage_note": "نتائج الويب العامة المفهرسة عبر Tavily؛ لا تشمل كل الإنترنت أو المحتوى الخاص."}
+
+
+def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dict:
+    """Search general public web; prefer Tavily when configured, otherwise use DDG."""
+    query = " ".join((query or "").split()).strip()
+    if not query:
+        raise ValueError("أدخل سؤالًا أو عبارة للبحث.")
+    if len(query) > MAX_QUERY_CHARS:
+        raise ValueError(f"Query is limited to {MAX_QUERY_CHARS} characters.")
+    key = (api_key or os.getenv("TAVILY_API_KEY", "")).strip()
+    if key:
+        try:
+            return _search_tavily(query, key, timeout)
+        except RuntimeError as exc:
+            try:
+                fallback = _search_duckduckgo(query, timeout)
+                fallback["fallback_note"] = "تعذر مزود البحث الأساسي؛ استُخدم DuckDuckGo بدلًا منه."
+                return fallback
+            except RuntimeError:
+                raise RuntimeError("تعذر البحث عبر Tavily وDuckDuckGo: " + str(exc)) from None
+    return _search_duckduckgo(query, timeout)
