@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   propose:
-    if: (github.event_name == 'workflow_dispatch' && inputs.run_proposal == true) || (github.event_name == 'schedule' && vars.SCOUT_ENABLE_AUTODEV == 'true')
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_proposal == true) || (github.event_name == 'schedule' && vars.SCOUT_ENABLE_SKILL_PROPOSER == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -90,6 +90,17 @@ jobs:
       - name: Verify proposal and regression suite
         if: steps.candidate.outputs.has_candidate == 'true'
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          from skill_runtime import inspect_candidate
+          files = list(Path("skills/proposed").glob("*/SKILL.md"))
+          if len(files) != 1:
+              raise SystemExit(f"Expected exactly one proposed skill, found {len(files)}")
+          result = inspect_candidate(files[0].read_text(encoding="utf-8"))
+          if not result["valid"]:
+              raise SystemExit("Skill rejected: " + "; ".join(result["errors"]))
+          print("Static skill checks passed; manual review is still mandatory.")
+          PY
           python -m compileall -q .
           python -m unittest discover -s tests -v
           git add skills/proposed/
