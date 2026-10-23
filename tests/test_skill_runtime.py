@@ -41,6 +41,26 @@ class SkillRuntimeTests(unittest.TestCase):
         chosen = select_skills("research web sources and citations", skills)
         self.assertEqual(chosen[0]["name"], "research")
 
+    def test_routes_arabic_build_request_to_implementation_and_planning_skills(self):
+        skills = [
+            {"name": "test-driven-implementation", "description": "Implement code with tests", "content": "Write regression tests and verify changes."},
+            {"name": "planning-and-verification", "description": "Plan implementation and verify results", "content": "Define criteria and inspect the final result."},
+            {"name": "evidence-first-research", "description": "Research sources", "content": "Cite sources and evidence."},
+        ]
+        chosen = select_skills("ابني تطبيق بخطة واختبره", skills)
+        names = [item["name"] for item in chosen]
+        self.assertIn("test-driven-implementation", names)
+        self.assertIn("planning-and-verification", names)
+        self.assertLess(names.index("test-driven-implementation"), names.index("evidence-first-research"))
+
+    def test_routes_arabic_accessibility_request_to_accessibility_skill(self):
+        skills = [
+            {"name": "accessibility-check", "description": "Check accessibility and contrast", "content": "Check labels, alt text, and keyboard navigation."},
+            {"name": "evidence-first-research", "description": "Research sources", "content": "Cite sources and evidence."},
+        ]
+        chosen = select_skills("افحص تباين الصور وتسميات الأزرار", skills)
+        self.assertEqual(chosen[0]["name"], "accessibility-check")
+
     def test_loads_only_active_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
