@@ -43,31 +43,9 @@ def parse_repository_url(url: str) -> tuple[str, str]:
 
 
 def request_json(url: str, timeout: int = 15) -> dict:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "User-Agent": USER_AGENT,
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    token = os.getenv("GITHUB_TOKEN", "").strip()
-    if token:
-        headers["Authorization"] = "Bearer " + token
-    request = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read(MAX_TOTAL_BYTES + 250_000)
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError("GitHub API returned HTTP " + str(exc.code) + ".") from None
-    except (urllib.error.URLError, TimeoutError):
-        raise RuntimeError("GitHub API is unreachable.") from None
-    if len(raw) > MAX_TOTAL_BYTES + 250_000:
-        raise RuntimeError("GitHub response exceeded the configured size limit.")
-    try:
-        data = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError):
-        raise RuntimeError("GitHub returned invalid JSON.") from None
-    if not isinstance(data, dict):
-        raise RuntimeError("GitHub returned an unexpected response.")
-    return data
+    """Use the shared rate-aware client; failures remain explicit, never empty results."""
+    from github_api import request_json as _request_json
+    return _request_json(url, timeout=timeout)
 
 
 def _decode_content(payload: dict) -> bytes:
