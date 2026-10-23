@@ -37,4 +37,4 @@ A task is finished only when the required behavior is implemented and the availa
 ## Upstream attribution
 Adapted from obra/superpowers skill finishing-a-development-branch, revision 2ce8aa15d05bd57213e6f746f953aafb7ded7a8b, under the MIT License.
 Original: https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/finishing-a-development-branch/SKILL.md
-See skills/proposed/finishing-a-development-branch/UPSTREAM_LICENSE.txt for the original license text.
+See ATTRIBUTION.md and UPSTREAM_LICENSE.txt in this directory for source provenance and the original license text.
