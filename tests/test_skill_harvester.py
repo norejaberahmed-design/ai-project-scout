@@ -104,6 +104,34 @@ class SkillHarvesterTests(unittest.TestCase):
             self.assertEqual(result["proposals"][0]["status"], "REJECTED_STATIC_CHECKS")
             self.assertFalse((root / "skills" / "proposed").exists())
 
+    def test_harvest_rejects_unavailable_platform_tools_and_unbundled_references(self):
+        candidates = [
+            (SKILL + "\nUse browser_skill_cli to control the user browser.\n",
+             "SKIPPED_PLATFORM_SPECIFIC"),
+            (SKILL + "\nRead api-reference.md for the full procedure.\n",
+             "SKIPPED_SUPPORT_FILES_NOT_BUNDLED"),
+        ]
+        info = {
+            "repository": "example/platform-skills",
+            "repository_url": "https://github.com/example/platform-skills",
+            "revision": "d" * 40,
+            "license_spdx": "MIT",
+            "license_text_verified": True,
+            "license_file_paths": ["LICENSE"],
+            "eligible_files": [{"path": "SKILL.md", "size": 100}],
+        }
+        for candidate, expected_status in candidates:
+            with self.subTest(expected_status=expected_status), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                with patch("skill_harvester.inspect_repository", return_value=info), \
+                     patch("skill_harvester._get_skill_text", return_value=candidate):
+                    result = skill_harvester.harvest_repository(
+                        "https://github.com/example/platform-skills", root=root,
+                        db_path=root / "skills.sqlite"
+                    )
+                self.assertEqual(result["proposals"][0]["status"], expected_status)
+                self.assertFalse((root / "skills" / "proposed").exists())
+
     def test_harvest_requires_allowlisted_verified_license(self):
         info = {
             "repository": "example/unknown-license",
