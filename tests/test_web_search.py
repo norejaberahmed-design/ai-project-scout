@@ -49,14 +49,14 @@ class WebSearchTests(unittest.TestCase):
                     {"title": "", "url": "https://example.org/no-title", "content": "Skip"},
                 ]}).encode()
         urlopen.return_value = Response()
-        result = web_search.search_web("  public AI tools  ", api_key="test-key")
-        self.assertEqual(result["query"], "public AI tools")
+        result = web_search.search_web("  public science results  ", api_key="test-key")
+        self.assertEqual(result["query"], "public science results")
         self.assertEqual(result["result_count"], 1)
         self.assertEqual(result["results"][0]["url"], "https://example.org/a")
         self.assertIn("لا تشمل كل الإنترنت", result["coverage_note"])
         request = urlopen.call_args.args[0]
         payload = json.loads(request.data.decode())
-        self.assertEqual(payload["query"], "public AI tools")
+        self.assertEqual(payload["query"], "public science results")
         self.assertEqual(payload["api_key"], "test-key")
         self.assertFalse(payload["include_raw_content"])
 
