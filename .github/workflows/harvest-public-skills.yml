@@ -87,6 +87,7 @@ jobs:
           git diff --cached --check
           python - <<'PY'
           import subprocess
+          from pathlib import Path
           paths = subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines()
           allowed = ("/SKILL.md", "/ATTRIBUTION.md", "/UPSTREAM_LICENSE.txt")
           if not paths or any(
