@@ -185,6 +185,7 @@ async function loadSkillRegistry(){
      const meta="الحالة: "+(statusLabels[skill.status]||skill.status)+
       " · نتيجة الاختبار: "+(skill.test_result||"NOT_RUN")+
       " · الترخيص: "+(skill.license_spdx||"غير محدد")+
+      " · التحقق من الترخيص: "+(skill.license_verified?"متحقق":"غير متحقق")+
       (Array.isArray(skill.risk_flags)&&skill.risk_flags.length?" · مخاطر مفتوحة: "+skill.risk_flags.join(", "):"");
      addSkillCard(candidateEl,{
       name:skill.name+(skill.version?" v"+skill.version:""),
@@ -204,18 +205,48 @@ async function loadSkillRegistry(){
    updated.textContent="السجل حي من خادم الإيجنت. المهارة لا تُعد مكتسبة إلا بعد نجاح الاختبارات والاعتماد وظهورها ضمن المهارات النشطة المحملة.";
    return;
   }
-  const [activeResponse,candidateResponse]=await Promise.all([
+  const [activeResponse,candidateResponse,lifecycleResponse]=await Promise.all([
    fetch("./data/active-skills.json",{cache:"no-store"}),
-   fetch("./data/skills-catalog.json",{cache:"no-store"})
+   fetch("./data/skills-catalog.json",{cache:"no-store"}),
+   fetch("./data/skill-lifecycle.json",{cache:"no-store"})
   ]);
-  let activeData=null,candidateData=null;
+  let activeData=null,candidateData=null,lifecycleData=null;
   if(activeResponse.ok)activeData=await activeResponse.json();
   if(candidateResponse.ok)candidateData=await candidateResponse.json();
+  if(lifecycleResponse.ok)lifecycleData=await lifecycleResponse.json();
   const active=Array.isArray(activeData?.skills)?activeData.skills:[];
   const candidates=Array.isArray(candidateData?.skills)?candidateData.skills:[];
   if(active.length){
    activeEl.replaceChildren();
    active.forEach(skill=>addSkillCard(activeEl,{name:String(skill.name||"").replace(/-/g," "),description:skillDescription(skill.content),meta:"حالة: مهارة داخلية معتمدة وموجودة في المستودع"}));
+  }
+  const lifecycleRecords=Array.isArray(lifecycleData?.records)?lifecycleData.records:[];
+  if(lifecycleRecords.length){
+   const activeNames=new Set(active.map(s=>s.name));
+   const visibleRecords=lifecycleRecords.filter(s=>!["REJECTED","RETIRED"].includes(s.status)&&!(s.status==="ACTIVE"&&activeNames.has(s.name)));
+   candidateEl.replaceChildren();
+   if(visibleRecords.length){
+    visibleRecords.slice(0,12).forEach(skill=>{
+     const meta="الحالة: "+(statusLabels[skill.status]||skill.status)+
+      " · نتيجة الاختبار: "+(skill.test_result||"NOT_RUN")+
+      " · الترخيص: "+(skill.license_spdx||"غير محدد")+
+      " · التحقق من الترخيص: "+(skill.license_verified?"متحقق":"غير متحقق")+
+      (Array.isArray(skill.risk_flags)&&skill.risk_flags.length?" · المخاطر: "+skill.risk_flags.join(", "):"");
+     addSkillCard(candidateEl,{
+      name:skill.name+(skill.version?" v"+skill.version:""),
+      description:(skill.evidence&&skill.evidence.capability_description)||"تم فحص بيانات المصدر ساكنًا فقط؛ لم تُعتمد المهارة.",
+      meta,
+      url:skill.source_url,
+      label:"فتح مصدر المرشح"
+     });
+    });
+   }else{
+    candidateEl.textContent="لا توجد مهارات خارجية مرشحة في السجل الحالي.";
+   }
+   const unactivated=visibleRecords.filter(s=>["DISCOVERED","ANALYZED","PROPOSED","TESTED","APPROVED","ACTIVE"].includes(s.status)).length;
+   summary.textContent="المهارات الداخلية المحملة: "+active.length+" · سجلات المرشحين: "+unactivated+" · لم تُعتمد أي مهارة خارجية ما لم تظهر في المكتبة النشطة.";
+   updated.textContent="تاريخ تحديث السجل: "+(lifecycleData.generated_at||"غير متوفر")+". البيانات المنشورة لقطة من آخر تشغيل آلي وليست اتصالًا حيًا بالخادم.";
+   return;
   }
   const review=candidates.filter(s=>s.status==="candidate_requires_review"||s.status==="blocked_until_license_or_security_review").slice(0,5);
   if(review.length){

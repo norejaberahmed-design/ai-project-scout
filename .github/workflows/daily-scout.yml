@@ -80,6 +80,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     env:
       SCOUT_DB_PATH: data/scout.sqlite
+      SCOUT_SKILL_DB_PATH: data/skills.sqlite
       SCOUT_REPORT_DIR: reports
       SCOUT_PER_QUERY: "20"
       GITHUB_TOKEN: ${{ github.token }}
@@ -97,6 +98,13 @@ jobs:
           key: ai-scout-db-${{ github.run_id }}
           restore-keys: |
             ai-scout-db-
+      - name: Restore skill lifecycle history cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/skills.sqlite
+          key: ai-scout-skills-db-${{ github.run_id }}
+          restore-keys: |
+            ai-scout-skills-db-
       - name: Compile Python sources
         run: python -m compileall -q .
       - name: Run offline tests
@@ -125,6 +133,7 @@ jobs:
           python - <<'PY'
           import json, shutil
           from pathlib import Path
+          from skill_registry import list_skills
           reports = Path("reports")
           data = Path("site/data")
           active_skills = []
@@ -141,6 +150,12 @@ jobs:
           for files, target in [(scout_files, "scout.json"), (updates_files, "ai-updates.json"), (agent_files, "market-report.json"), (feature_files, "feature-candidates.json"), (improvement_files, "self-improvement-plan.json"), (reverse_files, "reverse-engineering.json"), (skills_files, "skills-catalog.json")]:
               if files:
                   shutil.copy2(max(files, key=lambda p: p.stat().st_mtime), data / target)
+          lifecycle_records = list_skills()
+          (data / "skill-lifecycle.json").write_text(json.dumps({
+              "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+              "records": lifecycle_records,
+              "note": "External skills shown here are candidates unless the live API confirms a trusted active file is loaded."
+          }, ensure_ascii=False, indent=2), encoding="utf-8")
           (data / "status.json").write_text(json.dumps({
               "updated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
               "run_number": "${{ github.run_number }}",
@@ -171,3 +186,9 @@ jobs:
         with:
           path: data/scout.sqlite
           key: ai-scout-db-${{ github.run_id }}
+      - name: Save skill lifecycle history cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/skills.sqlite
+          key: ai-scout-skills-db-${{ github.run_id }}

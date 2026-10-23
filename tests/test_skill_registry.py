@@ -92,14 +92,18 @@ class SkillRegistryTests(unittest.TestCase):
                          test_report={"tests": 4, "failures": 0})
         with self.assertRaisesRegex(ValueError, "risk flags"):
             transition_skill(skill_id, "APPROVED", db_path=self.db,
-                             reviewer="maintainer", risk_flags=["prompt_injection"])
+                             reviewer="maintainer", license_verified=True,
+                             license_evidence="Reviewed LICENSE file; MIT terms verified at source revision abc123",
+                             risk_flags=["prompt_injection"])
 
     def test_only_reviewed_passed_candidate_can_be_activated(self):
         skill_id = self.advance_to_proposed()
         transition_skill(skill_id, "TESTED", db_path=self.db,
                          test_result="PASSED", test_command="python -m unittest",
                          test_report={"tests": 4, "failures": 0})
-        approved = transition_skill(skill_id, "APPROVED", db_path=self.db, reviewer="reviewer-1")
+        approved = transition_skill(skill_id, "APPROVED", db_path=self.db, reviewer="reviewer-1",
+                                    license_verified=True,
+                                    license_evidence="Reviewed LICENSE file; MIT terms verified at source revision abc123")
         self.assertEqual(approved["status"], "APPROVED")
         self.assertEqual(approved["reviewer"], "reviewer-1")
         active = transition_skill(skill_id, "ACTIVE", db_path=self.db, reviewer="release-reviewer")
@@ -110,6 +114,26 @@ class SkillRegistryTests(unittest.TestCase):
     def test_bad_source_url_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "source_url"):
             register_discovery("bad-source", "javascript:alert(1)", db_path=self.db)
+
+    def test_discovery_registration_is_idempotent(self):
+        first = register_discovery(
+            "same-candidate", "https://github.com/example/same-candidate",
+            source_revision="abc123", source_content_sha256="a" * 64, db_path=self.db,
+        )
+        second = register_discovery(
+            "same-candidate", "https://github.com/example/same-candidate",
+            source_revision="abc123", source_content_sha256="a" * 64, db_path=self.db,
+        )
+        self.assertEqual(first["skill_id"], second["skill_id"])
+        self.assertEqual(len([x for x in list_skills(db_path=self.db) if x["name"] == "same-candidate"]), 1)
+
+    def test_unverified_license_metadata_cannot_be_approved(self):
+        skill_id = self.advance_to_proposed()
+        transition_skill(skill_id, "TESTED", db_path=self.db,
+                         test_result="PASSED", test_command="python -m unittest",
+                         test_report={"tests": 4, "failures": 0})
+        with self.assertRaisesRegex(ValueError, "verified"):
+            transition_skill(skill_id, "APPROVED", db_path=self.db, reviewer="reviewer-1")
 
     def test_content_hash_is_recorded(self):
         self.assertEqual(len(self.skill["source_content_sha256"]), 64)

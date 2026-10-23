@@ -4,6 +4,7 @@ Popularity is a discovery signal, not proof of correctness. External skills rema
 review-only until a maintainer copies/adapts them into skills/active/.
 """
 import base64
+import hashlib
 import json
 import os
 import re
@@ -13,6 +14,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+from skill_registry import register_discovery, transition_skill
 
 ROOT = Path(__file__).resolve().parent
 REPORT_DIR = Path(os.getenv("SCOUT_REPORT_DIR", str(ROOT / "reports")))
@@ -141,6 +144,14 @@ def scan_repository(repository, fetcher=request_json):
     if meta.get("archived"):
         return []
     branch = meta.get("default_branch") or "main"
+    revision = "branch:" + branch
+    try:
+        commit_data = fetcher(API + "/repos/" + repository + "/commits/" + urllib.parse.quote(branch, safe=""))
+        if isinstance(commit_data, dict) and re.fullmatch(r"[a-f0-9]{40}", str(commit_data.get("sha", ""))):
+            revision = commit_data["sha"]
+    except Exception:
+        # Keep the branch reference when a test fixture or rate limit cannot resolve a commit.
+        pass
     tree_url = API + "/repos/" + repository + "/git/trees/" + urllib.parse.quote(branch, safe="") + "?recursive=1"
     tree = fetcher(tree_url)
     paths = sorted(
@@ -164,7 +175,9 @@ def scan_repository(repository, fetcher=request_json):
             **metadata,
             "repository": repository,
             "source_path": path,
-            "source_url": "https://github.com/" + repository + "/blob/" + branch + "/" + encoded_path,
+            "source_revision": revision,
+            "source_content_sha256": hashlib.sha256(skill_text.encode("utf-8")).hexdigest(),
+            "source_url": "https://github.com/" + repository + "/blob/" + (revision if re.fullmatch(r"[a-f0-9]{40}", revision) else branch) + "/" + encoded_path,
             "stars": int(meta.get("stargazers_count") or 0),
             "forks": int(meta.get("forks_count") or 0),
             "last_pushed_at": meta.get("pushed_at") or "",
@@ -225,10 +238,62 @@ def write_report(catalog, report_dir=REPORT_DIR):
     return md_path, json_path
 
 
+def persist_candidates(catalog, db_path=None):
+    """Persist static-analysis evidence idempotently; never propose or activate external text."""
+    persisted = []
+    for skill in catalog.get("skills", []):
+        raw_name = str(skill.get("name") or "external-skill").lower()
+        slug = re.sub(r"[^a-z0-9]+", "-", raw_name).strip("-")[:90] or "external-skill"
+        revision = str(skill.get("source_revision") or "unknown")[:200]
+        license_spdx = str(skill.get("license_spdx") or "UNKNOWN")[:80]
+        evidence = {
+            "capability_description": str(skill.get("description") or "")[:400],
+            "repository": str(skill.get("repository") or "")[:200],
+            "source_path": str(skill.get("source_path") or "")[:500],
+            "stars": int(skill.get("stars") or 0),
+            "forks": int(skill.get("forks") or 0),
+            "last_pushed_at": str(skill.get("last_pushed_at") or "")[:80],
+            "heuristic_score": int(skill.get("quality_score") or 0),
+            "score_note": str(skill.get("score_note") or "")[:300],
+            "license_source": "GitHub repository metadata; LICENSE text not independently verified",
+            "static_inspection_only": True,
+        }
+        record = register_discovery(
+            slug, str(skill.get("source_url") or ""),
+            version=revision[:12] if re.fullmatch(r"[a-f0-9]{40}", revision) else "branch-snapshot",
+            source_revision=revision,
+            license_spdx=license_spdx,
+            license_evidence="GitHub API repository metadata only; not sufficient for approval.",
+            inspected_files=[str(skill.get("source_path") or "SKILL.md")],
+            evidence=evidence,
+            risk_flags=list(skill.get("risk_flags") or []),
+            source_content_sha256=str(skill.get("source_content_sha256") or ""),
+            db_path=db_path,
+        )
+        if record["status"] == "DISCOVERED":
+            record = transition_skill(
+                record["skill_id"], "ANALYZED", db_path=db_path,
+                inspected_files=[str(skill.get("source_path") or "SKILL.md")],
+                evidence=evidence,
+                risk_flags=list(skill.get("risk_flags") or []),
+            )
+        persisted.append({
+            "skill_id": record["skill_id"],
+            "name": record["name"],
+            "status": record["status"],
+            "source_url": record["source_url"],
+            "license_verified": bool(record["license_verified"]),
+        })
+    return persisted
+
+
 def main():
     catalog = build_catalog()
     markdown, json_file = write_report(catalog)
+    persisted = persist_candidates(catalog)
     print(json.dumps({"status": "complete", "skills_found": catalog["skills_found"],
+                      "lifecycle_records_updated": len(persisted),
+                      "lifecycle_records": persisted[:20],
                       "repository_errors": len(catalog["errors"]),
                       "markdown": str(markdown), "json": str(json_file)}, ensure_ascii=False))
 
