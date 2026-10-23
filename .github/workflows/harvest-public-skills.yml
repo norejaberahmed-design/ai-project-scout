@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      GITHUB_TOKEN: \${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
       SCOUT_SKILL_DB_PATH: data/skills.sqlite
     steps:
       - name: Checkout repository
@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports data
-          LIMIT="\${{ inputs.max_proposals || '2' }}"
+          LIMIT="${{ inputs.max_proposals || '2' }}"
           python skill_harvester.py --limit "$LIMIT" --report reports/skill-harvest.json | tee /tmp/skill-harvest-output.json
           CREATED="$(python -c 'import json; print(json.load(open("reports/skill-harvest.json", encoding="utf-8")).get("proposals_created", 0))')"
           echo "created=$CREATED" >> "$GITHUB_OUTPUT"
@@ -95,7 +95,7 @@ jobs:
       - name: Open draft pull request for human review
         if: steps.harvest.outputs.created != '0'
         env:
-          BRANCH_NAME: \${{ github.run_id }}
+          BRANCH_NAME: ${{ github.run_id }}
         run: |
           BRANCH_NAME="skill-harvest-$BRANCH_NAME"
           git checkout -b "$BRANCH_NAME"
@@ -112,7 +112,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: skill-harvest-report-\${{ github.run_id }}
+          name: skill-harvest-report-${{ github.run_id }}
           path: reports/skill-harvest.json
           if-no-files-found: warn
           retention-days: 30
