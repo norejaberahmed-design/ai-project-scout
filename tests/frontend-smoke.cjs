@@ -24,7 +24,7 @@ assert.match(submitHandler, /fetch\(apiBase\+"\/api\/chat"/, "chat must call the
 assert.match(submitHandler, /fetch\(apiBase\+"\/api\/search"/, "if model chat fails, UI must attempt the real backend search endpoint");
 assert.doesNotMatch(submitHandler, /publicFallback|wikipedia\.org|api\.github\.com/,
   "chat handler must not disguise GitHub/Wikipedia-only results as general web search");
-assert.match(html, /GitHub Pages وحدها لا تشغّل Python/, "UI must explain why a backend is required");
+assert.match(html, /هذا العنوان ليس سرًا/, "UI must explain server URL versus secret configuration");
 assert.match(script, /https:\/\/www\.google\.com\/search\?q=/, "fallback includes direct general-web search");
 assert.match(script, /https:\/\/www\.bing\.com\/search\?q=/, "fallback includes a second general-web search engine");
 
