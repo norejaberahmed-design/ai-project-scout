@@ -19,6 +19,8 @@ DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/"
 MAX_QUERY_CHARS = 500
 MAX_RESULTS = 8
 MAX_RESPONSE_BYTES = 1_000_000
+YOUTUBE_RESULTS = 4
+YOUTUBE_INTENT = re.compile(r"youtube|يوتيوب|فيديو|شرح|tutorial|walkthrough|source code|الكود المصدري|مهارات|skills|agent tools|ai tools|أدوات الذكاء الاصطناعي", re.I)
 
 
 def _clean(value: str, limit: int = 1500) -> str:
@@ -121,12 +123,15 @@ def _search_duckduckgo(query: str, timeout: int = 20) -> dict:
             "coverage_note": "بحث عام في صفحات الويب المفهرسة عبر DuckDuckGo. النتائج ليست شاملة وقد تتغير أو تُحجب."}
 
 
-def _search_tavily(query: str, key: str, timeout: int) -> dict:
-    payload = json.dumps({
+def _search_tavily(query: str, key: str, timeout: int, include_domains: list[str] | None = None) -> dict:
+    parameters = {
         "api_key": key, "query": query, "search_depth": "basic",
-        "topic": "general", "max_results": MAX_RESULTS,
+        "topic": "general", "max_results": YOUTUBE_RESULTS if include_domains else MAX_RESULTS,
         "include_answer": False, "include_raw_content": False,
-    }).encode("utf-8")
+    }
+    if include_domains:
+        parameters["include_domains"] = include_domains
+    payload = json.dumps(parameters).encode("utf-8")
     raw = _request(API_URL, data=payload, timeout=timeout,
                    headers={"Content-Type": "application/json", "Accept": "application/json"})
     try:
@@ -159,12 +164,40 @@ def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dic
     key = (api_key or os.getenv("TAVILY_API_KEY", "")).strip()
     if key:
         try:
-            return _search_tavily(query, key, timeout)
+            result = _search_tavily(query, key, timeout)
         except RuntimeError as exc:
             try:
-                fallback = _search_duckduckgo(query, timeout)
-                fallback["fallback_note"] = "تعذر مزود البحث الأساسي؛ استُخدم DuckDuckGo بدلًا منه."
-                return fallback
+                result = _search_duckduckgo(query, timeout)
+                result["fallback_note"] = "تعذر مزود البحث الأساسي؛ استُخدم DuckDuckGo بدلًا منه."
             except RuntimeError:
                 raise RuntimeError("تعذر البحث عبر Tavily وDuckDuckGo: " + str(exc)) from None
-    return _search_duckduckgo(query, timeout)
+    else:
+        result = _search_duckduckgo(query, timeout)
+
+    # Video/tutorial discovery supplements general-web evidence; it never replaces it.
+    result["youtube_search"] = "not_needed"
+    if YOUTUBE_INTENT.search(query):
+        try:
+            if key:
+                videos = _search_tavily(query, key, timeout, include_domains=["youtube.com", "youtu.be"])
+            else:
+                videos = _search_duckduckgo("site:youtube.com/watch " + query, timeout)
+            existing = {item["url"] for item in result["results"]}
+            unique_videos = []
+            for item in videos["results"]:
+                if item["url"] not in existing:
+                    item = dict(item)
+                    item["source"] = "YouTube-focused discovery"
+                    unique_videos.append(item)
+                    existing.add(item["url"])
+                if len(unique_videos) >= YOUTUBE_RESULTS:
+                    break
+            result["results"] = result["results"][:4] + unique_videos + result["results"][4:]
+            result["result_count"] = len(result["results"])
+            result["provider"] += " + YouTube-focused search"
+            result["youtube_search"] = "searched" if unique_videos else "no_results"
+        except RuntimeError:
+            result["youtube_search"] = "unavailable"
+    result["results"] = result["results"][:MAX_RESULTS + YOUTUBE_RESULTS]
+    result["result_count"] = len(result["results"])
+    return result
