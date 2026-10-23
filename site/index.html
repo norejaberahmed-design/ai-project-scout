@@ -117,7 +117,7 @@ function renderCoverage(parent,data){
  for(const item of sources){
   const url=safeUrl(item.url);if(!url)continue;
   let host="";try{host=new URL(url).hostname.toLowerCase().replace(/^www\\./,"");}catch{}
-  else if(host==="github.com"||host.endsWith(".github.com"))counts.github++;
+  if(host==="github.com"||host.endsWith(".github.com"))counts.github++;
   else counts.web++;
   if(host)domains.add(host);
  }
