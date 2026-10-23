@@ -11,7 +11,7 @@ REPO = "safe-ai-tool"
 REVISION = "a" * 40
 BASE = f"https://api.github.com/repos/{OWNER}/{REPO}"
 FILES = {
-    "LICENSE": b"MIT License\nPermission is hereby granted...",
+    "LICENSE": b"MIT License\\nPermission is hereby granted, free of charge, to any person obtaining a copy",
     "README.md": b"# Safe AI Tool\nA small example library.",
     "src/tool.py": b"def answer():\n    return 'ok'\n",
     ".env": b"SECRET=should-not-copy",
