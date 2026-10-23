@@ -198,7 +198,7 @@ def run_agent(idea, buyer="الشركات الصغيرة والمتوسطة", ma
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
     # Preserve Arabic names and add a stable digest so non-Latin ideas do not all collapse to "idea".
-    safe_name = re.sub(r"[^\\w-]+", "-", idea, flags=re.UNICODE).strip("-_")[:35] or "idea"
+    safe_name = re.sub(r"[^\w-]+", "-", idea, flags=re.UNICODE).strip("-_")[:35] or "idea"
     safe_name = f"{safe_name}-{hashlib.sha256(idea.encode('utf-8')).hexdigest()[:8]}"
     json_path = output_dir / f"agent-{safe_name}-{stamp}.json"
     md_path = output_dir / f"agent-{safe_name}-{stamp}.md"
