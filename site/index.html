@@ -77,8 +77,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
    <section class="skill-group" aria-labelledby="active-skills-heading"><h3 id="active-skills-heading">المهارات المحمّلة في المحادثة</h3><div id="active-skills" class="skill-list"><div class="skill-empty">جارٍ التحقق من المهارات الفعلية…</div></div></section>
    <section class="skill-group" aria-labelledby="candidate-skills-heading"><h3 id="candidate-skills-heading">مرشحات قيد المراجعة</h3><div id="candidate-skills" class="skill-list"><div class="skill-empty">لم يُعلن عن اكتساب أي مهارة قبل التحقق منها.</div></div></section>
   </div>
-  <section class="skill-group" style="margin-top:20px" aria-labelledby="video-leads-heading"><h3 id="video-leads-heading">مصادر فيديو اكتُشفت (ليست كودًا مستوردًا)</h3><div id="video-leads" class="skill-list"><div class="skill-empty">ستظهر هنا روابط الشروحات العربية والإنجليزية عند تشغيل اكتشاف المهارات.</div></div></section>
-  <p id="skills-updated" class="notice">المحتوى الخارجي غير موثوق حتى يُراجع ويُختبر؛ لا يُشغّل تلقائيًا.</p>
+    <p id="skills-updated" class="notice">المحتوى الخارجي غير موثوق حتى يُراجع ويُختبر؛ لا يُشغّل تلقائيًا.</p>
  </section>
 </section>
 <section id="view-components" class="view" role="tabpanel" aria-labelledby="tab-components" hidden>
@@ -144,12 +143,10 @@ function publicSearchLinks(q){
   {title:"بحث الويب — Google",url:"https://www.google.com/search?q="+encoded,snippet:"افتح نتائج البحث العامة على Google."},
   {title:"بحث الويب — Bing",url:"https://www.bing.com/search?q="+encoded,snippet:"افتح نتائج البحث العامة على Bing."},
   {title:"بحث الويب — DuckDuckGo",url:"https://duckduckgo.com/?q="+encoded,snippet:"بديل مستقل لبحث الويب."},
-  {title:"فيديوهات YouTube",url:"https://www.youtube.com/results?search_query="+encoded,snippet:"ابحث عن شروحات وفيديوهات مرتبطة بسؤالك."},
-  {title:"فيديوهات الويب",url:"https://www.google.com/search?tbm=vid&q="+encoded,snippet:"ابحث عن الفيديوهات عبر الويب."},
   {title:"مناقشات Reddit",url:"https://www.reddit.com/search/?q="+encoded,snippet:"ابحث عن تجارب ومناقشات المجتمع؛ تحقق من الادعاءات من مصادر أولية."}
  ];
  return {
-  answer:"لم ينفذ التطبيق بحثًا فعليًا لأن خادم API غير مضبوط. السبب واضح: GitHub Pages يستضيف الواجهة الثابتة فقط ولا يشغّل Python. أضفت أول رابط أدناه لنشر خادم البحث من المستودع الحالي على Render؛ بعد النشر احفظ عنوان HTTPS في «إعداد اتصال الخادم». خادم البحث يستخدم الويب العام ويدعم بحثًا موجّهًا إلى YouTube، ويضيف اكتشاف مستودعات GitHub عند صلة السؤال. لا أزعم أن النتائج جُلبت قبل اتصال الخادم.",
+  answer:"لم ينفذ التطبيق بحثًا فعليًا لأن خادم API غير مضبوط. السبب واضح: GitHub Pages يستضيف الواجهة الثابتة فقط ولا يشغّل Python. أضفت أول رابط أدناه لنشر خادم البحث من المستودع الحالي على Render؛ بعد النشر احفظ عنوان HTTPS في «إعداد اتصال الخادم». خادم البحث يستخدم الويب العام، ويضيف اكتشاف مستودعات GitHub عند صلة السؤال. لا أزعم أن النتائج جُلبت قبل اتصال الخادم.",
   sources:queries,
   coverage_note:"روابط بحث مباشرة وليست نتائج جلبها الإيجنت. الحالة الحالية: روابط المحركات أدناه تفتح بحثًا مباشرًا فقط. البحث داخل المحادثة لا يصبح فعليًا إلا بعد نشر الخادم وربطه. الإجابات الذكية تحتاج أيضًا مفتاح نموذج محفوظًا كسر في منصة الاستضافة."
  };
@@ -466,7 +463,7 @@ async function discoverSkills(){
   return;
  }
  button.disabled=true;
- summary.textContent="جارٍ البحث في الويب عن مهارات الوكلاء ومصادر الفيديو، ثم التحقق من المستودعات والتراخيص…";
+ summary.textContent="جارٍ البحث في مستودعات GitHub العامة عن ملفات المهارات، ثم فحص الترخيص والمحتوى…";
  updated.textContent="سيتم حفظ المرشحات غير المفعّلة فقط؛ لن ينفذ النظام كودًا خارجيًا.";
  try{
   const response=await fetch(apiBase+"/api/skills/discover",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:"{}"});
@@ -476,12 +473,8 @@ async function discoverSkills(){
    throw new Error(data.error||(wait?"حاول بعد "+wait+" ثانية":"HTTP "+response.status));
   }
   const created=Number(data.proposals_created||0),searched=Number(data.repositories_searched||0);
-  const videoResults=Array.isArray(data.results)?data.results.filter(x=>x.status==="VIDEO_DISCOVERED_NOT_COPIED"&&safeUrl(x.url)) : [];
-  summary.textContent="اكتمل الاكتشاف: "+created+" مهارات مقترحة جديدة · "+searched+" مستودعات فُحصت · "+videoResults.length+" مصادر فيديو اكتُشفت. المقترحات لم تُفعّل تلقائيًا.";
-  updated.textContent="اكتشاف المهارات يبحث باللغتين العربية والإنجليزية. الفيديو دليل للوصول إلى المصدر فقط؛ لا يُنسخ كوده قبل العثور على مستودع عام وترخيص واضح ونسخة ثابتة.";
-  const videoContainer=$("video-leads");videoContainer.replaceChildren();
-  if(videoResults.length){videoResults.forEach(video=>addSkillCard(videoContainer,{name:video.title||"شرح فيديو",description:"مصدر اكتشاف فقط — لم يتم نسخ كود الفيديو أو التحقق من ترخيصه.",meta:"النوع: فيديو تعليمي · يتطلب تتبع المصدر إلى مستودع مرخص",url:video.url,label:"فتح الفيديو"}));}
-  else{videoContainer.textContent="لم يُعثر على روابط فيديو قابلة للاستخدام في هذه الجولة."}
+  summary.textContent="اكتمل اكتشاف GitHub: "+created+" مهارات مقترحة جديدة · "+searched+" مستودعات فُحصت. المقترحات لم تُفعّل تلقائيًا.";
+  updated.textContent="مصدر اكتشاف المهارات هو مستودعات GitHub العامة فقط. لا تُنسخ إلا المهارات ذات الترخيص المقبول وبعد الفحص؛ لا يُشغّل كود خارجي تلقائيًا.";
   await loadSkillRegistry();
  }catch(error){
   summary.textContent="لم يكتمل اكتشاف المهارات: "+(error.message||"خطأ غير معروف");
