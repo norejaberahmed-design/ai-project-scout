@@ -1,7 +1,7 @@
 """Minimal server-side API for the single-chat agent.
 
 Run with Python 3.12+: python api_server.py
-Required for live chat: TAVILY_API_KEY, SCOUT_LLM_API_KEY, SCOUT_LLM_MODEL.
+Required for model-generated chat: SCOUT_LLM_API_KEY, SCOUT_LLM_MODEL. TAVILY_API_KEY is optional; DuckDuckGo is the search fallback.
 Optional: SCOUT_LLM_API_URL, SCOUT_ALLOWED_ORIGINS, SCOUT_API_PORT.
 """
 from __future__ import annotations
