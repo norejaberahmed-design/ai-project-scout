@@ -181,7 +181,7 @@ def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dic
 
     # Video/tutorial discovery supplements general-web evidence; it never replaces it.
     result["youtube_search"] = "not_needed"
-    if YOUTUBE_INTENT.search(query):
+    if False and YOUTUBE_INTENT.search(query):  # Skill discovery is GitHub-only; never search videos.
         try:
             if key:
                 videos = _search_tavily(query, key, timeout, include_domains=["youtube.com", "youtu.be"])
