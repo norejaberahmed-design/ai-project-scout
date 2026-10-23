@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from urllib.parse import quote
 
-from component_acquisition import acquire_repository, inspect_repository, parse_repository_url
+from component_acquisition import (acquire_repository, auto_acquire_repositories, inspect_repository, parse_repository_url)
 
 OWNER = "example"
 REPO = "safe-ai-tool"
@@ -126,6 +126,54 @@ class ComponentAcquisitionTests(unittest.TestCase):
             return result
         with self.assertRaisesRegex(ValueError, "truncated"):
             inspect_repository(f"https://github.com/{OWNER}/{REPO}", fetcher=truncated)
+
+
+    def test_automatic_acquisition_is_opt_in_and_does_not_fetch_when_disabled(self):
+        result = auto_acquire_repositories(
+            [{"url": f"https://github.com/{OWNER}/{REPO}"}],
+            enabled=False,
+            root=tempfile.mkdtemp(),
+            fetcher=lambda _url: self.fail("disabled mode must not fetch repositories"),
+        )
+        self.assertFalse(result["enabled"])
+        self.assertEqual(result["copied"], 0)
+        self.assertEqual(result["attempted"], 0)
+
+    def test_automatic_acquisition_stages_eligible_repo_and_records_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = auto_acquire_repositories(
+                [{"url": f"https://github.com/{OWNER}/{REPO}"}],
+                enabled=True,
+                max_items=2,
+                root=tmp,
+                fetcher=fake_fetcher,
+            )
+            self.assertTrue(result["enabled"])
+            self.assertEqual(result["attempted"], 1)
+            self.assertEqual(result["copied"], 1)
+            item = result["items"][0]
+            self.assertEqual(item["status"], "PROPOSED_REVIEW_REQUIRED")
+            manifest = Path(item["destination"]) / "ACQUISITION_MANIFEST.json"
+            self.assertTrue(manifest.is_file())
+            self.assertFalse(item.get("activation_allowed", False))
+
+    def test_automatic_acquisition_skips_unknown_license_without_copying(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def unknown_license(url):
+                result = fake_fetcher(url)
+                if url == BASE:
+                    result["license"] = {"spdx_id": "UNKNOWN"}
+                return result
+            result = auto_acquire_repositories(
+                [{"url": f"https://github.com/{OWNER}/{REPO}"}],
+                enabled=True,
+                root=tmp,
+                fetcher=unknown_license,
+            )
+            self.assertEqual(result["copied"], 0)
+            self.assertEqual(result["items"][0]["status"], "SKIPPED")
+            self.assertFalse((Path(tmp) / "components" / "proposed").exists())
+
 
 
 if __name__ == "__main__":

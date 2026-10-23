@@ -307,6 +307,82 @@ def list_proposals(root: str | Path | None = None) -> dict:
                 })
     return {"count": len(items), "items": items, "policy": "quarantined proposals only; no imported code is executed"}
 
+
+def auto_acquire_repositories(repositories: list[dict], *, enabled: bool | None = None,
+                              max_items: int | None = None, root: str | Path | None = None,
+                              fetcher=request_json) -> dict:
+    """Stage eligible analyzed GitHub repositories in quarantine under strict limits.
+
+    This is opt-in at deployment level because public chat traffic must not be able to
+    fill server storage by default. It never installs, imports, executes, or activates
+    copied code. Unsupported/unknown licenses are skipped.
+    """
+    if enabled is None:
+        enabled = os.getenv("SCOUT_AUTO_ACQUIRE_COMPONENTS", "").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return {"enabled": False, "attempted": 0, "copied": 0, "items": [],
+                "note": "Automatic acquisition is disabled; set SCOUT_AUTO_ACQUIRE_COMPONENTS=true on the server to enable it."}
+
+    try:
+        limit = int(max_items if max_items is not None else os.getenv("SCOUT_AUTO_ACQUIRE_MAX_PER_REQUEST", "2"))
+    except (TypeError, ValueError):
+        limit = 2
+    limit = max(1, min(limit, 3))
+    existing = list_proposals(root).get("items", [])
+    existing_revisions = {
+        (str(item.get("repository", "")).lower(), str(item.get("revision", "")))
+        for item in existing
+    }
+    items = []
+    attempted = 0
+    seen = set()
+    for candidate in repositories or []:
+        if attempted >= limit:
+            break
+        if not isinstance(candidate, dict):
+            continue
+        url = candidate.get("url") or candidate.get("repository_url") or ""
+        try:
+            owner, repo = parse_repository_url(str(url))
+        except ValueError:
+            continue
+        canonical = f"https://github.com/{owner}/{repo}"
+        if canonical.lower() in seen:
+            continue
+        seen.add(canonical.lower())
+        attempted += 1
+        try:
+            info = inspect_repository(canonical, fetcher=fetcher)
+            identity = (str(info["repository"]).lower(), str(info["revision"]))
+            if identity in existing_revisions:
+                items.append({"repository": info["repository"], "status": "ALREADY_STAGED",
+                              "revision": info["revision"]})
+                continue
+            result = acquire_repository(canonical, approved=True, root=root, fetcher=fetcher)
+            manifest = result["manifest"]
+            existing_revisions.add(identity)
+            items.append({
+                "repository": manifest["repository"],
+                "status": result["status"],
+                "revision": manifest["revision"],
+                "license_spdx": manifest["license_spdx"],
+                "copied_file_count": manifest["copied_file_count"],
+                "copied_bytes": manifest["copied_bytes"],
+                "destination": result["destination"],
+            })
+        except (ValueError, RuntimeError, PermissionError) as exc:
+            # Do not fail the chat request because a candidate was not importable.
+            items.append({"repository": canonical, "status": "SKIPPED",
+                          "reason": str(exc)[:300]})
+    return {
+        "enabled": True,
+        "attempted": attempted,
+        "copied": sum(item.get("status") == "PROPOSED_REVIEW_REQUIRED" for item in items),
+        "items": items,
+        "policy": "license-allowlisted files only; quarantined; no installation, execution, or activation",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inspect and stage eligible open-source repository files.")
     parser.add_argument("repository_url", help="Public GitHub repository root URL")
