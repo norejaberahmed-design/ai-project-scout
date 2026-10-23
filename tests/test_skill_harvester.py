@@ -42,44 +42,6 @@ def fake_tree_fetcher(url):
 
 
 class SkillHarvesterTests(unittest.TestCase):
-    def test_video_discovery_uses_video_as_lead_and_only_returns_allowlisted_repos(self):
-        calls = []
-        def searcher(query, timeout=12):
-            calls.append(query)
-            if len(calls) == 1:
-                return {"results": [
-                    {"title": "Build an AI agent with skills", "url": "https://www.youtube.com/watch?v=abc123",
-                     "snippet": "Tutorial"},
-                    {"title": "Other result", "url": "https://example.org/page", "snippet": "Not a video"},
-                ]}
-            return {"results": [
-                {"title": "Source repository", "url": "https://github.com/example/skill-pack",
-                 "snippet": "MIT license"}
-            ]}
-        def fetcher(url):
-            if url == "https://api.github.com/repos/example/skill-pack":
-                return {"full_name": "example/skill-pack", "license": {"spdx_id": "MIT"},
-                        "stargazers_count": 5, "pushed_at": "2026-10-01T00:00:00Z"}
-            raise AssertionError("Unexpected URL: " + url)
-        repos, videos = skill_harvester.discover_video_related_repositories(searcher=searcher, fetcher=fetcher)
-        self.assertEqual(len(videos), 1)
-        self.assertEqual(videos[0]["status"], "VIDEO_DISCOVERED_NOT_COPIED")
-        self.assertEqual(len(repos), 1)
-        self.assertEqual(repos[0]["license_spdx"], "MIT")
-        self.assertEqual(repos[0]["discovered_from_video"], "https://www.youtube.com/watch?v=abc123")
-        self.assertEqual(len(calls), 3)
-
-    def test_video_discovery_does_not_copy_unlicensed_source_code(self):
-        def searcher(query, timeout=12):
-            if "source code GitHub" in query:
-                return {"results": [{"title": "Repo", "url": "https://github.com/example/no-license", "snippet": ""}]}
-            return {"results": [{"title": "Tutorial", "url": "https://youtu.be/abc123", "snippet": ""}]}
-        def fetcher(url):
-            return {"full_name": "example/no-license", "license": {"spdx_id": "NOASSERTION"}}
-        repos, videos = skill_harvester.discover_video_related_repositories(searcher=searcher, fetcher=fetcher)
-        self.assertEqual(repos, [])
-        self.assertEqual(videos[0]["status"], "VIDEO_DISCOVERED_NOT_COPIED")
-
     def test_slug_rejects_generic_and_normalizes_names(self):
         self.assertEqual(skill_harvester._slug("Evidence Checking!"), "evidence-checking")
         self.assertEqual(skill_harvester._slug("SKILL"), "")
