@@ -107,6 +107,7 @@ def skill_registry_payload() -> dict:
             "inspected_files": item["inspected_files"],
             "evidence": item["evidence"],
             "risk_flags": item["risk_flags"],
+            "source_content_sha256": item["source_content_sha256"],
             "content_sha256": item["content_sha256"],
             "test_result": item["test_result"],
             "test_command": item["test_command"],
