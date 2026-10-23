@@ -284,7 +284,13 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         "repository": info["repository"],
         "revision": info["revision"],
         "license_spdx": info["license_spdx"],
-        "license_text_vedef run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
+        "license_text_verified": True,
+        "status": "INSPECTED",
+        "proposals": proposals,
+    }
+
+
+def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
                 db_path: str | Path | None = None, fetcher=request_json) -> dict:
     """Search, inspect, and stage at most three eligible skill documents."""
     max_proposals = max(1, min(int(limit), MAX_PROPOSALS))
@@ -351,9 +357,6 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
             seen_names.add(name)
             report["proposals_created"] += 1
         report["results"].append(result)
-    return report
-oposals_created"] += 1
-            report["results"].append(result)
     return report
 
 
