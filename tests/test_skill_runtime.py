@@ -143,6 +143,8 @@ class SkillRuntimeTests(unittest.TestCase):
             "test-driven-implementation",
             "product-market-validation",
             "structured-debugging",
+            "receiving-code-review",
+            "finishing-development",
         }
         bundled = [skill for skill in skills if skill["name"] in expected]
         self.assertEqual(expected, {skill["name"] for skill in bundled})
