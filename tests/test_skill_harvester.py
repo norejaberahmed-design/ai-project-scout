@@ -67,7 +67,7 @@ class SkillHarvesterTests(unittest.TestCase):
         self.assertEqual(len(repos), 1)
         self.assertEqual(repos[0]["license_spdx"], "MIT")
         self.assertEqual(repos[0]["discovered_from_video"], "https://www.youtube.com/watch?v=abc123")
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)
 
     def test_video_discovery_does_not_copy_unlicensed_source_code(self):
         def searcher(query, timeout=12):
