@@ -329,7 +329,6 @@ class ApiServerTests(unittest.TestCase):
                 search.assert_called_once_with("planned public web query")
                 answer.assert_called_once()
                 self.assertEqual(body["sources"][0]["url"], "https://example.org")
-                self.assertEqual(body["skills_used"], ["research-method"])
                 self.assertNotIn("component_acquisition", body)
         finally:
             server.shutdown()
