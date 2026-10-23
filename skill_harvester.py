@@ -33,8 +33,10 @@ DENIED_NAMES = {"", "skill", "skills", "default", "template", "example"}
 # Seed a high-value, MIT-licensed general agent-skills repository before broad discovery.
 SEED_REPOSITORIES = ("https://github.com/obra/superpowers",)
 SEARCH_QUERIES = (
-    "agent skills research coding in:name,description stars:>=10",
-    "SKILL.md software engineering agent in:readme stars:>=10",
+    "agent skills in:name,description stars:>=10",
+    "SKILL.md AI agent in:readme stars:>=10",
+    "AI agent skill library in:name,description stars:>=10",
+    "Claude Code skills in:name,description stars:>=10",
 )
 SKILL_PRIORITY = {
     "verification-before-completion": 100,
