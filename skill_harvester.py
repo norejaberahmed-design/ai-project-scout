@@ -116,7 +116,8 @@ def _get_skill_text(repository_url: str, revision: str, path: str, fetcher=reque
 
 
 def harvest_repository(repository_url: str, *, root: Path | None = None,
-                       db_path: str | Path | None = None, fetcher=request_json) -> dict:
+                       db_path: str | Path | None = None, fetcher=request_json,
+                       max_skills: int = MAX_PROPOSALS) -> dict:
     """Inspect one repository and save its eligible SKILL.md files as review-only proposals."""
     owner, repo = parse_repository_url(repository_url)
     canonical = f"https://github.com/{owner}/{repo}"
@@ -136,7 +137,7 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         return {"repository": info["repository"], "status": "NO_SKILL_DOCUMENT", "proposals": []}
 
     proposals = []
-    for item in candidates[:MAX_PROPOSALS]:
+    for item in candidates[:max(1, min(int(max_skills), MAX_PROPOSALS))]:
         upstream_path = str(item["path"])
         upstream_document = _get_skill_text(canonical, info["revision"], upstream_path, fetcher)
         unsupported = [pattern.pattern for pattern in PLATFORM_DEPENDENCY_PATTERNS
@@ -287,13 +288,7 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         "repository": info["repository"],
         "revision": info["revision"],
         "license_spdx": info["license_spdx"],
-        "license_text_verified": True,
-        "status": "INSPECTED",
-        "proposals": proposals,
-    }
-
-
-def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
+        "license_text_vedef run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
                 db_path: str | Path | None = None, fetcher=request_json) -> dict:
     """Search, inspect, and stage at most three eligible skill documents."""
     max_proposals = max(1, min(int(limit), MAX_PROPOSALS))
@@ -307,47 +302,61 @@ def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
     seen_repositories = set()
     seen_names = set()
     discovered = [
-        {"url": url, "repository": url.rstrip("/").split("/")[-2] + "/" + url.rstrip("/").split("/")[-1],
-         "license_spdx": "MIT", "description": "Seeded general-purpose agent skill repository"}
+        {
+            "url": url,
+            "repository": url.rstrip("/").split("/")[-2] + "/" + url.rstrip("/").split("/")[-1],
+            "license_spdx": "MIT",
+            "description": "Seeded general-purpose agent skill repository",
+        }
         for url in SEED_REPOSITORIES
     ]
     for query in SEARCH_QUERIES:
         try:
             discovered.extend(search_skill_repositories(query, fetcher=fetcher))
         except (RuntimeError, ValueError) as exc:
-            report["results"].append({"query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]})
+            report["results"].append({
+                "query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]
+            })
+
     for candidate in discovered:
-        if report["proposals_created"] >= max_proposals:
+        remaining = max_proposals - report["proposals_created"]
+        if remaining <= 0:
             break
-            if report["proposals_created"] >= max_proposals:
-                break
-            url = candidate["url"]
-            if url.lower() in seen_repositories:
+        url = candidate.get("url", "")
+        if not url or url.lower() in seen_repositories:
+            continue
+        seen_repositories.add(url.lower())
+        report["repositories_searched"] += 1
+        if candidate.get("license_spdx") not in ALLOWED_LICENSES:
+            report["results"].append({
+                "repository": candidate.get("repository", url),
+                "status": "SKIPPED_LICENSE_METADATA",
+                "license_spdx": candidate.get("license_spdx", "UNKNOWN"),
+            })
+            continue
+        try:
+            result = harvest_repository(
+                url, root=root, db_path=db_path, fetcher=fetcher, max_skills=remaining
+            )
+        except (RuntimeError, ValueError, OSError) as exc:
+            report["results"].append({
+                "repository": candidate.get("repository", url),
+                "status": "SKIPPED",
+                "reason": str(exc)[:300],
+            })
+            continue
+        for proposal in result.get("proposals", []):
+            if proposal.get("status") != "PROPOSED_REVIEW_REQUIRED":
                 continue
-            seen_repositories.add(url.lower())
-            report["repositories_searched"] += 1
-            if candidate.get("license_spdx") not in ALLOWED_LICENSES:
-                report["results"].append({
-                    "repository": candidate["repository"], "status": "SKIPPED_LICENSE_METADATA",
-                    "license_spdx": candidate.get("license_spdx", "UNKNOWN"),
-                })
+            name = proposal.get("name", "")
+            if name in seen_names:
+                proposal["status"] = "DUPLICATE_NAME_IN_RUN"
                 continue
-            try:
-                result = harvest_repository(url, root=root, db_path=db_path, fetcher=fetcher)
-            except (RuntimeError, ValueError, OSError) as exc:
-                report["results"].append({
-                    "repository": candidate["repository"], "status": "SKIPPED",
-                    "reason": str(exc)[:300],
-                })
-                continue
-            for proposal in result.get("proposals", []):
-                if proposal.get("status") == "PROPOSED_REVIEW_REQUIRED":
-                    name = proposal.get("name", "")
-                    if name in seen_names:
-                        proposal["status"] = "DUPLICATE_NAME_IN_RUN"
-                    else:
-                        seen_names.add(name)
-                        report["proposals_created"] += 1
+            seen_names.add(name)
+            report["proposals_created"] += 1
+        report["results"].append(result)
+    return report
+oposals_created"] += 1
             report["results"].append(result)
     return report
 
