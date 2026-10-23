@@ -97,6 +97,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 const $=id=>document.getElementById(id);
 const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$("question"),send=$("send"),apiurl=$("apiurl"),apihelp=$("apihelp");
 let apiBase=(localStorage.getItem("scoutApiBase")||"").trim().replace(/\/+$/,"");
+let inspectedComponent=null;
 apiurl.value=apiBase;
 if(!apiBase){statusText.textContent="وضع بحث محدود · لا يوجد نموذج متصل";statusDot.className="dot";}
 function setStatus(message,state="neutral"){statusText.textContent=message;statusDot.className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");}
@@ -324,15 +325,97 @@ async function loadSkillRegistry(){
   updated.textContent="تحقق من اتصال الخادم أو من ملفات بيانات الواجهة. لا تُعرض المهارة على أنها مكتسبة دون دليل.";
  }
 }
+async function inspectComponent(){
+ const report=$("component-report"),repoUrl=$("component-repo").value.trim();
+ if(!apiBase){report.textContent="أدخل عنوان خادم HTTPS في إعداد اتصال الخادم أولًا، ثم أعد الفحص.";return;}
+ if(!repoUrl){report.textContent="أدخل رابط مستودع GitHub أولًا.";return;}
+ inspectedComponent=null;
+ $("acquire-component").disabled=true;
+ $("component-consent").checked=false;
+ $("component-consent").disabled=true;
+ report.textContent="جارٍ فحص المستودع والترخيص وقائمة الملفات…";
+ try{
+  const response=await fetch(apiBase+"/api/components/inspect",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({repository_url:repoUrl})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||("HTTP "+response.status));
+  inspectedComponent=data;
+  const bytes=Number(data.eligible_bytes_estimate||0);
+  const lines=[
+   "المستودع: "+(data.repository||"غير معروف"),
+   "النسخة المثبتة: "+(data.revision||"غير متاحة"),
+   "الترخيص المعلن: "+(data.license_spdx||"غير معروف"),
+   "مطابقة نص الترخيص: "+(data.license_text_verified?"اجتاز الفحص الآلي الأولي":"لم يتم التحقق"),
+   "ملفات مرشحة للنسخ: "+Number(data.eligible_file_count||0),
+   "الحجم المتوقع: "+bytes.toLocaleString()+" بايت",
+   "آخر تحديث للمستودع: "+(data.last_pushed_at||"غير معروف"),
+   "",
+   "هذا فحص أولي فقط؛ لا يثبت أمان الكود ولا يراجع التبعيات."
+  ];
+  report.textContent=lines.join("\n");
+  const allowed=["MIT","Apache-2.0","BSD-2-Clause","BSD-3-Clause","ISC","0BSD"];
+  const eligible=allowed.includes(data.license_spdx)&&data.license_text_verified===true&&Number(data.eligible_file_count)>0;
+  $("component-consent").disabled=!eligible;
+  $("acquire-component").disabled=!eligible;
+  if(!eligible)report.textContent+="\n\nلم يُسمح بالنسخ؛ الترخيص أو قائمة الملفات لا تستوفي بوابة الفحص.";
+ }catch(error){report.textContent="فشل فحص المستودع: "+(error.message||"خطأ غير معروف");}
+}
+async function loadComponents(){
+ const list=$("component-list");
+ list.replaceChildren();
+ const empty=document.createElement("div");empty.className="skill-empty";empty.textContent="جارٍ تحميل المكتبات المقترحة…";list.appendChild(empty);
+ if(!apiBase){empty.textContent="اضبط عنوان خادم API لعرض المكتبات المستوردة.";return;}
+ try{
+  const response=await fetch(apiBase+"/api/components",{cache:"no-store"});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||("HTTP "+response.status));
+  list.replaceChildren();
+  if(!Array.isArray(data.items)||!data.items.length){const msg=document.createElement("div");msg.className="skill-empty";msg.textContent="لا توجد مكتبات منسوخة إلى مساحة المراجعة بعد.";list.appendChild(msg);return;}
+  data.items.forEach(item=>{
+   const card=document.createElement("article");card.className="component-card";
+   const title=document.createElement("strong");title.textContent=item.repository||"مستودع بلا اسم";card.appendChild(title);
+   const details=document.createElement("p");details.textContent="الترخيص: "+(item.license_spdx||"غير معروف")+" · الملفات: "+Number(item.copied_file_count||0)+" · الحجم: "+Number(item.copied_bytes||0).toLocaleString()+" بايت";card.appendChild(details);
+   const state=document.createElement("p");state.textContent="الحالة: "+(item.status||"PROPOSED_REVIEW_REQUIRED")+" — لم تُثبّت ولم تُشغّل.";card.appendChild(state);
+   const url=safeUrl(item.repository_url);if(url){const link=document.createElement("a");link.href=url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="فتح المستودع الأصلي";link.style.color="var(--blue)";card.appendChild(link);}
+   list.appendChild(card);
+  });
+ }catch(error){list.replaceChildren();const msg=document.createElement("div");msg.className="skill-empty";msg.textContent="تعذر تحميل المكتبات المقترحة: "+(error.message||"خطأ غير معروف");list.appendChild(msg);}
+}
+async function acquireComponent(){
+ const report=$("component-report"),token=$("component-token").value.trim();
+ if(!inspectedComponent||!$("component-consent").checked){report.textContent="افحص المستودع ووافق على النسخ صراحةً أولًا.";return;}
+ if(!token){report.textContent="أدخل رمز مسؤول الاستيراد المضبوط في بيئة الخادم. لا ترسله في المحادثة.";return;}
+ if(!apiBase){report.textContent="عنوان خادم API غير مضبوط.";return;}
+ $("acquire-component").disabled=true;
+ report.textContent="جارٍ نسخ الملفات المؤهلة إلى مساحة المراجعة…";
+ try{
+  const response=await fetch(apiBase+"/api/components/acquire",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({repository_url:inspectedComponent.repository_url})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||("HTTP "+response.status));
+  report.textContent="تم نسخ الملفات إلى مساحة المراجعة.\nالمستودع: "+(data.manifest?.repository||inspectedComponent.repository||"غير معروف")+"\nالملفات المنسوخة: "+Number(data.manifest?.copied_file_count||0)+"\nالحالة: PROPOSED_REVIEW_REQUIRED\nلم يتم تثبيت أو تشغيل أي كود.";
+  $("component-token").value="";
+  $("component-consent").checked=false;
+  $("component-consent").disabled=true;
+  inspectedComponent=null;
+  await loadComponents();
+ }catch(error){report.textContent="لم يكتمل النسخ: "+(error.message||"خطأ غير معروف")+". تحقق من إعداد رمز المسؤول وخادم API."; }
+}
+$("component-form").addEventListener("submit",event=>{event.preventDefault();inspectComponent();});
+$("acquire-component").addEventListener("click",acquireComponent);
+$("refresh-components").addEventListener("click",loadComponents);
+$("component-consent").addEventListener("change",event=>{$("acquire-component").disabled=!event.target.checked||!inspectedComponent;});
 $("tab-chat").addEventListener("click",()=>switchView("chat"));
 $("tab-skills").addEventListener("click",()=>switchView("skills"));
+$("tab-components").addEventListener("click",()=>switchView("components"));
 function switchView(view){
- const chatView=view==="chat";
+ const chatView=view==="chat",skillsView=view==="skills",componentsView=view==="components";
  $("view-chat").hidden=!chatView;
- $("view-skills").hidden=chatView;
+ $("view-skills").hidden=!skillsView;
+ $("view-components").hidden=!componentsView;
  $("tab-chat").setAttribute("aria-selected",String(chatView));
- $("tab-skills").setAttribute("aria-selected",String(!chatView));
- if(!chatView)loadSkillRegistry();
+ $("tab-skills").setAttribute("aria-selected",String(skillsView));
+ $("tab-components").setAttribute("aria-selected",String(componentsView));
+ if(skillsView)loadSkillRegistry();
+ if(componentsView)loadComponents();
 }
 question.addEventListener("input",()=>{$("charcount").textContent=question.value.length+" / 500";});
 question.addEventListener("keydown",event=>{
