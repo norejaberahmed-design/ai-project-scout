@@ -262,8 +262,14 @@ class AgentHandler(BaseHTTPRequestHandler):
         if self.path != "/api/health":
             self._send(404, {"error": "Not found"})
             return
-        self._send(200, {"status": "ok", "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
-                         "model_configured": bool(os.getenv("SCOUT_LLM_API_KEY") and os.getenv("SCOUT_LLM_MODEL"))})
+        self._send(200, {
+            "status": "ok",
+            "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
+            "web_search_available": True,
+            "web_search_provider": "Tavily with DuckDuckGo fallback",
+            "youtube_search_available": True,
+            "model_configured": bool(os.getenv("SCOUT_LLM_API_KEY") and os.getenv("SCOUT_LLM_MODEL")),
+        })
 
     def do_POST(self):
         origin = self.headers.get("Origin", "").rstrip("/")
