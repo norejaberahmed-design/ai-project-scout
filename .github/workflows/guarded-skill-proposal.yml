@@ -29,6 +29,7 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }}
       SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
       SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
+      SCOUT_LLM_API_URL: ${{ vars.SCOUT_LLM_API_URL }}
       SCOUT_REPORT_DIR: reports
     steps:
       - name: Checkout repository
