@@ -179,8 +179,7 @@ class ApiServerTests(unittest.TestCase):
                 with urllib.request.urlopen(request, timeout=3) as response:
                     self.assertEqual(json.loads(response.read().decode("utf-8"))["license_spdx"], "MIT")
 
-            with patch.dict(os.environ, {"SCOUT_COMPONENT_IMPORT_TOKEN": "admin-test-token"}, clear=True), \\
-                 patch("api_server.acquire_repository", return_value={"status": "PROPOSED_REVIEW_REQUIRED"}) as acquire:
+            with patch.dict(os.environ, {"SCOUT_COMPONENT_IMPORT_TOKEN": "admin-test-token"}, clear=True), patch("api_server.acquire_repository", return_value={"status": "PROPOSED_REVIEW_REQUIRED"}) as acquire:
                 payload = json.dumps({"repository_url": "https://github.com/example/safe"}).encode("utf-8")
                 denied = urllib.request.Request(
                     base + "/api/components/acquire", data=payload,
