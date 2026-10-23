@@ -33,10 +33,12 @@ DENIED_NAMES = {"", "skill", "skills", "default", "template", "example"}
 # Seed a high-value, MIT-licensed general agent-skills repository before broad discovery.
 SEED_REPOSITORIES = ("https://github.com/obra/superpowers",)
 SEARCH_QUERIES = (
-    "agent skills in:name,description stars:>=10",
-    "SKILL.md AI agent in:readme stars:>=10",
-    "AI agent skill library in:name,description stars:>=10",
-    "Claude Code skills in:name,description stars:>=10",
+    "open source agent skills license:mit stars:>=20",
+    "agent-skills license:mit stars:>=20",
+    "SKILL.md AI agent in:readme license:mit stars:>=20",
+    "coding agent skills in:name,description license:mit stars:>=20",
+    "portable agent skill library license:mit stars:>=20",
+    "Claude Code skills in:name,description license:mit stars:>=20",
 )
 SKILL_PRIORITY = {
     "verification-before-completion": 100,
@@ -51,6 +53,8 @@ PLATFORM_DEPENDENCY_PATTERNS = (
     re.compile(r"\bbrowser_skill_cli\b", re.I),
     re.compile(r"\bDINGTALK_[A-Z0-9_]+\b|钉钉", re.I),
     re.compile(r"\bCowork\b|Skill Center", re.I),
+    # Reject instructions tied to a third-party analytics CLI/integration absent from this app.
+    re.compile(r"\bdeepline\b|snowflake_(?:get_semantic_layer|run_semantic_query)", re.I),
     re.compile(r"\bAIRFLOW_(?:API_URL|AUTH_TOKEN|USERNAME|PASSWORD)\b|\brun_af\b|astro-airflow-mcp", re.I),
     re.compile(r"\bsubagents?\b|\bparallel agents?\b|\bdispatch(?:ing)?[- ](?:parallel[- ])?agents?\b", re.I),
 )
