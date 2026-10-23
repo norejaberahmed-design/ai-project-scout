@@ -21,6 +21,7 @@ from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, select_skills
 from skill_proposal_sync import sync_proposed_skill_records
 from web_search import search_web
+from security_redaction import redact_text, redact_value
 from component_acquisition import acquire_repository, inspect_repository, list_proposals
 from skill_harvester import run_harvest
 
@@ -226,11 +227,14 @@ class AgentHandler(BaseHTTPRequestHandler):
     server_version = "AIProjectScoutAPI/1.0"
 
     def log_message(self, fmt, *args):
-        # Avoid logging query bodies, secrets, and user prompts.
-        print("%s - %s" % (self.client_address[0], fmt % args))
+        # Provider logs may persist stdout; redact before writing anything.
+        message = "%s - %s" % (self.client_address[0], fmt % args)
+        print(redact_text(message))
 
     def _send(self, status: int, payload: dict):
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        # Sanitize response strings too: upstream errors and URLs are untrusted.
+        safe_payload = redact_value(payload)
+        body = json.dumps(safe_payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
