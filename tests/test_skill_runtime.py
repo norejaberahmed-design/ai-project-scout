@@ -2,7 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from skill_runtime import inspect_candidate, load_active_skills, save_proposal, select_skills
+from skill_runtime import activate_approved_skill, inspect_candidate, load_active_skills, save_proposal, select_skills
+from skill_registry import register_discovery, transition_skill
 
 
 SAFE_SKILL = """---
@@ -48,6 +49,71 @@ class SkillRuntimeTests(unittest.TestCase):
             (active / "SKILL.md").write_text(SAFE_SKILL, encoding="utf-8")
             skills = load_active_skills(root)
             self.assertEqual([s["name"] for s in skills], ["careful-research"])
+
+    def test_approved_skill_activation_is_hash_checked_and_loaded_by_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = root / "skills.sqlite"
+            proposal = save_proposal(SAFE_SKILL, root)
+            record = register_discovery(
+                "careful-research",
+                "https://github.com/example/careful-research",
+                license_spdx="internal",
+                license_evidence="Internally generated procedure; reviewed by maintainer.",
+                db_path=db,
+            )
+            record = transition_skill(
+                record["skill_id"], "ANALYZED", db_path=db,
+                inspected_files=["reports/self-improvement-plan.json"],
+                evidence={"gap": "Need source verification"},
+            )
+            record = transition_skill(
+                record["skill_id"], "PROPOSED", db_path=db, content=SAFE_SKILL,
+            )
+            record = transition_skill(
+                record["skill_id"], "TESTED", db_path=db,
+                test_result="PASSED", test_command="python -m unittest",
+                test_report={"tests": 1, "failures": 0, "errors": 0, "exit_code": 0},
+            )
+            record = transition_skill(
+                record["skill_id"], "APPROVED", db_path=db,
+                reviewer="reviewer-1", license_spdx="internal",
+                license_evidence="Internal content reviewed for this test.",
+                license_verified=True,
+            )
+            activated = activate_approved_skill(record["skill_id"], "release-reviewer", root, db)
+            loaded = load_active_skills(root)
+            selected = select_skills("research public sources verify claims", loaded)
+
+            self.assertEqual(activated["status"], "ACTIVE")
+            self.assertTrue(activated["runtime_loaded"])
+            self.assertEqual([item["name"] for item in loaded], ["careful-research"])
+            self.assertEqual(selected[0]["name"], "careful-research")
+            self.assertEqual(activated["content_sha256"], record["content_sha256"])
+
+    def test_activation_refuses_changed_proposal_content(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = root / "skills.sqlite"
+            save_proposal(SAFE_SKILL, root)
+            record = register_discovery(
+                "careful-research", "https://github.com/example/careful-research",
+                license_spdx="internal", db_path=db,
+            )
+            record = transition_skill(record["skill_id"], "ANALYZED", db_path=db,
+                inspected_files=["README.md"], evidence={"observed": "procedure exists"})
+            record = transition_skill(record["skill_id"], "PROPOSED", db_path=db, content=SAFE_SKILL)
+            transition_skill(record["skill_id"], "TESTED", db_path=db,
+                test_result="PASSED", test_command="python -m unittest",
+                test_report={"tests": 1, "failures": 0, "errors": 0, "exit_code": 0})
+            approved = transition_skill(record["skill_id"], "APPROVED", db_path=db,
+                reviewer="reviewer-1", license_spdx="internal",
+                license_evidence="Reviewed internal test document.", license_verified=True)
+            proposal = root / "skills" / "proposed" / "careful-research" / "SKILL.md"
+            proposal.write_text(SAFE_SKILL + "\\nChanged after approval.\\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                activate_approved_skill(approved["skill_id"], "release-reviewer", root, db)
+            self.assertFalse((root / "skills" / "active" / "careful-research").exists())
 
     def test_proposal_saved_outside_active_library(self):
         with tempfile.TemporaryDirectory() as tmp:
