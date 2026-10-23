@@ -177,7 +177,7 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
-    def test_search_endpoint_merges_general_web_and_github_for_repository_queries(self):
+    def test_search_endpoint_returns_only_general_web_results(self):
         web = {
             "query": "open source agent framework",
             "provider": "DuckDuckGo",
