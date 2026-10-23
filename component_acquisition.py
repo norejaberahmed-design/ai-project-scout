@@ -350,7 +350,6 @@ def auto_acquire_repositories(repositories: list[dict], *, enabled: bool | None 
         if canonical.lower() in seen:
             continue
         seen.add(canonical.lower())
-        attempted += 1
         try:
             info = inspect_repository(canonical, fetcher=fetcher)
             identity = (str(info["repository"]).lower(), str(info["revision"]))
@@ -358,6 +357,9 @@ def auto_acquire_repositories(repositories: list[dict], *, enabled: bool | None 
                 items.append({"repository": info["repository"], "status": "ALREADY_STAGED",
                               "revision": info["revision"]})
                 continue
+            # Count only new revisions toward the acquisition limit, so repeated searches
+            # can move past already-staged repositories and eventually consider later results.
+            attempted += 1
             result = acquire_repository(canonical, approved=True, root=root, fetcher=fetcher)
             manifest = result["manifest"]
             existing_revisions.add(identity)
