@@ -8,9 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN addgroup --system scout && adduser --system --ingroup scout scout
 WORKDIR /app
 
-# api_server imports all four modules below; keep the runtime image self-contained.
-COPY --chown=scout:scout api_server.py web_search.py skill_runtime.py github_discovery.py ./
+# Keep every imported runtime module inside the image, including the lifecycle registry.
+COPY --chown=scout:scout api_server.py web_search.py skill_runtime.py skill_registry.py github_discovery.py ./
 COPY --chown=scout:scout skills/active ./skills/active
+RUN mkdir -p /app/data && chown scout:scout /app/data
 
 USER scout
 EXPOSE 8787
