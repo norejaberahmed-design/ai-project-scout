@@ -14,10 +14,25 @@ class WebSearchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             web_search.search_web("x" * (web_search.MAX_QUERY_CHARS + 1), api_key="test-key")
 
-    def test_missing_key_is_reported_without_network(self):
-        with patch.dict("os.environ", {}, clear=True):
-            with self.assertRaisesRegex(RuntimeError, "TAVILY_API_KEY"):
-                web_search.search_web("test", api_key="")
+    def test_missing_key_uses_general_web_search_fallback(self):
+        fallback = {"query": "test", "provider": "DuckDuckGo",
+                    "results": [{"title": "Source", "url": "https://example.org", "snippet": "Evidence"}],
+                    "result_count": 1, "coverage_note": "general web"}
+        with patch.dict("os.environ", {}, clear=True), patch("web_search._search_duckduckgo", return_value=fallback) as search:
+            result = web_search.search_web("test", api_key="")
+        self.assertEqual(result["provider"], "DuckDuckGo")
+        search.assert_called_once_with("test", 20)
+
+    def test_duckduckgo_parser_extracts_search_results(self):
+        page = """
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fguide">A useful guide</a>
+        <div class="result__snippet">Public web evidence and examples</div>
+        """
+        parser = web_search._DuckDuckGoParser()
+        parser.feed(page)
+        self.assertEqual(parser.results[0]["title"], "A useful guide")
+        self.assertEqual(parser.results[0]["url"], "//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fguide")
+        self.assertIn("Public web evidence", parser.results[0]["snippet"])
 
     @patch("web_search.urllib.request.urlopen")
     def test_search_returns_bounded_source_links_and_coverage_note(self, urlopen):
@@ -46,15 +61,19 @@ class WebSearchTests(unittest.TestCase):
         self.assertFalse(payload["include_raw_content"])
 
     @patch("web_search.urllib.request.urlopen")
-    def test_provider_error_does_not_disclose_secret(self, urlopen):
+    def test_tavily_failure_falls_back_to_general_web_search(self, urlopen):
         import urllib.error
         urlopen.side_effect = urllib.error.HTTPError(
             "https://api.tavily.com/search", 401, "unauthorized", {}, None
         )
-        with self.assertRaises(RuntimeError) as caught:
-            web_search.search_web("test", api_key="do-not-leak-this")
-        self.assertNotIn("do-not-leak-this", str(caught.exception))
-        self.assertIn("HTTP 401", str(caught.exception))
+        fallback = {"query": "test", "provider": "DuckDuckGo",
+                    "results": [{"title": "Source", "url": "https://example.org", "snippet": "Evidence"}],
+                    "result_count": 1, "coverage_note": "general web"}
+        with patch("web_search._search_duckduckgo", return_value=fallback):
+            result = web_search.search_web("test", api_key="do-not-leak-this")
+        self.assertEqual(result["provider"], "DuckDuckGo")
+        self.assertIn("fallback_note", result)
+        self.assertNotIn("do-not-leak-this", str(result))
 
 
 if __name__ == "__main__":
