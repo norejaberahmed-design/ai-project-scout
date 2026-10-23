@@ -390,7 +390,9 @@ class AgentHandler(BaseHTTPRequestHandler):
             response_payload = {
                 "answer": answer,
                 "sources": found["results"],
-                "coverage_note": found["coverage_note"],
+                "search_provider": found.get("provider", "غير محدد"),
+                "source_count": len(found.get("results", [])),
+                "coverage_note": found.get("coverage_note", "لا تتوفر ملاحظة تغطية من مزود البحث."),
             }
             if component_acquisition.get("enabled"):
                 response_payload["component_acquisition"] = component_acquisition
