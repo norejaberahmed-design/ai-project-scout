@@ -92,7 +92,9 @@ class SkillRegistryTests(unittest.TestCase):
                          test_report={"tests": 4, "failures": 0})
         with self.assertRaisesRegex(ValueError, "risk flags"):
             transition_skill(skill_id, "APPROVED", db_path=self.db,
-                             reviewer="maintainer", license_verified=True, risk_flags=["prompt_injection"])
+                             reviewer="maintainer", license_verified=True,
+                             license_evidence="Reviewed LICENSE file; MIT terms verified at source revision abc123",
+                             risk_flags=["prompt_injection"])
 
     def test_only_reviewed_passed_candidate_can_be_activated(self):
         skill_id = self.advance_to_proposed()
@@ -100,7 +102,8 @@ class SkillRegistryTests(unittest.TestCase):
                          test_result="PASSED", test_command="python -m unittest",
                          test_report={"tests": 4, "failures": 0})
         approved = transition_skill(skill_id, "APPROVED", db_path=self.db, reviewer="reviewer-1",
-                                    license_verified=True)
+                                    license_verified=True,
+                                    license_evidence="Reviewed LICENSE file; MIT terms verified at source revision abc123")
         self.assertEqual(approved["status"], "APPROVED")
         self.assertEqual(approved["reviewer"], "reviewer-1")
         active = transition_skill(skill_id, "ACTIVE", db_path=self.db, reviewer="release-reviewer")
