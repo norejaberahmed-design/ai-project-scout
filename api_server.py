@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Lock
 from urllib.parse import urlparse
 
 from skill_runtime import load_active_skills, select_skills
@@ -23,6 +24,8 @@ MAX_BODY_BYTES = 12_000
 MAX_QUERY_CHARS = 500
 RATE_LIMIT_REQUESTS = 30
 RATE_LIMIT_WINDOW = 60
+MAX_RATE_LIMIT_CLIENTS = 10_000
+RATE_LIMIT_LOCK = Lock()
 REQUEST_TIMES: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -32,14 +35,27 @@ def allowed_origins() -> set[str]:
 
 
 def check_rate_limit(client: str, now: float | None = None) -> bool:
+    """Thread-safe in-memory rate limit with bounded client tracking."""
     now = time.monotonic() if now is None else now
-    times = REQUEST_TIMES[client]
-    while times and now - times[0] >= RATE_LIMIT_WINDOW:
-        times.popleft()
-    if len(times) >= RATE_LIMIT_REQUESTS:
-        return False
-    times.append(now)
-    return True
+    with RATE_LIMIT_LOCK:
+        # Remove expired entries periodically so random client addresses cannot grow this map forever.
+        if len(REQUEST_TIMES) >= MAX_RATE_LIMIT_CLIENTS:
+            for key, values in list(REQUEST_TIMES.items()):
+                while values and now - values[0] >= RATE_LIMIT_WINDOW:
+                    values.popleft()
+                if not values:
+                    REQUEST_TIMES.pop(key, None)
+                if len(REQUEST_TIMES) < MAX_RATE_LIMIT_CLIENTS:
+                    break
+        if client not in REQUEST_TIMES and len(REQUEST_TIMES) >= MAX_RATE_LIMIT_CLIENTS:
+            return False
+        times = REQUEST_TIMES[client]
+        while times and now - times[0] >= RATE_LIMIT_WINDOW:
+            times.popleft()
+        if len(times) >= RATE_LIMIT_REQUESTS:
+            return False
+        times.append(now)
+        return True
 
 
 def make_chat_messages(question: str, search_result: dict, skills: list[dict]) -> list[dict]:
@@ -119,6 +135,8 @@ class AgentHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cache-Control", "no-store")
         origin = self.headers.get("Origin", "").rstrip("/")
         if origin and origin in allowed_origins():
@@ -212,7 +230,7 @@ class AgentHandler(BaseHTTPRequestHandler):
 
 def main():
     host = os.getenv("SCOUT_API_HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", os.getenv("SCOUT_API_PORT", "8787")) )
+    port = int(os.getenv("PORT", os.getenv("SCOUT_API_PORT", "8787")))
     server = ThreadingHTTPServer((host, port), AgentHandler)
     print(f"AI Project Scout API listening on {host}:{port}")
     server.serve_forever()
