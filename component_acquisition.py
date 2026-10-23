@@ -246,6 +246,38 @@ def acquire_repository(url: str, *, approved: bool = False, root: str | Path | N
         raise
 
 
+def list_proposals(root: str | Path | None = None) -> dict:
+    """List imported component manifests without loading or executing imported code."""
+    target_root = Path(root) if root is not None else Path(__file__).resolve().parent
+    base = target_root / "components" / "proposed"
+    items = []
+    if base.is_dir():
+        for manifest_path in sorted(base.glob("*/ACQUISITION_MANIFEST.json")):
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                items.append({
+                    "repository": manifest.get("repository", ""),
+                    "repository_url": manifest.get("repository_url", ""),
+                    "revision": manifest.get("revision", ""),
+                    "license_spdx": manifest.get("license_spdx", "UNKNOWN"),
+                    "status": manifest.get("status", "PROPOSED_REVIEW_REQUIRED"),
+                    "copied_file_count": manifest.get("copied_file_count", 0),
+                    "copied_bytes": manifest.get("copied_bytes", 0),
+                    "destination": str(manifest_path.parent),
+                    "execution_allowed": False,
+                    "installation_allowed": False,
+                    "activation_allowed": False,
+                })
+            except (OSError, json.JSONDecodeError, TypeError):
+                items.append({
+                    "status": "MANIFEST_UNREADABLE",
+                    "destination": str(manifest_path.parent),
+                    "execution_allowed": False,
+                    "installation_allowed": False,
+                    "activation_allowed": False,
+                })
+    return {"count": len(items), "items": items, "policy": "quarantined proposals only; no imported code is executed"}
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inspect and stage eligible open-source repository files.")
     parser.add_argument("repository_url", help="Public GitHub repository root URL")
