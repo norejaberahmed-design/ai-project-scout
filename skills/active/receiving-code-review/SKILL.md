@@ -29,4 +29,4 @@ Use review feedback to improve correctness without blindly accepting suggestions
 ## Upstream attribution
 Adapted from obra/superpowers skill receiving-code-review, revision 2ce8aa15d05bd57213e6f746f953aafb7ded7a8b, under the MIT License.
 Original: https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/receiving-code-review/SKILL.md
-See skills/proposed/receiving-code-review/UPSTREAM_LICENSE.txt for the original license text.
+See ATTRIBUTION.md and UPSTREAM_LICENSE.txt in this directory for source provenance and the original license text.
