@@ -159,6 +159,52 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
+    def test_component_api_inspects_lists_and_requires_admin_token_for_copy(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        try:
+            with patch("api_server.list_proposals", return_value={"count": 0, "items": []}):
+                with urllib.request.urlopen(base + "/api/components", timeout=3) as response:
+                    self.assertEqual(json.loads(response.read().decode("utf-8"))["count"], 0)
+
+            with patch("api_server.inspect_repository", return_value={"repository": "example/safe", "license_spdx": "MIT"}):
+                payload = json.dumps({"repository_url": "https://github.com/example/safe"}).encode("utf-8")
+                request = urllib.request.Request(
+                    base + "/api/components/inspect", data=payload,
+                    headers={"Content-Type": "application/json"}, method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(json.loads(response.read().decode("utf-8"))["license_spdx"], "MIT")
+
+            with patch.dict(os.environ, {"SCOUT_COMPONENT_IMPORT_TOKEN": "admin-test-token"}, clear=True), \\
+                 patch("api_server.acquire_repository", return_value={"status": "PROPOSED_REVIEW_REQUIRED"}) as acquire:
+                payload = json.dumps({"repository_url": "https://github.com/example/safe"}).encode("utf-8")
+                denied = urllib.request.Request(
+                    base + "/api/components/acquire", data=payload,
+                    headers={"Content-Type": "application/json", "Authorization": "Bearer wrong-token"},
+                    method="POST",
+                )
+                with self.assertRaises(urllib.error.HTTPError) as caught:
+                    urllib.request.urlopen(denied, timeout=3)
+                self.assertEqual(caught.exception.code, 403)
+                acquire.assert_not_called()
+
+                allowed = urllib.request.Request(
+                    base + "/api/components/acquire", data=payload,
+                    headers={"Content-Type": "application/json", "Authorization": "Bearer admin-test-token"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(allowed, timeout=3) as response:
+                    self.assertEqual(response.status, 201)
+                    self.assertEqual(json.loads(response.read().decode("utf-8"))["status"], "PROPOSED_REVIEW_REQUIRED")
+                acquire.assert_called_once_with("https://github.com/example/safe", approved=True)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
     def test_origins_are_explicitly_configurable(self):
         with patch.dict(os.environ, {"SCOUT_ALLOWED_ORIGINS": "https://app.example, https://test.example/"}):
             self.assertEqual(api_server.allowed_origins(), {"https://app.example", "https://test.example"})
