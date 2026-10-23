@@ -384,7 +384,6 @@ class AgentHandler(BaseHTTPRequestHandler):
                 "search_provider": found.get("provider", "غير محدد"),
                 "source_count": len(found.get("results", [])),
                 "coverage_note": found.get("coverage_note", "لا تتوفر ملاحظة تغطية من مزود البحث."),
-                "skills_used": [item["name"] for item in selected_skills],
             }
             self._send(200, response_payload)
         except ValueError as exc:
