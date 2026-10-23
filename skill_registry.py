@@ -69,6 +69,7 @@ def init_db(db_path: str | Path | None = None) -> None:
                 inspected_files_json TEXT NOT NULL DEFAULT '[]',
                 evidence_json TEXT NOT NULL DEFAULT '{}',
                 risk_flags_json TEXT NOT NULL DEFAULT '[]',
+                source_content_sha256 TEXT NOT NULL DEFAULT '',
                 content_sha256 TEXT NOT NULL DEFAULT '',
                 test_result TEXT NOT NULL DEFAULT 'NOT_RUN'
                     CHECK(test_result IN ('NOT_RUN','PASSED','FAILED')),
@@ -80,6 +81,9 @@ def init_db(db_path: str | Path | None = None) -> None:
                 activated_at TEXT NOT NULL DEFAULT ''
             )
         """)
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(skill_records)")}
+        if "source_content_sha256" not in columns:
+            conn.execute("ALTER TABLE skill_records ADD COLUMN source_content_sha256 TEXT NOT NULL DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_records_status ON skill_records(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_records_name ON skill_records(name)")
 
@@ -134,12 +138,12 @@ def register_discovery(
             INSERT INTO skill_records (
                 skill_id,name,version,status,source_url,source_revision,license_spdx,
                 license_evidence,inspected_files_json,evidence_json,risk_flags_json,
-                content_sha256,created_at,updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                source_content_sha256,content_sha256,created_at,updated_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (skill_id, name, str(version)[:80], "DISCOVERED", source_url.strip(),
               str(source_revision)[:200], str(license_spdx)[:80],
               str(license_evidence)[:2000], _json(files), _json(evidence or {}),
-              _json(flags), digest, now, now))
+              _json(flags), digest, "", now, now))
     return get_skill(skill_id, db_path)
 
 
