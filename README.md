@@ -29,7 +29,7 @@
     python -m unittest discover -s tests -v
     python api_server.py
 
-لإجراء بحث حي، عيّن الأسرار على الخادم فقط: TAVILY_API_KEY و SCOUT_LLM_API_KEY و SCOUT_LLM_MODEL. افحص /api/health و /api/skills. لا تضع المفاتيح في HTML أو JavaScript أو المستودع.
+لإجابة محادثة مولّدة، عيّن SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL على الخادم فقط. TAVILY_API_KEY اختياري لتحسين البحث؛ عند غيابه يحاول الخادم DuckDuckGo. مفاتيح البحث والنموذج لا توضع في الواجهة. افحص /api/health و /api/skills. لا تضع المفاتيح في HTML أو JavaScript أو المستودع.
 
 ## وضع التشغيل دون مفاتيح
 تعمل الواجهة الثابتة في وضع احتياطي بلا مفاتيح: البحث في مستودعات GitHub العامة وفحص README ساكنًا، أو عرض نتائج ويكيبيديا للأسئلة العامة. هذا الوضع لا يولّد إجابة بنموذج لغوي ولا يغطي كامل الويب. لتفعيل المحادثة الكاملة، انشر خادم API واضبط أسرار مزود البحث والنموذج كما هو موضح في [API_DEPLOYMENT.md](API_DEPLOYMENT.md).
