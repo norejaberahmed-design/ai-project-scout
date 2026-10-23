@@ -73,6 +73,9 @@ class SkillHarvesterTests(unittest.TestCase):
             document = (Path(proposal["proposal_path"])).read_text(encoding="utf-8")
             self.assertIn("Immutable source revision: " + "a" * 40, document)
             self.assertIn("Declared SPDX license: MIT", document)
+            proposal_dir = Path(proposal["proposal_path"]).parent
+            self.assertTrue((proposal_dir / "ATTRIBUTION.md").is_file())
+            self.assertTrue((proposal_dir / "UPSTREAM_LICENSE.txt").is_file())
             records = list_skills(db_path=db)
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["status"], "PROPOSED")
