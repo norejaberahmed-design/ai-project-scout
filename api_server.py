@@ -6,6 +6,7 @@ Optional: SCOUT_LLM_API_URL, SCOUT_ALLOWED_ORIGINS, SCOUT_API_PORT.
 """
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import time
@@ -20,6 +21,7 @@ from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, select_skills
 from web_search import search_web
 from github_discovery import discover_github
+from component_acquisition import acquire_repository, inspect_repository, list_proposals
 
 MAX_BODY_BYTES = 12_000
 MAX_QUERY_CHARS = 500
@@ -244,13 +246,16 @@ class AgentHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Max-Age", "600")
         self.end_headers()
 
     def do_GET(self):
         if self.path == "/api/skills":
             self._send(200, skill_registry_payload())
+            return
+        if self.path == "/api/components":
+            self._send(200, list_proposals())
             return
         if self.path != "/api/health":
             self._send(404, {"error": "Not found"})
@@ -263,7 +268,8 @@ class AgentHandler(BaseHTTPRequestHandler):
         if origin and origin not in allowed_origins():
             self._send(403, {"error": "Origin not allowed"})
             return
-        if self.path not in {"/api/search", "/api/chat"}:
+        allowed_paths = {"/api/search", "/api/chat", "/api/components/inspect", "/api/components/acquire"}
+        if self.path not in allowed_paths:
             self._send(404, {"error": "Not found"})
             return
         if not check_rate_limit(self.client_address[0]):
@@ -285,6 +291,39 @@ class AgentHandler(BaseHTTPRequestHandler):
         except (UnicodeError, json.JSONDecodeError):
             self._send(400, {"error": "Invalid JSON"})
             return
+        if self.path in {"/api/components/inspect", "/api/components/acquire"}:
+            repository_url = data.get("repository_url", "") if isinstance(data, dict) else ""
+            if not isinstance(repository_url, str) or not repository_url.strip() or len(repository_url) > 500:
+                self._send(400, {"error": "repository_url must be a GitHub repository root URL under 500 characters."})
+                return
+            if self.path == "/api/components/inspect":
+                try:
+                    self._send(200, inspect_repository(repository_url.strip()))
+                except ValueError as exc:
+                    self._send(400, {"error": str(exc)})
+                except RuntimeError as exc:
+                    self._send(502, {"error": str(exc)})
+                return
+            configured_token = os.getenv("SCOUT_COMPONENT_IMPORT_TOKEN", "").strip()
+            provided_header = self.headers.get("Authorization", "")
+            provided_token = provided_header[7:].strip() if provided_header.startswith("Bearer ") else ""
+            if not configured_token:
+                self._send(503, {"error": "Component acquisition is disabled until SCOUT_COMPONENT_IMPORT_TOKEN is configured on the server."})
+                return
+            if not provided_token or not hmac.compare_digest(provided_token, configured_token):
+                self._send(403, {"error": "Component acquisition requires administrator authorization."})
+                return
+            try:
+                result = acquire_repository(repository_url.strip(), approved=True)
+                self._send(201, result)
+            except PermissionError as exc:
+                self._send(403, {"error": str(exc)})
+            except ValueError as exc:
+                self._send(400, {"error": str(exc)})
+            except RuntimeError as exc:
+                self._send(502, {"error": str(exc)})
+            return
+
         question = data.get("query", data.get("question", "")) if isinstance(data, dict) else ""
         if not isinstance(question, str) or not question.strip() or len(question) > MAX_QUERY_CHARS:
             self._send(400, {"error": "أدخل سؤالًا صالحًا لا يتجاوز 500 حرف."})
