@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import time
 import urllib.error
 import threading
 import unittest
@@ -161,7 +162,7 @@ class ApiServerTests(unittest.TestCase):
             worker.join(timeout=2)
 
     def test_skill_discovery_endpoint_is_rate_limited_and_returns_harvest_report(self):
-        api_server.LAST_SKILL_DISCOVERY = 0.0
+        api_server.LAST_SKILL_DISCOVERY = time.monotonic() - api_server.SKILL_DISCOVERY_COOLDOWN_SECONDS - 1
         api_server.REQUEST_TIMES.clear()
         report = {"proposals_created": 1, "repositories_searched": 2,
                   "results": [{"status": "PROPOSED_REVIEW_REQUIRED"}]}
@@ -195,7 +196,7 @@ class ApiServerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             worker.join(timeout=2)
-            api_server.LAST_SKILL_DISCOVERY = 0.0
+            api_server.LAST_SKILL_DISCOVERY = time.monotonic() - api_server.SKILL_DISCOVERY_COOLDOWN_SECONDS - 1
 
     def test_component_api_inspects_lists_and_requires_admin_token_for_copy(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
