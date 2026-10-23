@@ -16,8 +16,6 @@ services:
         sync: false
       - key: SCOUT_LLM_API_URL
         value: https://openrouter.ai/api/v1/chat/completions
-      - key: TAVILY_API_KEY
-        sync: false
       - key: SCOUT_AUTO_ACQUIRE_COMPONENTS
         value: "false"
       - key: SCOUT_SKILL_DB_PATH
