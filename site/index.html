@@ -12,7 +12,7 @@
 .wrap{max-width:900px;margin:auto;padding:clamp(14px,4vw,30px);display:flex;flex-direction:column;min-height:100vh}.top{display:flex;align-items:center;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--line)}.mark{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#e7c784,#8f6e39);color:#10131b;font-size:23px;font-weight:900;flex:none}.brand{flex:1}.brand h1{font-size:20px;margin:0}.muted{color:var(--muted);font-size:13px}.status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}.dot.ok{background:var(--green)}.dot.bad{background:var(--red)}
 .intro{padding:22px 0 12px}.intro h2{font-size:clamp(22px,5vw,30px);line-height:1.3;margin:0 0 9px}.intro p{margin:0;color:var(--muted)}.examples{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}.chipbtn,.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 12px;font:inherit;font-size:13px;cursor:pointer}.chipbtn:hover,.btn:hover{border-color:var(--gold)}
 .chat{flex:1;min-height:240px;max-height:calc(100vh - 340px);overflow:auto;padding:12px 0 18px;display:flex;flex-direction:column;gap:13px}.bubble{max-width:94%;white-space:pre-wrap;overflow-wrap:anywhere;padding:13px 15px;border:1px solid var(--line);border-radius:17px;background:var(--panel)}.bubble.user{align-self:flex-start;background:#202a3b;border-color:#39465d}.bubble.assistant{align-self:stretch}.bubble.error{border-color:#6d3b42}.sources{display:grid;gap:9px;margin-top:12px}.source{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#0c1119}.source a{color:var(--blue);font-weight:650;overflow-wrap:anywhere}.source p{margin:5px 0 0;color:var(--muted);font-size:13px}.composer{position:sticky;bottom:0;padding:12px 0 max(8px,env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 20%)}.composebox{display:flex;gap:9px;align-items:flex-end;border:1px solid #39465d;background:var(--panel);border-radius:17px;padding:8px}.composebox textarea{flex:1;resize:vertical;min-height:48px;max-height:160px;border:0;outline:0;background:transparent;color:var(--text);font:inherit;padding:9px}.send{background:var(--gold);color:#17130b;border:0;border-radius:12px;padding:12px 17px;font-weight:800;cursor:pointer}.send:disabled{opacity:.5;cursor:wait}.settings{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px}.settings summary{cursor:pointer;color:var(--muted);font-size:13px}.settings label{display:block;margin:10px 0 5px;font-size:13px}.settings input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;background:#090d14;color:var(--text);font:inherit;direction:ltr;text-align:left}.settingrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.notice{font-size:12px;color:var(--muted);margin-top:8px}.foot{font-size:11px;color:var(--muted);text-align:center;padding:14px 0 0}
-@media(min-width:700px){.chat{max-height:calc(100vh - 320px)}.bubble{max-width:88%}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.skills-panel{margin:8px 0 16px;padding:15px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(150deg,#121925,#0d121b)}.skills-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.skills-head h2{font-size:17px;margin:0}.skills-head p{margin:3px 0 0}.skill-summary{margin:12px 0;padding:9px 11px;border-radius:10px;background:#0b1119;color:var(--muted);font-size:12px}.skill-columns{display:grid;grid-template-columns:1fr;gap:12px}.skill-group h3{font-size:13px;margin:0 0 8px;color:var(--gold)}.skill-list{display:grid;gap:8px}.skill-card{padding:10px 11px;border:1px solid var(--line);border-radius:12px;background:#0a0f17;min-width:0}.skill-card strong{display:block;font-size:13px;overflow-wrap:anywhere}.skill-card p{font-size:12px;color:var(--muted);margin:4px 0 0;overflow-wrap:anywhere}.skill-meta{font-size:11px;color:var(--muted);margin-top:5px}.skill-card a{font-size:12px;color:var(--blue);overflow-wrap:anywhere}.skill-empty{font-size:12px;color:var(--muted);padding:8px 0}@media(min-width:650px){.skill-columns{grid-template-columns:1fr 1fr}}@media(min-width:700px){.chat{max-height:calc(100vh - 320px)}.bubble{max-width:88%}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
@@ -20,6 +20,18 @@
 <header class="top"><div class="mark" aria-hidden="true">✳</div><div class="brand"><h1>الإيجنت</h1><div class="muted">بحث موثّق · اكتشاف أدوات الذكاء الاصطناعي · تطوير مضبوط</div></div><div class="status" aria-live="polite"><span id="statusdot" class="dot"></span><span id="status">الخادم غير متصل</span></div></header>
 <section class="intro"><h2>ماذا تريد أن نبحث أو نبني؟</h2><p>اسأل سؤالًا، اكتشف مشروع ذكاء اصطناعي، أو اطلب تحليلًا هندسيًا. سنعرض المصادر وما تم التحقق منه بوضوح.</p><div class="examples"><button class="chipbtn" data-prompt="ابحث عن أحدث أدوات الوكلاء مفتوحة المصدر وقارن وظائفها ومصادرها">اكتشاف أدوات AI</button><button class="chipbtn" data-prompt="حلل هذا المشروع هندسيًا، وحدد ما يمكن اختباره بأمان وما لا يزال غير مثبت: https://github.com/">تحليل مشروع</button><button class="chipbtn" data-prompt="اقترح مهارة داخلية جديدة لتحسين البحث والتحقق، مع اختبار قبول ومخاطر واضحة">تطوير مهارة</button></div></section>
 <section id="chat" class="chat" role="log" aria-live="polite" aria-label="المحادثة"><div class="bubble assistant">أنا إيجنت بحث وتطوير. أستطيع البحث في مستودعات GitHub العامة ونتائج ويكيبيديا دون مفتاح، مع توضيح حدود البحث. لإجابة نموذج لغوي وبحث أوسع في الويب، اربط خادم API من الإعدادات. لا تضع مفاتيح API هنا.</div></section>
+<section class="skills-panel" aria-labelledby="skills-heading">
+ <div class="skills-head"><div><h2 id="skills-heading">سجل المهارات</h2><p class="muted">هنا ترى ما أُضيف للإيجنت وما يزال قيد المراجعة.</p></div><button class="btn" id="refreshskills" type="button">تحديث السجل</button></div>
+ <div id="skill-summary" class="skill-summary" aria-live="polite">جارٍ تحميل سجل المهارات المنشور…</div>
+ <div class="skill-columns">
+  <section class="skill-group" aria-labelledby="active-skills-heading"><h3 id="active-skills-heading">المهارات المضافة والمفعّلة</h3><div id="active-skills" class="skill-list">
+   <article class="skill-card"><strong>التخطيط والتحقق</strong><p>تحويل الطلب إلى خطوات واضحة ثم التحقق من النتائج والأدلة.</p></article>
+   <article class="skill-card"><strong>التطوير المدفوع بالاختبارات</strong><p>تحديد اختبار قبول قبل التغيير وتشغيل اختبارات الانحدار بعده.</p></article>
+   <article class="skill-card"><strong>مراجعة الأمان</strong><p>فحص المخاطر والأسرار والمدخلات غير الموثوقة قبل قبول التغييرات.</p></article>
+  </div></section>
+  <section class="skill-group" aria-labelledby="candidate-skills-heading"><h3 id="candidate-skills-heading">مهارات جديدة مرشّحة للمراجعة</h3><div id="candidate-skills" class="skill-list"><div class="skill-empty">سيعرض هنا ما يكتشفه الفحص الدوري من مهارات خارجية. لن تُفعّل مهارة خارجية تلقائيًا.</div></div></section>
+ </div><p id="skills-updated" class="notice">المهارات الخارجية غير موثوقة حتى تُراجع وتُختبر؛ لا يُشغّل محتواها تلقائيًا.</p>
+</section>
 <form id="form" class="composer"><div class="composebox"><textarea id="question" maxlength="500" placeholder="اكتب سؤالك هنا…" aria-label="سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال</button></div><div class="notice">المصادر العامة فقط. نتائج البحث لا تثبت وحدها أن المشروع يعمل أو أنه آمن.</div></form>
 <details class="settings"><summary>إعداد اتصال الخادم</summary><label for="apiurl">عنوان خادم الإيجنت (API base URL)</label><input id="apiurl" inputmode="url" autocomplete="url" placeholder="https://your-api-host.example" spellcheck="false"><div class="settingrow"><button class="btn" id="saveapi" type="button">حفظ العنوان</button><button class="btn" id="checkapi" type="button">اختبار الاتصال</button></div><div id="apihelp" class="notice">هذا العنوان ليس سرًا. يجب إعداد الخادم مع TAVILY_API_KEY وSCOUT_LLM_API_KEY وSCOUT_LLM_MODEL في بيئة الخادم، والسماح بأصل GitHub Pages ضمن SCOUT_ALLOWED_ORIGINS.</div></details>
 <footer class="foot">لا يتم تخزين مفاتيح API في هذه الصفحة. لا ينفّذ الإيجنت شيفرات خارجية تلقائيًا ولا يدمج تغييرات الإنتاج دون مراجعة.</footer>
@@ -112,6 +124,52 @@ $("form").addEventListener("submit",e=>{e.preventDefault();submit();});
 $("saveapi").addEventListener("click",()=>{if(saveApi())setStatus("تم حفظ عنوان الخادم","ok");});
 $("checkapi").addEventListener("click",()=>{if(saveApi())checkApi();});
 document.querySelectorAll("[data-prompt]").forEach(b=>b.addEventListener("click",()=>{question.value=b.dataset.prompt;question.focus();}));
+function addSkillCard(parent,{name,description,meta,url,label}){
+ const card=document.createElement("article");card.className="skill-card";
+ const title=document.createElement("strong");title.textContent=name||"مهارة بلا اسم";card.appendChild(title);
+ if(description){const p=document.createElement("p");p.textContent=description;card.appendChild(p);}
+ if(meta){const m=document.createElement("div");m.className="skill-meta";m.textContent=meta;card.appendChild(m);}
+ if(url){const safe=safeUrl(url);if(safe){const a=document.createElement("a");a.href=safe;a.target="_blank";a.rel="noopener noreferrer";a.textContent=label||"فتح المصدر";card.appendChild(a);}}
+ parent.appendChild(card);
+}
+function skillDescription(content){
+ const text=String(content||"");
+ const front=text.match(/^description:\s*(.+)$/mi);
+ if(front)return front[1].replace(/^["']|["']$/g,"").slice(0,260);
+ const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!/^---$/.test(x)&&!/^#/.test(x));
+ return (lines[0]||"إجراء داخلي موثق").slice(0,260);
+}
+async function loadSkillRegistry(){
+ const activeEl=$("active-skills"),candidateEl=$("candidate-skills"),summary=$("skill-summary"),updated=$("skills-updated");
+ try{
+  const [activeResponse,candidateResponse]=await Promise.all([
+   fetch("./data/active-skills.json",{cache:"no-store"}),
+   fetch("./data/skills-catalog.json",{cache:"no-store"})
+  ]);
+  let activeData=null,candidateData=null;
+  if(activeResponse.ok)activeData=await activeResponse.json();
+  if(candidateResponse.ok)candidateData=await candidateResponse.json();
+  const active=Array.isArray(activeData?.skills)?activeData.skills:[];
+  const candidates=Array.isArray(candidateData?.skills)?candidateData.skills:[];
+  if(active.length){
+   activeEl.replaceChildren();
+   active.forEach(skill=>addSkillCard(activeEl,{name:String(skill.name||"").replace(/-/g," "),description:skillDescription(skill.content),meta:"حالة: مفعّلة داخل الإيجنت · مهارة داخلية معتمدة"}));
+  }
+  const review=candidates.filter(s=>s.status==="candidate_requires_review"||s.status==="blocked_until_license_or_security_review").slice(0,5);
+  if(review.length){
+   candidateEl.replaceChildren();
+   review.forEach(skill=>addSkillCard(candidateEl,{name:skill.name,description:skill.description,meta:"الحالة: "+(skill.status==="candidate_requires_review"?"تحتاج مراجعة واختبار":"محجوبة حتى مراجعة الترخيص والأمان")+" · الترخيص: "+(skill.license_spdx||"غير معروف")+" · التقييم الاستدلالي: "+Number(skill.quality_score||0)+"/100",url:skill.source_url,label:"فتح المصدر"}));
+  }
+  const generated=candidateData?.generated_at||activeData?.generated_at||"غير متوفر";
+  summary.textContent="المهارات المفعّلة: "+(active.length||3)+" · مرشحات الفحص الخارجي: "+candidates.length+" · لا يُعد التقييم الاستدلالي شهادة جودة.";
+  updated.textContent="آخر تحديث لبيانات الفحص: "+generated+". المرشحات الخارجية لا تُفعّل تلقائيًا؛ الإضافة للمكتبة النشطة تتطلب اختبارًا ومراجعة.";
+ }catch(e){
+  summary.textContent="تعذر تحميل ملف سجل المهارات؛ المعروض أعلاه هو سجل المهارات الداخلية الأساسية.";
+  updated.textContent="تعذر تحديث بيانات المرشحات الخارجية. لا يعني ذلك فشل المحادثة أو البحث.";
+ }
+}
+$("refreshskills").addEventListener("click",()=>loadSkillRegistry());
+loadSkillRegistry();
 if(apiBase)checkApi();
 </script>
 </body>
