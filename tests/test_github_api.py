@@ -111,6 +111,23 @@ class GitHubApiTests(unittest.TestCase):
         self.assertEqual(result, {"ok": True})
         self.assertEqual(sleeps, [2.0])
 
+    def test_etag_is_sent_and_cached_body_is_reused_on_304(self):
+        url = "https://api.github.com/repos/example/project"
+        calls = []
+
+        def opener(request, timeout):
+            calls.append(dict(request.header_items()))
+            if len(calls) == 1:
+                return FakeResponse(b'{"revision": "abc"}', {"ETag": '"revision-1"'})
+            self.assertEqual(calls[-1].get("If-none-match"), '"revision-1"')
+            raise urllib.error.HTTPError(url, 304, "not modified", Message(), io.BytesIO(b""))
+
+        first = github_api.request_json(url, opener=opener)
+        second = github_api.request_json(url, opener=opener)
+        self.assertEqual(first, {"revision": "abc"})
+        self.assertEqual(second, first)
+        self.assertEqual(len(calls), 2)
+
     def test_non_github_or_http_url_is_refused(self):
         with self.assertRaisesRegex(ValueError, "Only HTTPS GitHub API"):
             github_api.request_json("http://api.github.com/repos/example/project")
