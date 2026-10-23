@@ -21,7 +21,7 @@ from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, select_skills
 from web_search import search_web
 from github_discovery import discover_github
-from component_acquisition import acquire_repository, inspect_repository, list_proposals
+from component_acquisition import acquire_repository, auto_acquire_repositories, inspect_repository, list_proposals
 
 MAX_BODY_BYTES = 12_000
 MAX_QUERY_CHARS = 500
@@ -347,16 +347,23 @@ class AgentHandler(BaseHTTPRequestHandler):
                 github_sources = discover_github(search_query)
             except RuntimeError:
                 github_sources = []
+            component_acquisition = {"enabled": False}
             if github_sources:
                 found["results"] = (github_sources + found.get("results", []))[:8]
                 found["result_count"] = len(found["results"])
                 found["provider"] = "Tavily + GitHub"
+                # Opt-in server-side acquisition stages eligible repository code in quarantine.
+                # It never installs or executes third-party code and cannot block the answer.
+                component_acquisition = auto_acquire_repositories(github_sources)
             answer = generate_answer(question, found, skills=selected_skills)
-            self._send(200, {
+            response_payload = {
                 "answer": answer,
                 "sources": found["results"],
                 "coverage_note": found["coverage_note"],
-            })
+            }
+            if component_acquisition.get("enabled"):
+                response_payload["component_acquisition"] = component_acquisition
+            self._send(200, response_payload)
         except ValueError as exc:
             self._send(400, {"error": str(exc)})
         except RuntimeError as exc:
