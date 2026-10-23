@@ -32,7 +32,6 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(body["sources"][0]["url"], "https://example.org")
         self.assertEqual(body["trusted_internal_skills"][0]["name"], "testing")
 
-    @patch("api_server.search_web")
     def test_search_query_planner_uses_skill_procedures_without_exposing_them(self):
         response = MagicMock()
         response.__enter__.return_value.read.return_value = json.dumps({
@@ -52,6 +51,7 @@ class ApiServerTests(unittest.TestCase):
     def test_search_query_planner_falls_back_to_original_without_skills(self):
         self.assertEqual(api_server.plan_search_query("  ابحث عن أدوات AI  ", []), "ابحث عن أدوات AI")
 
+    @patch("api_server.search_web")
     def test_chat_requires_model_configuration_without_exposing_keys(self, search):
         search.return_value = {"results": [], "coverage_note": "public web"}
         with patch.dict(os.environ, {"TAVILY_API_KEY": "tavily-secret"}, clear=True):
