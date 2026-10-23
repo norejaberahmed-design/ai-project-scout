@@ -1,0 +1,127 @@
+name: Guarded Skill Proposal
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      run_proposal:
+        description: "Generate and test one review-only skill proposal"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: guarded-skill-proposal
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_proposal == true) || (github.event_name == 'schedule' && vars.SCOUT_ENABLE_SKILL_PROPOSER == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
+      SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
+      SCOUT_LLM_API_URL: ${{ vars.SCOUT_LLM_API_URL }}
+      SCOUT_REPORT_DIR: reports
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Check model configuration
+        id: config
+        shell: bash
+        run: |
+          if [ -z "$SCOUT_LLM_API_KEY" ] || [ -z "$SCOUT_LLM_MODEL" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No model secret/model variable; skipping proposal generation."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prevent duplicate skill proposal PRs
+        id: duplicate
+        if: steps.config.outputs.ready == 'true'
+        shell: bash
+        run: |
+          count="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("skill-proposal-"))] | length')"
+          echo "open_proposals=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" -gt 0 ]; then
+            echo "An open skill proposal already exists; skipping."
+          fi
+      - name: Build fresh evidence for one capability gap
+        if: steps.config.outputs.ready == 'true' && steps.duplicate.outputs.open_proposals == '0'
+        run: |
+          mkdir -p data reports
+          python scout.py
+          python feature_hunter.py
+          python self_improve.py
+          python reverse_engineer.py
+          python skills_manager.py
+          git restore -- site/data
+      - name: Draft one skill in the review-only proposal directory
+        if: steps.config.outputs.ready == 'true' && steps.duplicate.outputs.open_proposals == '0'
+        run: python skill_proposer.py
+      - name: Stop when no new proposal was created
+        id: candidate
+        if: steps.config.outputs.ready == 'true' && steps.duplicate.outputs.open_proposals == '0'
+        shell: bash
+        run: |
+          changed="$(git status --porcelain -- skills/proposed)"
+          if [ -z "$changed" ]; then
+            echo "has_candidate=false" >> "$GITHUB_OUTPUT"
+            echo "No new skill proposal was created."
+            exit 0
+          fi
+          echo "$changed"
+          echo "has_candidate=true" >> "$GITHUB_OUTPUT"
+      - name: Verify proposal and regression suite
+        if: steps.candidate.outputs.has_candidate == 'true'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from skill_runtime import inspect_candidate
+          files = list(Path("skills/proposed").glob("*/SKILL.md"))
+          if len(files) != 1:
+              raise SystemExit(f"Expected exactly one proposed skill, found {len(files)}")
+          result = inspect_candidate(files[0].read_text(encoding="utf-8"))
+          if not result["valid"]:
+              raise SystemExit("Skill rejected: " + "; ".join(result["errors"]))
+          print("Static skill checks passed; manual review is still mandatory.")
+          PY
+          python -m compileall -q .
+          python -m unittest discover -s tests -v
+          git add skills/proposed/
+          git diff --cached --check
+          paths="$(git diff --cached --name-only)"
+          if ! printf '%s\n' "$paths" | grep -Eq '^skills/proposed/[a-z0-9-]+/SKILL\.md$'; then
+            echo "Unexpected file path in skill proposal."
+            exit 1
+          fi
+          if [ "$(printf '%s\n' "$paths" | wc -l)" -ne 1 ]; then
+            echo "Exactly one proposed skill file is permitted."
+            exit 1
+          fi
+      - name: Create a draft PR for review; do not activate the skill
+        if: steps.candidate.outputs.has_candidate == 'true'
+        env:
+          BRANCH_NAME: ${{ github.run_id }}
+        run: |
+          BRANCH_NAME="skill-proposal-$BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          git commit -m "Propose one internally generated agent skill"
+          git push origin "$BRANCH_NAME"
+          gh pr create             --repo "$GITHUB_REPOSITORY"             --base main             --head "$BRANCH_NAME"             --draft             --title "Skill proposal: evidence-based agent improvement"             --body "Automatically drafted from a documented capability gap. The skill remains in skills/proposed and is not loaded by the runtime. The proposal was validated and the offline regression suite passed. Review its content, provenance, usefulness, and tests before any manual activation. No third-party skill text was copied and no external code was executed."

@@ -3,13 +3,24 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from autodev import AutoDevError, DEFAULT_TARGET, TARGETS, load_evidence_context, parse_model_json, validate_changes
+from autodev import AutoDevError, DEFAULT_TARGET, TARGETS, load_active_skills, load_evidence_context, parse_model_json, validate_changes
 
 
 class AutoDevTests(unittest.TestCase):
     def test_daily_default_targets_reverse_engineering_module_and_tests(self):
         self.assertEqual(DEFAULT_TARGET, "reverse_engineer")
         self.assertEqual(TARGETS[DEFAULT_TARGET], ("reverse_engineer.py", "tests/test_reverse_engineer.py"))
+
+    def test_loads_only_curated_skill_markdown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "planning" ).mkdir()
+            (root / "planning" / "SKILL.md").write_text("---\\nname: planning\\ndescription: plan safely\\n---\\nUse tests.\\n", encoding="utf-8")
+            (root / "not-a-skill.txt").write_text("must not load", encoding="utf-8")
+            loaded = load_active_skills(root)
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["name"], "planning")
+        self.assertIn("Use tests", loaded[0]["content"])
 
     def test_parse_json_and_fenced_json(self):
         self.assertEqual(parse_model_json('{"summary":"ok","changes":[]}')["summary"], "ok")
@@ -86,6 +97,8 @@ class AutoDevTests(unittest.TestCase):
         self.assertEqual(context["feature_candidates"][0]["repository"], "example/project")
         self.assertNotIn("source_code", context["feature_candidates"][0])
         self.assertEqual(context["reverse_engineering"][0]["source_signals"][0]["signals"], ["memory"])
+        self.assertTrue(context["active_skills"])
+        self.assertTrue(all("content" in skill for skill in context["active_skills"]))
 
     def test_no_change_is_not_a_patch(self):
         with self.assertRaises(AutoDevError):
