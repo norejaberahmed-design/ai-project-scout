@@ -160,7 +160,7 @@ class ApiServerTests(unittest.TestCase):
                 "SCOUT_LLM_MODEL": "test-model",
                 "TAVILY_API_KEY": "test-search-key",
             }, clear=True), \
-                 patch("api_server.select_skills", return_value=selected) as select, \
+                 patch("api_server.select_skills", side_effect=[selected, []]) as select, \
                  patch("api_server.load_proposed_skills", return_value=[]), \
                  patch("api_server.plan_search_query", return_value="planned search query") as plan, \
                  patch("api_server.search_web", return_value=search_result) as search, \
