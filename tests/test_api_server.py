@@ -176,7 +176,7 @@ class ApiServerTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     body = json.loads(response.read().decode("utf-8"))
 
-                select.assert_called_once()
+                self.assertEqual(select.call_count, 2, "chat should select trusted active skills and separate untrusted proposals")
                 plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
                 search.assert_called_once_with("planned search query")
                 answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected, candidate_skills=[])
