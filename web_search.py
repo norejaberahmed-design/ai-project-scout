@@ -19,8 +19,6 @@ DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/"
 MAX_QUERY_CHARS = 500
 MAX_RESULTS = 8
 MAX_RESPONSE_BYTES = 1_000_000
-YOUTUBE_RESULTS = 4
-YOUTUBE_INTENT = re.compile(r"youtube|يوتيوب|فيديو|شرح|tutorial|walkthrough|source code|الكود المصدري|مهارات|skills|agent tools|ai tools|أدوات الذكاء الاصطناعي", re.I)
 
 
 def _clean(value: str, limit: int = 1500) -> str:
@@ -123,7 +121,7 @@ def _search_duckduckgo(query: str, timeout: int = 20) -> dict:
             "coverage_note": "بحث عام في صفحات الويب المفهرسة عبر DuckDuckGo. النتائج ليست شاملة وقد تتغير أو تُحجب."}
 
 
-def _search_tavily(query: str, key: str, timeout: int, include_domains: list[str] | None = None) -> dict:
+def _search_tavily(query: str, key: str, timeout: int) -> dict:
     parameters = {
         "api_key": key, "query": query, "search_depth": "basic",
         "topic": "general", "max_results": YOUTUBE_RESULTS if include_domains else MAX_RESULTS,
@@ -145,10 +143,6 @@ def _search_tavily(query: str, key: str, timeout: int, include_domains: list[str
         parsed_url = urllib.parse.urlparse(url)
         if parsed_url.scheme not in {"https", "http"} or not title:
             continue
-        if include_domains:
-            hostname = (parsed_url.hostname or "").lower()
-            if not any(hostname == domain or hostname.endswith("." + domain) for domain in include_domains):
-                continue
         results.append({"title": title, "url": url,
                         "snippet": _clean(str(item.get("content", "")), 1500),
                         "score": item.get("score"), "source": "Tavily"})
@@ -179,30 +173,6 @@ def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dic
     else:
         result = _search_duckduckgo(query, timeout)
 
-    # Video/tutorial discovery supplements general-web evidence; it never replaces it.
-    result["youtube_search"] = "not_needed"
-    if False and YOUTUBE_INTENT.search(query):  # Skill discovery is GitHub-only; never search videos.
-        try:
-            if key:
-                videos = _search_tavily(query, key, timeout, include_domains=["youtube.com", "youtu.be"])
-            else:
-                videos = _search_duckduckgo("site:youtube.com/watch " + query, timeout)
-            existing = {item["url"] for item in result["results"]}
-            unique_videos = []
-            for item in videos["results"]:
-                if item["url"] not in existing:
-                    item = dict(item)
-                    item["source"] = "YouTube-focused discovery"
-                    unique_videos.append(item)
-                    existing.add(item["url"])
-                if len(unique_videos) >= YOUTUBE_RESULTS:
-                    break
-            result["results"] = result["results"][:4] + unique_videos + result["results"][4:]
-            result["result_count"] = len(result["results"])
-            result["provider"] += " + YouTube-focused search"
-            result["youtube_search"] = "searched" if unique_videos else "no_results"
-        except RuntimeError:
-            result["youtube_search"] = "unavailable"
-    result["results"] = result["results"][:MAX_RESULTS + YOUTUBE_RESULTS]
+    result["results"] = result["results"][:MAX_RESULTS]
     result["result_count"] = len(result["results"])
     return result
