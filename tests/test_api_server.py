@@ -176,7 +176,7 @@ class ApiServerTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     body = json.loads(response.read().decode("utf-8"))
 
-                select.assert_called_once()
+                self.assertEqual(select.call_count, 1, "empty proposal list must not trigger a second skill-selection pass")
                 plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
                 search.assert_called_once_with("planned search query")
                 answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected, candidate_skills=[])
