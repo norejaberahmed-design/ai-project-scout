@@ -12,10 +12,12 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 
 API_URL = "https://api.tavily.com/search"
 DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/"
+BING_RSS_URL = "https://www.bing.com/search"
 MAX_QUERY_CHARS = 500
 MAX_RESULTS = 8
 MAX_RESPONSE_BYTES = 1_000_000
@@ -121,6 +123,51 @@ def _search_duckduckgo(query: str, timeout: int = 20) -> dict:
             "coverage_note": "بحث عام في صفحات الويب المفهرسة عبر DuckDuckGo. النتائج ليست شاملة وقد تتغير أو تُحجب."}
 
 
+def _search_bing_rss(query: str, timeout: int = 20) -> dict:
+    """Second no-key public-web fallback using Bing's RSS results endpoint."""
+    url = BING_RSS_URL + "?" + urllib.parse.urlencode({"format": "rss", "q": query})
+    raw = _request(url, timeout=timeout, headers={"Accept": "application/rss+xml, application/xml;q=0.9"})
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        raise RuntimeError("Bing returned an unreadable RSS search response.") from None
+    results = []
+    seen = set()
+    for item in root.findall(".//item")[:MAX_RESULTS * 2]:
+        title = _clean(item.findtext("title") or "", 300)
+        link = (item.findtext("link") or "").strip()
+        snippet = _clean(item.findtext("description") or "", 1500)
+        parsed = urllib.parse.urlparse(link)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or not title or link in seen:
+            continue
+        seen.add(link)
+        results.append({"title": title, "url": link, "snippet": snippet,
+                        "score": None, "source": "Bing"})
+        if len(results) >= MAX_RESULTS:
+            break
+    if not results:
+        raise RuntimeError("Bing RSS did not return usable public-web results.")
+    return {"query": query, "provider": "Bing RSS", "results": results,
+            "result_count": len(results),
+            "coverage_note": "بحث عام في نتائج Bing RSS المفهرسة؛ النتائج ليست شاملة وقد تتغير أو تُحجب."}
+
+
+def _search_public_web(query: str, timeout: int = 20) -> dict:
+    """Try independent no-key search providers in order; surface failure only if all fail."""
+    failures = []
+    for provider, searcher in (("DuckDuckGo", _search_duckduckgo), ("Bing RSS", _search_bing_rss)):
+        try:
+            result = searcher(query, timeout)
+            if result.get("results"):
+                if failures:
+                    result["fallback_note"] = "تم تجاوز مزود بحث غير متاح: " + ", ".join(failures)
+                return result
+            failures.append(provider + ": empty results")
+        except RuntimeError as exc:
+            failures.append(provider + ": " + str(exc)[:180])
+    raise RuntimeError("تعذر البحث العام عبر DuckDuckGo وBing RSS: " + " | ".join(failures))
+
+
 def _search_tavily(query: str, key: str, timeout: int) -> dict:
     parameters = {
         "api_key": key, "query": query, "search_depth": "basic",
@@ -164,12 +211,12 @@ def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dic
             result = _search_tavily(query, key, timeout)
         except RuntimeError as exc:
             try:
-                result = _search_duckduckgo(query, timeout)
-                result["fallback_note"] = "تعذر مزود البحث الأساسي؛ استُخدم DuckDuckGo بدلًا منه."
-            except RuntimeError:
-                raise RuntimeError("تعذر البحث عبر Tavily وDuckDuckGo: " + str(exc)) from None
+                result = _search_public_web(query, timeout)
+                result["fallback_note"] = "تعذر مزود البحث الأساسي؛ استُخدم مزود بحث عام بديل."
+            except RuntimeError as fallback_error:
+                raise RuntimeError("تعذر البحث عبر Tavily وبدائل البحث العامة: " + str(exc) + " | " + str(fallback_error)) from None
     else:
-        result = _search_duckduckgo(query, timeout)
+        result = _search_public_web(query, timeout)
 
     result["results"] = result["results"][:MAX_RESULTS]
     result["result_count"] = len(result["results"])
