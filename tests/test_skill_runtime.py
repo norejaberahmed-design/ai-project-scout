@@ -65,12 +65,20 @@ class SkillRuntimeTests(unittest.TestCase):
         names = {item["name"] for item in skills}
         self.assertIn("accessibility-check", names)
         self.assertIn("verification-before-completion", names)
+        self.assertIn("api-docs-writer", names)
+        self.assertIn("changelog-writer", names)
         chosen = select_skills("افحص تباين الصور وتسميات الأزرار", skills)
         self.assertTrue(chosen)
         self.assertEqual(chosen[0]["name"], "accessibility-check")
         verification = select_skills("verify tests before completion", skills)
         self.assertTrue(verification)
         self.assertEqual(verification[0]["name"], "verification-before-completion")
+        docs = select_skills("وثق واجهة برمجية", skills)
+        self.assertTrue(docs)
+        self.assertEqual(docs[0]["name"], "api-docs-writer")
+        changelog = select_skills("اكتب سجل التغييرات للإصدار", skills)
+        self.assertTrue(changelog)
+        self.assertEqual(changelog[0]["name"], "changelog-writer")
 
     def test_loads_only_active_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
