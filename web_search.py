@@ -151,7 +151,7 @@ def _search_tavily(query: str, key: str, timeout: int, include_domains: list[str
         raise RuntimeError("Tavily returned no usable results.")
     return {"query": query, "provider": "Tavily", "results": results,
             "result_count": len(results),
-            "coverage_note": "نتائج الويب العامة المفهرسة عبر Tavily؛ لا تشمل كل الإنترنت أو المحتوى الخاص."}
+            "coverage_note": "نتائج الويب العامة المفهرسة عبر Tavily; not every website is indexed, and private content is not included."}
 
 
 def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dict:
