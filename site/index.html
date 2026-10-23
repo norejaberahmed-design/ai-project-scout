@@ -206,14 +206,10 @@ async function submit(text){
  };
  try{
   if(!apiBase){
-   try{
-    const fallback=await searchGitHubSkills(q);
-    showData(fallback,"اكتمل البحث في GitHub — وضع المتصفح",undefined,fallback.result_count?"ok":"neutral");
-   }catch(error){
-    const fallback=publicSearchLinks(q);
-    fallback.answer="تعذر تنفيذ بحث GitHub الفعلي: "+(error.message||"خطأ غير معروف")+"\\n\\nالروابط التالية بدائل خارجية وليست نتائج استرجعها الإيجنت.";
-    showData(fallback,"تعذر البحث في GitHub",undefined,"bad");
-   }
+   const fallback=publicSearchLinks(q);
+   fallback.answer="البحث العام داخل المحادثة غير متصل لأن عنوان خادم API غير مضبوط. لم أبحث في GitHub؛ GitHub مخصص لاكتشاف المهارات فقط. الروابط التالية تفتح محركات البحث مباشرة وليست نتائج استرجعها الإيجنت. اربط خادم HTTPS من زر إعداد اتصال الخادم لتفعيل نتائج البحث داخل التطبيق.";
+   fallback.coverage_note="لم تُسترجع نتائج ويب في هذه المحاولة. البحث الحي داخل المحادثة يحتاج خادم API منشورًا؛ اكتشاف مهارات GitHub منفصل.";
+   showData(fallback,"خادم البحث غير مضبوط",undefined,"bad");
    return;
   }
   const controller=new AbortController();
