@@ -19,6 +19,9 @@ const submitEnd = script.indexOf('$("form").addEventListener("submit"', submitSt
 assert.ok(submitStart >= 0 && submitEnd > submitStart, "submit handler must exist");
 const submitHandler = script.slice(submitStart, submitEnd);
 assert.ok(submitHandler.includes("publicSearchLinks(q)"), "no-backend state must provide direct public-web search links");
+assert.ok(submitHandler.includes("searchGitHubRepositories(q)"), "no-backend state must perform a real GitHub repository search for project/tool queries");
+assert.ok(script.includes("https://api.github.com/search/repositories?q="), "GitHub repository search must call the public GitHub API");
+assert.ok(script.includes('source:"GitHub repository search"'), "GitHub results must be labeled as actual repository search results");
 assert.ok(submitHandler.includes('fetch(apiBase+"/api/chat"'), "chat must call the answer backend");
 assert.ok(submitHandler.includes('fetch(apiBase+"/api/search"'), "chat must show web results if model chat fails");
 assert.ok(script.includes("https://www.google.com/search?q="), "fallback must include broad Google web search");
