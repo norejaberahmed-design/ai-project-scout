@@ -179,6 +179,46 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
+    def test_search_endpoint_merges_general_web_and_github_for_repository_queries(self):
+        web = {
+            "query": "open source agent framework",
+            "provider": "DuckDuckGo",
+            "coverage_note": "Public web results only.",
+            "result_count": 1,
+            "results": [{"title": "Web guide", "url": "https://example.org/guide",
+                         "snippet": "General web evidence.", "source": "DuckDuckGo"}],
+        }
+        github = [{"title": "GitHub repository: example/agent",
+                   "url": "https://github.com/example/agent",
+                   "snippet": "Repository metadata; code not run.",
+                   "source": "GitHub repository inspection"}]
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch("api_server.search_web", return_value=web) as search, \\
+                 patch("api_server.discover_github", return_value=github) as discover:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/search",
+                    data=json.dumps({"query": "open source agent framework"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    body = json.loads(response.read().decode("utf-8"))
+            search.assert_called_once_with("open source agent framework")
+            discover.assert_called_once_with("open source agent framework")
+            self.assertEqual(body["provider"], "DuckDuckGo + GitHub")
+            self.assertEqual(body["result_count"], 2)
+            self.assertEqual(body["results"][0]["url"], "https://github.com/example/agent")
+            self.assertEqual(body["results"][1]["url"], "https://example.org/guide")
+            self.assertIn("Public web results only.", body["coverage_note"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
     def test_skill_discovery_endpoint_is_rate_limited_and_returns_harvest_report(self):
         api_server.LAST_SKILL_DISCOVERY = None
         api_server.REQUEST_TIMES.clear()
