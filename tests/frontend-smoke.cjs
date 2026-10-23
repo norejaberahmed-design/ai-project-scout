@@ -28,6 +28,10 @@ assert.ok(script.includes("https://www.bing.com/search?q="), "fallback must incl
 assert.ok(script.includes("https://duckduckgo.com/?q="), "fallback must include broad DuckDuckGo web search links");
 assert.ok(!script.includes("https://www.youtube.com/results?search_query="), "skill discovery must not add video search");
 assert.ok(script.includes('fetch(apiBase+"/api/skills/discover"'), "skill harvesting must use the backend skill pipeline");
+assert.ok(script.includes("async function discoverGitHubSkillFiles()"), "disconnected skill discovery must query GitHub directly");
+assert.ok(script.includes("/search/repositories?"), "direct skill discovery must use the public GitHub repository search API");
+assert.ok(script.includes("/git/trees/"+revision), "direct discovery must inspect a pinned GitHub tree revision");
+assert.ok(script.includes("لم يُفحص بعد؛ لم تُنسخ المهارة"), "direct discovery must not imply unverified skills were copied");
 assert.ok(script.includes("SKILL.md"), "skill discovery must target skill files, not repository metadata alone");
 assert.ok(script.includes("روابط مباشرة وليست نتائج بحث مسترجعة"), "UI must disclose when links are not fetched results");
 assert.ok(html.includes("تغطية البحث في هذه الإجابة"), "UI must show an Arabic source coverage summary");
