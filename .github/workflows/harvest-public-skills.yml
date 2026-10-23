@@ -10,7 +10,7 @@ on:
       - "component_acquisition.py"
       - "skill_runtime.py"
       - "skill_registry.py"
-      - "tests/test_skill_harvester.py"
+      - "tests/**"
       - "tests/test_skill_runtime.py"
       - "skills/active/**"
       - ".github/workflows/harvest-public-skills.yml"
