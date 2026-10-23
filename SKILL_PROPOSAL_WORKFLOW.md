@@ -6,7 +6,7 @@
 في Settings → Secrets and variables → Actions أضف:
 - Repository secret: SCOUT_LLM_API_KEY (مفتاح مزود نموذج متوافق مع OpenAI Chat Completions).
 - Repository variable: SCOUT_LLM_MODEL (اسم نموذج مسموح في حساب المزود).
-- Repository variable: SCOUT_ENABLE_SKILL_PROPOSER=true لتفعيل التشغيل المجدول اليومي.
+- Repository variable: SCOUT_ENABLE_SKILL_PROPOSER=true لتفعيل التشغيل المجدول الأسبوعي.
 
 إذا لم تُضبط المتغيرات، تتخطى المهمة إنشاء المقترح. لا تضع أي مفتاح في ملفات المستودع أو واجهة Pages.
 
