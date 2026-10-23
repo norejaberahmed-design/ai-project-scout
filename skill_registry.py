@@ -66,6 +66,7 @@ def init_db(db_path: str | Path | None = None) -> None:
                 source_revision TEXT NOT NULL DEFAULT '',
                 license_spdx TEXT NOT NULL DEFAULT '',
                 license_evidence TEXT NOT NULL DEFAULT '',
+                license_verified INTEGER NOT NULL DEFAULT 0 CHECK(license_verified IN (0,1)),
                 inspected_files_json TEXT NOT NULL DEFAULT '[]',
                 evidence_json TEXT NOT NULL DEFAULT '{}',
                 risk_flags_json TEXT NOT NULL DEFAULT '[]',
@@ -84,6 +85,8 @@ def init_db(db_path: str | Path | None = None) -> None:
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(skill_records)")}
         if "source_content_sha256" not in columns:
             conn.execute("ALTER TABLE skill_records ADD COLUMN source_content_sha256 TEXT NOT NULL DEFAULT ''")
+        if "license_verified" not in columns:
+            conn.execute("ALTER TABLE skill_records ADD COLUMN license_verified INTEGER NOT NULL DEFAULT 0")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_records_status ON skill_records(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_records_name ON skill_records(name)")
 
@@ -116,6 +119,7 @@ def register_discovery(
     evidence: dict | None = None,
     risk_flags: list[str] | None = None,
     content: str = "",
+    source_content_sha256: str = "",
     db_path: str | Path | None = None,
 ) -> dict:
     """Record a discovered candidate without trusting or executing its contents."""
@@ -129,21 +133,28 @@ def register_discovery(
         raise ValueError("source_url is too long")
     flags = sorted({str(flag)[:120] for flag in (risk_flags or [])})
     files = [str(item)[:500] for item in (inspected_files or [])[:100]]
-    skill_id = str(uuid.uuid4())
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest() if content else source_content_sha256.strip().lower()
+    if digest and not re.fullmatch(r"[a-f0-9]{64}", digest):
+        raise ValueError("source_content_sha256 must be a 64-character SHA-256 hex digest")
+    identity = "|".join((name, source_url.strip(), str(source_revision)[:200], digest))
+    skill_id = str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
     now = _now()
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest() if content else ""
     init_db(db_path)
     with _connect(db_path) as conn:
         conn.execute("""
             INSERT INTO skill_records (
                 skill_id,name,version,status,source_url,source_revision,license_spdx,
-                license_evidence,inspected_files_json,evidence_json,risk_flags_json,
+                license_evidence,license_verified,inspected_files_json,evidence_json,risk_flags_json,
                 source_content_sha256,content_sha256,created_at,updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (skill_id, name, str(version)[:80], "DISCOVERED", source_url.strip(),
               str(source_revision)[:200], str(license_spdx)[:80],
-              str(license_evidence)[:2000], _json(files), _json(evidence or {}),
+              str(license_evidence)[:2000], 0, _json(files), _json(evidence or {}),
               _json(flags), digest, "", now, now))
+        conn.execute("INSERT OR IGNORE INTO skill_records (skill_id,name,version,status,source_url,source_revision,license_spdx,license_evidence,license_verified,inspected_files_json,evidence_json,risk_flags_json,source_content_sha256,content_sha256,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                     (skill_id, name, str(version)[:80], "DISCOVERED", source_url.strip(),
+                      str(source_revision)[:200], str(license_spdx)[:80], str(license_evidence)[:2000],
+                      0, _json(files), _json(evidence or {}), _json(flags), digest, "", now, now))
     return get_skill(skill_id, db_path)
 
 
@@ -180,6 +191,7 @@ def transition_skill(
     test_report: dict | None = None,
     license_spdx: str | None = None,
     license_evidence: str | None = None,
+    license_verified: bool | None = None,
     risk_flags: list[str] | None = None,
     inspected_files: list[str] | None = None,
     evidence: dict | None = None,
@@ -203,6 +215,8 @@ def transition_skill(
             updates["license_spdx"] = license_spdx.strip()[:80]
         if license_evidence is not None:
             updates["license_evidence"] = license_evidence.strip()[:2000]
+        if license_verified is not None:
+            updates["license_verified"] = 1 if license_verified else 0
         if risk_flags is not None:
             updates["risk_flags_json"] = _json(sorted({str(x)[:120] for x in risk_flags}))
         if inspected_files is not None:
@@ -247,8 +261,9 @@ def transition_skill(
             effective_flags = json.loads(updates.get("risk_flags_json", row["risk_flags_json"]))
             if row["test_result"] != "PASSED":
                 raise ValueError("Approval blocked: passing test evidence is required")
-            if effective_license.lower() in UNKNOWN_LICENSES or not effective_license_evidence:
-                raise ValueError("Approval blocked: license and license evidence must be known")
+            effective_license_verified = bool(updates.get("license_verified", row["license_verified"]))
+            if effective_license.lower() in UNKNOWN_LICENSES or not effective_license_evidence or not effective_license_verified:
+                raise ValueError("Approval blocked: license must be verified with supporting evidence")
             if effective_flags:
                 raise ValueError("Approval blocked: unresolved risk flags remain")
             if not reviewer.strip():
@@ -261,8 +276,9 @@ def transition_skill(
                 raise ValueError("Activation requires APPROVED status")
             if row["test_result"] != "PASSED":
                 raise ValueError("Activation blocked: passing test evidence is required")
-            if (row["license_spdx"] or "").strip().lower() in UNKNOWN_LICENSES or not row["license_evidence"].strip():
-                raise ValueError("Activation blocked: license evidence is missing")
+            if ((row["license_spdx"] or "").strip().lower() in UNKNOWN_LICENSES
+                    or not row["license_evidence"].strip() or not row["license_verified"]):
+                raise ValueError("Activation blocked: verified license evidence is missing")
             if json.loads(row["risk_flags_json"]):
                 raise ValueError("Activation blocked: unresolved risk flags remain")
             updates["reviewer"] = reviewer.strip()[:200]
