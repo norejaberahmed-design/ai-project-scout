@@ -99,6 +99,11 @@ def _search_duckduckgo(query: str, timeout: int = 20) -> dict:
         if url.startswith("//"):
             url = "https:" + url
         parsed = urllib.parse.urlparse(url)
+        if "duckduckgo.com" in parsed.netloc.lower():
+            target = urllib.parse.parse_qs(parsed.query).get("uddg", [])
+            if target:
+                url = target[0]
+                parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc or not title or url in seen:
             continue
         if "duckduckgo.com" in parsed.netloc.lower():
