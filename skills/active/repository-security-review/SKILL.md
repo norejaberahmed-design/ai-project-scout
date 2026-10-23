@@ -20,7 +20,7 @@ Identify actionable risks using read-only inspection and evidence. This is a foc
 8. Re-check each proposed fix for new risks and preserve existing behavior.
 
 ## Required safeguards
-- Never print, commit, or send secrets to an external service.
+- Keep credential values redacted in output and logs.
 - Do not run destructive commands or modify production data.
 - Do not grant external skills automatic runtime activation.
 - Validate hashes/provenance before activating reviewed skill content.
