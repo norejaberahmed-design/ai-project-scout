@@ -315,12 +315,26 @@ def discover_video_related_repositories(*, searcher=search_web, fetcher=request_
     video_leads: list[dict] = []
     seen_videos: set[str] = set()
     seen_repositories: set[str] = set()
-    try:
-        discovery = searcher("open source AI agent skills tutorial source code", timeout=12)
-    except (RuntimeError, ValueError, TypeError) as exc:
-        return [], [{"status": "VIDEO_DISCOVERY_UNAVAILABLE", "reason": str(exc)[:200]}]
+    discovery_results: list[dict] = []
+    search_errors: list[str] = []
+    # Search in both languages so Arabic tutorials and English source repositories
+    # can lead to the same licensed-skill review pipeline.
+    for query in (
+        "open source AI agent skills tutorial source code",
+        "مهارات وكلاء الذكاء الاصطناعي شرح فيديو كود المصدر مفتوح المصدر",
+    ):
+        try:
+            discovery = searcher(query, timeout=12)
+            discovery_results.extend(
+                item for item in discovery.get("results", []) if isinstance(item, dict)
+            )
+        except (RuntimeError, ValueError, TypeError) as exc:
+            search_errors.append(str(exc)[:200])
+    if not discovery_results:
+        reason = "; ".join(search_errors)[:200] or "No usable public-web results."
+        return [], [{"status": "VIDEO_DISCOVERY_UNAVAILABLE", "reason": reason}]
 
-    videos = [item for item in discovery.get("results", [])
+    videos = [item for item in discovery_results
               if "youtube.com/watch" in str(item.get("url", "")) or "youtu.be/" in str(item.get("url", ""))]
     for video in videos[:3]:
         video_url = str(video.get("url", ""))
