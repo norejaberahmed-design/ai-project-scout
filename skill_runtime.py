@@ -141,6 +141,14 @@ def activate_approved_skill(skill_id: str, reviewer: str, root: Path | None = No
             "content_sha256": digest, "runtime_loaded": True}
 
 
+ENGLISH_SKILL_TERMS = {
+    "verification-before-completion": {"verify", "verification", "completion", "complete", "passed", "pass", "claim", "done", "success", "tests", "test", "build"},
+    "accessibility-check": {"accessibility", "accessible", "contrast", "alt", "labels", "keyboard", "screen-reader", "wcag"},
+    "api-docs-writer": {"api", "documentation", "docs", "endpoint", "openapi", "schema", "reference"},
+    "changelog-writer": {"changelog", "release", "release-notes", "version", "breaking", "changes"},
+}
+
+
 ARABIC_SKILL_TERMS = {
     "test-driven-implementation": {"ابن", "ابني", "بناء", "تطبيق", "التطبيق", "برمجة", "برمج", "كود", "الكود", "مشروع", "تنفيذ", "اصلح", "أصلح", "خطأ", "خطا", "عطل", "مشكلة", "اختبار", "اختبر", "اختبره", "فحص", "تصحيح"},
     "planning-and-verification": {"خطة", "خطه", "خطوات", "معمارية", "معماريه", "متطلبات", "قواعد", "اسس", "أسس", "تصميم", "نفذ", "انجز", "أنجز", "انهاء", "إنهاء"},
@@ -175,6 +183,7 @@ def select_skills(task: str, skills: list[dict] | None = None, limit: int = 4) -
                     skill.get("content", "")[:2500]).lower()
         terms = set(re.findall(r"[a-z0-9_+-]+|[\u0600-\u06ff]+", haystack))
         score = len(words & terms)
+        score += 2 * len(words & ENGLISH_SKILL_TERMS.get(name, set()))
         score += 3 * len(words & ARABIC_SKILL_TERMS.get(name, set()))
         if score:
             scored.append((score, name, skill))
