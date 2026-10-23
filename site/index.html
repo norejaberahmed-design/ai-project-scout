@@ -191,6 +191,71 @@ function publicSearchLinks(q){
   coverage_note:"هذه روابط مباشرة وليست نتائج بحث مسترجعة. البحث الكامل عبر الويب واستخدام المهارات في الإجابة يتطلبان ربط خادم API بمزود بحث ونموذج لغوي."
  };
 }
+async function searchWikipedia(q){
+ const params=new URLSearchParams({action:"query",list:"search",srsearch:q,format:"json",origin:"*",srlimit:"5"});
+ const endpoints=[
+  "https://ar.wikipedia.org/w/api.php?"+params.toString(),
+  "https://en.wikipedia.org/w/api.php?"+params.toString()
+ ];
+ const results=[];
+ for(const endpoint of endpoints){
+  try{
+   const response=await fetch(endpoint,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
+   if(!response.ok)continue;
+   const data=await response.json();
+   const pages=data?.query?.search;
+   if(!Array.isArray(pages))continue;
+   const lang=endpoint.includes("ar.wikipedia.org")?"ar":"en";
+   for(const page of pages){
+    const title=String(page.title||"").trim();
+    if(!title)continue;
+    const url="https://"+lang+".wikipedia.org/wiki/"+encodeURIComponent(title.replace(/ /g,"_"));
+    if(results.some(item=>item.url===url))continue;
+    results.push({title:"Wikipedia: "+title,url,snippet:cleanSnippet(page.snippet||""),source:"Wikipedia "+lang.toUpperCase()});
+   }
+  }catch{}
+  if(results.length>=5)break;
+ }
+ return results.slice(0,5);
+}
+async function searchGitHubRepositories(q){
+ const params=new URLSearchParams({q:String(q||"").trim().slice(0,120)+" in:name,description,readme",sort:"updated",order:"desc",per_page:"5"});
+ const response=await fetch("https://api.github.com/search/repositories?"+params.toString(),{
+  headers:{Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},
+  signal:AbortSignal.timeout(9000)
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error("GitHub API HTTP "+response.status+": "+String(data.message||"تعذر البحث"));
+ return (Array.isArray(data.items)?data.items:[]).filter(item=>!item.archived&&!item.fork).map(item=>({
+  title:"GitHub: "+String(item.full_name||"مستودع"),
+  url:String(item.html_url||""),
+  snippet:cleanSnippet(String(item.description||"لا يوجد وصف.")+" · النجوم: "+Number(item.stargazers_count||0)+" · الترخيص: "+String(item.license?.spdx_id||"غير معروف")),
+  source:"GitHub repository"
+ })).filter(item=>safeUrl(item.url)).slice(0,5);
+}
+async function searchBrowserSources(q){
+ const isSoftware=/\b(ai|agent|skill|skills|github|repo|repository|python|javascript|typescript|library|framework|api|code|coding|programming|open.?source|llm|rag|model)\b|ذكاء اصطناعي|مهار|برمج|كود|مستودع|مكتبة|وكيل|ايجنت/i.test(q);
+ const tasks=[searchWikipedia(q)];
+ if(isSoftware)tasks.push(searchGitHubRepositories(q));
+ const settled=await Promise.allSettled(tasks);
+ const sources=[];
+ for(const result of settled){
+  if(result.status==="fulfilled"&&Array.isArray(result.value))sources.push(...result.value);
+ }
+ const unique=[];const seen=new Set();
+ for(const source of sources){if(!seen.has(source.url)){seen.add(source.url);unique.push(source);}}
+ const githubCount=unique.filter(item=>item.source==="GitHub repository").length;
+ const wikiCount=unique.filter(item=>item.source.startsWith("Wikipedia")).length;
+ const notes=[];
+ if(wikiCount)notes.push("Wikipedia: "+wikiCount);
+ if(githubCount)notes.push("GitHub: "+githubCount);
+ const answer=unique.length
+  ?"استُرجعت نتائج فعلية من المصادر العامة التالية: "+notes.join("، ")+". هذه نسخة بحث احتياطية داخل المتصفح وليست إجابة مولّدة بنموذج لغوي. افتح المصادر وتحقق من المعلومات؛ للبحث العام الأوسع والإجابة الذكية، اربط خادم API."
+  :"لم تُسترجع نتائج من Wikipedia أو GitHub لهذه المحاولة. قد تكون واجهة المصدر محجوبة أو وصل البحث إلى حد الطلبات؛ لا أعرض روابط بحث مباشرة على أنها نتائج مسترجعة.";
+ return {answer,sources:unique.slice(0,10),provider:"Wikipedia"+(isSoftware+" + GitHub"),result_count:unique.length,
+  coverage_note:"نطاق هذا الوضع الاحتياطي محدود إلى Wikipedia وGitHub عند ملاءمة السؤال. لا يمثّل تغطية شاملة للويب ولا يستخدم نموذجًا لغويًا."};
+}
+
 async function submit(text){
  const q=(text||question.value).trim();if(!q||send.disabled)return;
  bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث في الويب…");
@@ -206,10 +271,11 @@ async function submit(text){
  };
  try{
   if(!apiBase){
-   const fallback=publicSearchLinks(q);
-   fallback.answer="البحث العام داخل المحادثة غير متصل لأن عنوان خادم API غير مضبوط. لم أبحث في GitHub؛ GitHub مخصص لاكتشاف المهارات فقط. الروابط التالية تفتح محركات البحث مباشرة وليست نتائج استرجعها الإيجنت. اربط خادم HTTPS من زر إعداد اتصال الخادم لتفعيل نتائج البحث داخل التطبيق.";
-   fallback.coverage_note="لم تُسترجع نتائج ويب في هذه المحاولة. البحث الحي داخل المحادثة يحتاج خادم API منشورًا؛ اكتشاف مهارات GitHub منفصل.";
-   showData(fallback,"خادم البحث غير مضبوط",undefined,"bad");
+   const fallback=await searchBrowserSources(q);
+   showData(fallback,
+    fallback.sources.length?"اكتمل البحث المباشر المحدود":"لم تُسترجع نتائج",
+    fallback.answer,
+    fallback.sources.length?"ok":"bad");
    return;
   }
   const controller=new AbortController();
