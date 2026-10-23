@@ -4,7 +4,7 @@
 الواجهة على GitHub Pages ثابتة؛ لا يمكنها تشغيل Python أو حفظ أسرار البحث والنموذج بأمان. يوجد خادم Python قياسي في api_server.py وملف Dockerfile، لكنهما غير منشورين تلقائيًا. لا تعتبر المحادثة الحية مكتملة قبل نشر الخادم وضبط أسراره واختباره.
 
 ## متغيرات البيئة المطلوبة على الخادم فقط
-- TAVILY_API_KEY: مفتاح البحث العام.
+- TAVILY_API_KEY: اختياري لتحسين نتائج البحث؛ عند غيابه يحاول الخادم استخدام بحث DuckDuckGo العام، وقد يفرض مزود البحث قيودًا أو يحجب بعض الطلبات.
 - SCOUT_LLM_API_KEY: مفتاح مزود نموذج متوافق مع واجهة OpenAI Chat Completions.
 - SCOUT_LLM_MODEL: معرّف النموذج الذي يسمح به حسابك.
 - SCOUT_LLM_API_URL: اختياري؛ عنوان Chat Completions المتوافق مع OpenAI. لـ Gemini API استخدم `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`، واختر معرّف نموذج متاحًا في حساب Google AI Studio. لا تضع مفتاح Gemini في هذا المتغير.
@@ -19,12 +19,12 @@
 
 ## نشر مبدئي على Render
 
-يوجد ملف Blueprint في [render.yaml](render.yaml) يعرّف خادم Docker وخط فحص الصحة. ابدأ من [لوحة Render](https://dashboard.render.com/) واختر New → Blueprint، ثم اربط مستودع GitHub هذا. بعد إنشاء الخدمة، أضف القيم السرية في لوحة Render فقط:
+يوجد ملف Blueprint في [render.yaml](render.yaml) يعرّف خادم Docker وخط فحص الصحة. ابدأ من [نشر المستودع على Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fnorejaberahmed-design%2Fai-project-scout) أو افتح [لوحة Render](https://dashboard.render.com/) واختر New → Blueprint، ثم اربط مستودع GitHub هذا. بعد إنشاء الخدمة، أضف القيم السرية في لوحة Render فقط:
 - `SCOUT_LLM_API_KEY`: مفتاح مزود النموذج.
 - `SCOUT_LLM_MODEL`: اسم النموذج المتاح لحسابك.
-- `TAVILY_API_KEY`: مفتاح البحث.
+- `TAVILY_API_KEY`: اختياري؛ يمكن تركه غير مضبوط لتجربة DuckDuckGo العام.
 
-لا تضع هذه القيم في GitHub Pages أو ملفات المستودع أو المحادثة. بعد اكتمال النشر، افتح `https://عنوان-الخدمة/api/health` وتأكد من أن `web_search_configured` و`model_configured` تساويان `true`. بعدها ضع عنوان الخدمة الأساسي HTTPS في إعداد اتصال الخادم داخل الواجهة المنشورة، ثم اختبر سؤالًا حقيقيًا وتحقق من المصادر.
+لا تضع هذه القيم في GitHub Pages أو ملفات المستودع أو المحادثة. بعد اكتمال النشر، افتح `https://عنوان-الخدمة/api/health` وتأكد من أن `model_configured` تساوي `true`؛ `web_search_configured` تعكس توفر إعداد Tavily، لكن البحث العام قد يعمل عبر DuckDuckGo دون مفتاح. بعدها ضع عنوان الخدمة الأساسي HTTPS في إعداد اتصال الخادم داخل الواجهة المنشورة، ثم اختبر سؤالًا حقيقيًا وتحقق من المصادر.
 
 **قيود الخطة المجانية:** قد تدخل الخدمة في وضع السكون، وملفاتها المحلية ليست تخزينًا دائمًا مضمونًا. لذلك سجل SQLite داخل الحاوية قد يُفقد عند إعادة النشر أو إعادة التشغيل؛ لا تعتبر حالة المهارات أو السجل مستدامة حتى يُضبط تخزين دائم. كذلك لم يتم إنشاء خدمة Render أو إدخال الأسرار نيابةً عنك من هذا المستودع؛ النشر الحي لا يُثبت إلا بعد تنفيذ الخطوات والتحقق من عنوان الخدمة.
 
