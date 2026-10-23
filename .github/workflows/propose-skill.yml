@@ -1,0 +1,115 @@
+name: Reviewed Skill Proposal Cycle
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      run_proposer:
+        description: "Generate one reviewed skill proposal (requires server-side model secret)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: reviewed-skill-proposal
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: (github.event_name == 'schedule' && vars.SCOUT_ENABLE_SKILL_PROPOSER == 'true') || (github.event_name == 'workflow_dispatch' && inputs.run_proposer == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SCOUT_LLM_API_KEY: ${{ secrets.SCOUT_LLM_API_KEY }}
+      SCOUT_LLM_MODEL: ${{ vars.SCOUT_LLM_MODEL }}
+      SCOUT_REPORT_DIR: reports
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Verify required model configuration exists
+        id: config
+        shell: bash
+        run: |
+          if [ -z "$SCOUT_LLM_API_KEY" ] || [ -z "$SCOUT_LLM_MODEL" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Skill proposal skipped: configure repository secret SCOUT_LLM_API_KEY and variable SCOUT_LLM_MODEL."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prevent duplicate open proposal PRs
+        id: duplicate
+        if: steps.config.outputs.configured == 'true'
+        shell: bash
+        run: |
+          count="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("skill-proposal-"))] | length')"
+          echo "open_proposals=$count" >> "$GITHUB_OUTPUT"
+      - name: Build current capability gap report
+        if: steps.config.outputs.configured == 'true' && steps.duplicate.outputs.open_proposals == '0'
+        run: |
+          python -m compileall -q .
+          python self_improve.py
+      - name: Draft one skill candidate
+        if: steps.config.outputs.configured == 'true' && steps.duplicate.outputs.open_proposals == '0'
+        run: python skill_proposer.py
+      - name: Validate candidate and regression tests
+        id: candidate
+        if: steps.config.outputs.configured == 'true' && steps.duplicate.outputs.open_proposals == '0'
+        shell: bash
+        run: |
+          git diff --check
+          files="$(git status --porcelain --untracked-files=all | awk '{print $2}' | grep -v '^$' || true)"
+          if [ -z "$files" ]; then
+            echo "has_candidate=false" >> "$GITHUB_OUTPUT"
+            echo "No skill proposal was created."
+            exit 0
+          fi
+          if ! printf '%s\n' "$files" | grep -Eq '^skills/proposed/[a-z0-9-]+/SKILL\.md$'; then
+            echo "Unexpected generated file path; refusing to publish."
+            printf '%s\n' "$files"
+            exit 1
+          fi
+          if [ "$(printf '%s\n' "$files" | wc -l)" -ne 1 ]; then
+            echo "Expected exactly one generated skill file."
+            printf '%s\n' "$files"
+            exit 1
+          fi
+          python - <<'PY'
+          from pathlib import Path
+          from skill_runtime import inspect_candidate
+          files = list(Path("skills/proposed").glob("*/SKILL.md"))
+          if len(files) != 1:
+              raise SystemExit(f"Expected one proposal, found {len(files)}")
+          result = inspect_candidate(files[0].read_text(encoding="utf-8"))
+          if not result["valid"]:
+              raise SystemExit("Candidate rejected: " + "; ".join(result["errors"]))
+          print("Candidate passed static checks; human review is still required.")
+          PY
+          python -m compileall -q .
+          python -m unittest discover -s tests -v
+          echo "has_candidate=true" >> "$GITHUB_OUTPUT"
+      - name: Publish a draft PR for human review
+        if: steps.candidate.outputs.has_candidate == 'true'
+        env:
+          BRANCH_NAME: skill-proposal-${{ github.run_id }}
+        run: |
+          git checkout -b "$BRANCH_NAME"
+          git add skills/proposed
+          git commit -m "Propose reviewed internal skill"
+          git push origin "$BRANCH_NAME"
+          gh pr create             --repo "$GITHUB_REPOSITORY"             --base main             --head "$BRANCH_NAME"             --draft             --title "Skill proposal: review required"             --body "Generated proposal only. The candidate passed static skill validation and the full offline regression suite. It was not executed or activated. Review provenance, content, tests, risks, and licensing before merging; this workflow never auto-merges."
