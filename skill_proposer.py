@@ -138,6 +138,11 @@ def main() -> int:
         print(json.dumps({"status": "PROPOSAL_FAILED", "error": str(exc)}, ensure_ascii=False))
         return 1
     print(json.dumps({"gap": gap, **result}, ensure_ascii=False))
+    errors = result.get("errors", [])
+    if any("already exists" in str(error).lower() for error in errors):
+        # A previously reviewed or proposed skill should not make scheduled runs fail.
+        print(json.dumps({"status": "DUPLICATE_SKILL_SKIPPED", "proposal_created": False}, ensure_ascii=False))
+        return 0
     return 0 if result.get("valid") else 1
 
 
