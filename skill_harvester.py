@@ -145,7 +145,10 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         return {"repository": info["repository"], "status": "NO_SKILL_DOCUMENT", "proposals": []}
 
     proposals = []
-    for item in candidates[:max(1, min(int(max_skills), MAX_PROPOSALS))]:
+    proposal_limit = max(1, min(int(max_skills), MAX_PROPOSALS))
+    for item in candidates:
+        if sum(1 for proposal in proposals if proposal.get("status") == "PROPOSED_REVIEW_REQUIRED") >= proposal_limit:
+            break
         upstream_path = str(item["path"])
         upstream_document = _get_skill_text(canonical, info["revision"], upstream_path, fetcher)
         unsupported = [pattern.pattern for pattern in PLATFORM_DEPENDENCY_PATTERNS
