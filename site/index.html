@@ -471,11 +471,62 @@ question.addEventListener("keydown",event=>{
  }
 });
 $("refreshskills").addEventListener("click",()=>loadSkillRegistry());
+async function discoverGitHubSkillFiles(){
+ const endpoint="https://api.github.com";
+ const query=new URLSearchParams({q:"SKILL.md agent skills in:readme",sort:"updated",order:"desc",per_page:"8"});
+ const searchResponse=await fetch(endpoint+"/search/repositories?"+query.toString(),{headers:{Accept:"application/vnd.github+json"}});
+ const searchData=await searchResponse.json().catch(()=>({}));
+ if(!searchResponse.ok)throw new Error(searchData.message||("GitHub search HTTP "+searchResponse.status));
+ const repositories=Array.isArray(searchData.items)?searchData.items.slice(0,5):[];
+ const found=[];
+ for(const repository of repositories){
+  if(repository.archived||repository.fork)continue;
+  const fullName=String(repository.full_name||"");
+  const branch=String(repository.default_branch||"main");
+  if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName))continue;
+  try{
+   const commitResponse=await fetch(endpoint+"/repos/"+fullName+"/commits/"+encodeURIComponent(branch),{headers:{Accept:"application/vnd.github+json"}});
+   if(!commitResponse.ok)continue;
+   const commit=await commitResponse.json();
+   const revision=String(commit.sha||"");
+   if(!/^[a-f0-9]{40}$/i.test(revision))continue;
+   const treeResponse=await fetch(endpoint+"/repos/"+fullName+"/git/trees/"+revision+"?recursive=1",{headers:{Accept:"application/vnd.github+json"}});
+   if(!treeResponse.ok)continue;
+   const tree=await treeResponse.json();
+   if(tree.truncated||!Array.isArray(tree.tree))continue;
+   const skillFiles=tree.tree.filter(item=>item.type==="blob"&&String(item.path||"").split("/").pop().toLowerCase()==="skill.md").slice(0,2);
+   for(const file of skillFiles){
+    found.push({
+     name:fullName+" / "+String(file.path),
+     description:String(repository.description||"مستودع عام عُثر فيه على ملف باسم SKILL.md."),
+     meta:"المصدر: GitHub · النسخة: "+revision.slice(0,12)+" · الترخيص المعلن: "+String(repository.license?.spdx_id||"غير معروف")+" · حالة الأمان: لم يُفحص بعد؛ لم تُنسخ المهارة.",
+     url:"https://github.com/"+fullName+"/blob/"+revision+"/"+String(file.path).split("/").map(encodeURIComponent).join("/"),
+     label:"فتح ملف المهارة المثبت على نسخة محددة"
+    });
+   }
+  }catch{}
+  if(found.length>=6)break;
+ }
+ return {found,repositoryCount:repositories.length,total:Number(searchData.total_count||0)};
+}
 async function discoverSkills(){
  const button=$("discoverskills"),summary=$("skill-summary"),updated=$("skills-updated");
  if(!apiBase){
-  summary.textContent="اكتشاف المهارات الحقيقي يحتاج خادم API متصلًا.";
-  updated.textContent="لم يُنفذ البحث ولم تُكتسب مهارات. اربط عنوان HTTPS للخادم أولًا؛ سيبحث الخادم عن ملفات SKILL.md نفسها، ويتحقق من الترخيص والمصدر، ثم يحفظ المرشحات في المكتبة.";
+  button.disabled=true;
+  summary.textContent="جارٍ البحث مباشرة في GitHub عن مستودعات تحتوي ملفات SKILL.md…";
+  updated.textContent="بحث مباشر محدود من المتصفح؛ لا ينسخ الملفات ولا يثبت أو يفعّل المهارات. يلزم خادم API للحصاد والتحقق الكامل.";
+  try{
+   const result=await discoverGitHubSkillFiles();
+   candidateEl.replaceChildren();
+   result.found.forEach(skill=>addSkillCard(candidateEl,skill));
+   summary.textContent="بحث GitHub مباشر: عُثر على "+result.found.length+" ملف مهارة ضمن "+result.repositoryCount+" مستودعات مرشحة (إجمالي نتائج المستودعات: "+result.total+").";
+   updated.textContent=result.found.length
+    ?"تم تثبيت روابط الملفات على commit محدد. لم يُفحص نص الترخيص أو أمان المهارة ولم تُنسخ إلى التطبيق؛ اضبط خادم HTTPS لإكمال الحصاد الآمن."
+    :"لم يُعثر على ملفات SKILL.md ضمن المستودعات التي فُحصت. قد تكون النتائج محدودة ببحث GitHub العام وحدوده؛ لم يتم إثبات عدم وجود مهارات أخرى.";
+  }catch(error){
+   summary.textContent="تعذر البحث المباشر في GitHub: "+(error.message||"خطأ غير معروف");
+   updated.textContent="قد يكون السبب حد GitHub API أو اتصال المتصفح. لم تُسجّل أي مهارة على أنها مكتسبة.";
+  }finally{button.disabled=false;}
   return;
  }
  button.disabled=true;
