@@ -60,6 +60,18 @@ class SkillRuntimeTests(unittest.TestCase):
         chosen = select_skills("افحص تباين الصور وتسميات الأزرار", skills)
         self.assertEqual(chosen[0]["name"], "accessibility-check")
 
+    def test_repository_skill_pack_loads_imported_skills_and_routes_arabic(self):
+        skills = load_active_skills()
+        names = {item["name"] for item in skills}
+        self.assertIn("accessibility-check", names)
+        self.assertIn("verification-before-completion", names)
+        chosen = select_skills("افحص تباين الصور وتسميات الأزرار", skills)
+        self.assertTrue(chosen)
+        self.assertEqual(chosen[0]["name"], "accessibility-check")
+        verification = select_skills("verify tests before completion", skills)
+        self.assertTrue(verification)
+        self.assertEqual(verification[0]["name"], "verification-before-completion")
+
     def test_loads_only_active_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
