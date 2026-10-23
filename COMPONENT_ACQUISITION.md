@@ -20,6 +20,21 @@ AI Project Scout can inspect a public GitHub repository and stage a bounded copy
 - Dependencies must be reviewed separately. A copied `package.json` or `pyproject.toml` is metadata, not permission to install its dependencies.
 - The importer does not download model weights or claim to clone this assistant's private model parameters.
 
+## Automatic acquisition during AI-tool analysis
+
+The chat backend can automatically stage eligible GitHub repositories returned by its AI-tool discovery step. This mode is deliberately opt-in because a public chat endpoint must not be able to write unlimited files to server storage.
+
+Set these variables on the backend host only:
+
+- `SCOUT_AUTO_ACQUIRE_COMPONENTS=true` to enable automatic staging.
+- `SCOUT_AUTO_ACQUIRE_MAX_PER_REQUEST=2` to set the per-chat candidate limit (accepted range: 1–3; default: 2).
+
+For each analyzed GitHub repository within that limit, the importer pins an immutable commit, checks the declared SPDX license against the allowlist and verifies the license text, then stages eligible text files in `components/proposed/`. Repositories with unknown/restricted licenses, missing/mismatched license text, archived/private status, or unsafe/ineligible files are skipped. Duplicate revisions already staged are not copied again. The chat answer still returns if a candidate cannot be imported.
+
+This is **not** a promise to copy every tool found on the web: only the bounded GitHub candidates selected for analysis are considered, and only candidates that pass the license and file-safety gates are copied. It does not fetch model weights or copy this assistant's private implementation. All acquired files remain quarantined: no package installation, imports, execution, or runtime activation. Review dependencies and licensing before any separate integration.
+
+`GET /api/components` lists staged proposals. To keep the agent's disk persistent, use persistent storage for `components/proposed/` on the hosting platform.
+
 ## API
 
 ### Inspect only
