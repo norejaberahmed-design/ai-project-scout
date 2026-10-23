@@ -5,8 +5,11 @@ maintainer-controlled files from skills/active and validates proposals before re
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
+
+from skill_registry import get_skill, transition_skill
 
 ROOT = Path(__file__).resolve().parent
 ACTIVE_DIR = ROOT / "skills" / "active"
@@ -89,6 +92,53 @@ def load_active_skills(root: Path | None = None) -> list[dict]:
         loaded.append({"name": metadata["name"], "description": metadata["description"],
                        "path": str(path), "content": document})
     return loaded
+
+
+def activate_approved_skill(skill_id: str, reviewer: str, root: Path | None = None,
+                           db_path: str | Path | None = None) -> dict:
+    """Activate one reviewed registry record only when its saved proposal matches the approved hash."""
+    reviewer = (reviewer or "").strip()
+    if not reviewer:
+        raise ValueError("An explicit reviewer is required for activation.")
+    base = root or ROOT
+    record = get_skill(skill_id, db_path=db_path)
+    if record is None:
+        raise ValueError("Skill record not found.")
+    if record.get("status") != "APPROVED":
+        raise ValueError("Only an APPROVED skill can be activated.")
+    name = record.get("name", "")
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
+        raise ValueError("Approved skill has an invalid name.")
+    proposal = base / "skills" / "proposed" / name / "SKILL.md"
+    document = proposal.read_text(encoding="utf-8")
+    checked = inspect_candidate(document)
+    if not checked["valid"] or checked["metadata"].get("name") != name:
+        raise ValueError("Saved proposal failed validation or does not match the approved skill.")
+    digest = hashlib.sha256(document.encode("utf-8")).hexdigest()
+    if not record.get("content_sha256") or digest != record["content_sha256"]:
+        raise ValueError("Saved proposal content does not match the approved registry hash.")
+    target_dir = base / "skills" / "active" / name
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    if target_dir.exists():
+        raise ValueError("An active skill with this name already exists; refusing to overwrite it.")
+    target_dir.mkdir()
+    target = target_dir / "SKILL.md"
+    try:
+        target.write_text(document, encoding="utf-8")
+        active_record = transition_skill(
+            skill_id, "ACTIVE", db_path=db_path, reviewer=reviewer
+        )
+    except Exception:
+        # Do not leave an unregistered skill in the runtime library after a failed transition.
+        try:
+            target.unlink(missing_ok=True)
+            target_dir.rmdir()
+        except OSError:
+            pass
+        raise
+    return {"skill_id": skill_id, "name": name, "status": active_record["status"],
+            "reviewer": active_record["reviewer"], "path": str(target),
+            "content_sha256": digest, "runtime_loaded": True}
 
 
 def select_skills(task: str, skills: list[dict] | None = None, limit: int = 4) -> list[dict]:
