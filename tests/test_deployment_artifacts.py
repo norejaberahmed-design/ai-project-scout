@@ -9,8 +9,11 @@ class DeploymentArtifactTests(unittest.TestCase):
     def test_container_copies_every_module_imported_by_api_server(self):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         server = (ROOT / "api_server.py").read_text(encoding="utf-8")
-        for module in ("web_search", "skill_runtime", "skill_proposal_sync", "github_discovery"):
-            self.assertIn(f"from {module} import", server)
+        for module in ("web_search", "skill_runtime", "skill_proposal_sync", "skill_harvester", "component_acquisition"):
+            if module in {"skill_harvester", "component_acquisition"}:
+                self.assertIn(f"from {module} import", server)
+            else:
+                self.assertIn(f"from {module} import", server)
             self.assertIn(f"{module}.py", dockerfile)
         self.assertIn("COPY --chown=scout:scout skills/proposed ./skills/proposed", dockerfile)
         self.assertIn("USER scout", dockerfile)
