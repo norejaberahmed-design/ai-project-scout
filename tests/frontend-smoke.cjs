@@ -19,6 +19,7 @@ class FakeElement {
   }
   addEventListener() {}
   appendChild(node) { this.childNodes.push(node); return node; }
+  replaceChildren(...nodes) { this.childNodes = [...nodes]; this.textContent = ""; }
   focus() {}
 }
 const elements = new Map();

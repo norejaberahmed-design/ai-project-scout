@@ -191,6 +191,11 @@ function skillDescription(content){
 }
 async function loadSkillRegistry(){
  const activeEl=$("active-skills"),candidateEl=$("candidate-skills"),summary=$("skill-summary"),updated=$("skills-updated");
+ // Clear prior results before refreshing: if the live API fails, stale live data must not remain visible.
+ activeEl.replaceChildren();
+ candidateEl.replaceChildren();
+ summary.textContent="جارٍ تحديث سجل المهارات…";
+ updated.textContent="يتم التحقق من المصدر الحالي قبل عرض حالة المهارات.";
  const statusLabels={
   DISCOVERED:"اكتُشفت فقط — لم تُحلل بعد",
   ANALYZED:"حُللت ساكنًا — لم تُبنَ المهارة بعد",
