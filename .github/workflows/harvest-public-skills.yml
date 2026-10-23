@@ -79,9 +79,18 @@ jobs:
           python - <<'PY'
           import subprocess
           paths = subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines()
-          if not paths or any(not (p.startswith("skills/proposed/") and p.endswith("/SKILL.md")) for p in paths):
+          allowed = ("/SKILL.md", "/ATTRIBUTION.md", "/UPSTREAM_LICENSE.txt")
+          if not paths or any(
+              not p.startswith("skills/proposed/") or not p.endswith(allowed)
+              for p in paths
+          ):
               raise SystemExit("Refusing to publish unexpected files: " + repr(paths))
-          print("Only quarantined SKILL.md proposals will be published.")
+          proposal_dirs = {str(Path(p).parent) for p in paths}
+          for directory in proposal_dirs:
+              expected = {directory + suffix for suffix in allowed}
+              if not expected.issubset(set(paths)):
+                  raise SystemExit("Proposal is missing source attribution or license text: " + directory)
+          print("Only quarantined skills with attribution and upstream license text will be published.")
           PY
       - name: Open draft pull request for human review
         if: steps.harvest.outputs.created != '0'
