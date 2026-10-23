@@ -160,6 +160,43 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
+    def test_skill_discovery_endpoint_is_rate_limited_and_returns_harvest_report(self):
+        api_server.LAST_SKILL_DISCOVERY = 0.0
+        api_server.REQUEST_TIMES.clear()
+        report = {"proposals_created": 1, "repositories_searched": 2,
+                  "results": [{"status": "PROPOSED_REVIEW_REQUIRED"}]}
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch("api_server.run_harvest", return_value=report) as harvest:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/skills/discover",
+                    data=b"{}", headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    body = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(body["proposals_created"], 1)
+                harvest.assert_called_once_with(limit=2)
+
+                again = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/skills/discover",
+                    data=b"{}", headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(urllib.error.HTTPError) as caught:
+                    urllib.request.urlopen(again, timeout=3)
+                self.assertEqual(caught.exception.code, 429)
+                self.assertIn("15 دقيقة", caught.exception.read().decode("utf-8"))
+                harvest.assert_called_once()
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+            api_server.LAST_SKILL_DISCOVERY = 0.0
+
     def test_component_api_inspects_lists_and_requires_admin_token_for_copy(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
         worker = threading.Thread(target=server.serve_forever, daemon=True)
