@@ -34,6 +34,34 @@ class WebSearchTests(unittest.TestCase):
         self.assertEqual(parser.results[0]["url"], "//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fguide")
         self.assertIn("Public web evidence", parser.results[0]["snippet"])
 
+    @patch("web_search._request")
+    def test_bing_rss_fallback_parses_only_http_source_links(self, request):
+        request.return_value = b"""<?xml version="1.0"?>
+        <rss><channel>
+          <item><title>Useful documentation</title><link>https://example.org/docs</link><description>Public evidence</description></item>
+          <item><title>Unsafe link</title><link>javascript:alert(1)</link><description>Ignore</description></item>
+        </channel></rss>"""
+        result = web_search._search_bing_rss("test", timeout=3)
+        self.assertEqual(result["provider"], "Bing RSS")
+        self.assertEqual(result["result_count"], 1)
+        self.assertEqual(result["results"][0]["url"], "https://example.org/docs")
+        request.assert_called_once()
+
+    @patch("web_search._search_bing_rss")
+    @patch("web_search._search_duckduckgo")
+    def test_public_search_tries_bing_when_duckduckgo_fails(self, duckduckgo, bing):
+        duckduckgo.side_effect = RuntimeError("blocked")
+        bing.return_value = {
+            "query": "test", "provider": "Bing RSS",
+            "results": [{"title": "Source", "url": "https://example.org", "snippet": "Evidence"}],
+            "result_count": 1, "coverage_note": "public web",
+        }
+        result = web_search._search_public_web("test", timeout=4)
+        self.assertEqual(result["provider"], "Bing RSS")
+        self.assertIn("fallback_note", result)
+        duckduckgo.assert_called_once_with("test", 4)
+        bing.assert_called_once_with("test", 4)
+
     @patch("web_search.urllib.request.urlopen")
     def test_search_returns_bounded_source_links_and_coverage_note(self, urlopen):
         class Response:
