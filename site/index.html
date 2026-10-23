@@ -455,10 +455,34 @@ question.addEventListener("keydown",event=>{
  }
 });
 $("refreshskills").addEventListener("click",()=>loadSkillRegistry());
+async function discoverSkillsFromGitHub(){
+ const summary=$("skill-summary"),updated=$("skills-updated"),candidateEl=$("candidate-skills");
+ summary.textContent="جارٍ البحث مباشرة في GitHub عن مستودعات مهارات الوكلاء…";
+ updated.textContent="هذا بحث مباشر في GitHub؛ لا ينسخ الملفات ولا يفعّل مهارات. الاستيراد والحفظ يحتاجان خادم API.";
+ const query=encodeURIComponent("agent skills in:name,description,readme stars:>=10");
+ const response=await fetch("https://api.github.com/search/repositories?q="+query+"&sort=updated&order=desc&per_page=8",{headers:{Accept:"application/vnd.github+json"}});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.message||("GitHub API HTTP "+response.status));
+ const items=(Array.isArray(data.items)?data.items:[]).filter(item=>item&&item.html_url&&item.full_name&&!item.archived&&!item.fork);
+ candidateEl.replaceChildren();
+ if(!items.length){candidateEl.textContent="لم يُعثر على مستودعات مطابقة من بحث GitHub المباشر.";summary.textContent="انتهى البحث؛ لا توجد نتائج قابلة للعرض.";return;}
+ items.forEach(item=>addSkillCard(candidateEl,{
+  name:item.full_name,
+  description:item.description||"لا يوجد وصف للمستودع.",
+  meta:"نجوم GitHub: "+Number(item.stargazers_count||0)+" · الترخيص المعلن: "+(item.license?.spdx_id||"غير معروف")+" · مستودع مرشح فقط، لم تُفحص ملفات المهارة داخله.",
+  url:item.html_url,
+  label:"فتح المستودع في GitHub"
+ }));
+ summary.textContent="بحث GitHub المباشر: "+items.length+" مستودعات مرشحة. لم تُنسخ أي مهارة بعد.";
+ updated.textContent="هذه نتائج مستودعات وليست مهارات مكتسبة. نسخ ملفات SKILL.md وفحص ترخيصها وحفظها في المكتبة يحتاج خادم API؛ لا نعرض المرشح على أنه مهارة نشطة.";
+}
 async function discoverSkills(){
  const button=$("discoverskills"),summary=$("skill-summary"),updated=$("skills-updated");
  if(!apiBase){
-  summary.textContent="خادم API غير متصل؛ لا يمكن جلب مهارات جديدة من المتصفح الثابت. انشر الخادم عبر رابط Render الظاهر في تبويب المحادثة، ثم احفظ عنوان HTTPS في إعداد الاتصال.";
+  button.disabled=true;
+  try{await discoverSkillsFromGitHub();}
+  catch(error){summary.textContent="تعذر البحث المباشر في GitHub: "+(error.message||"خطأ غير معروف");updated.textContent="قد يكون GitHub قد فرض حد الطلبات أو تعذر الاتصال؛ لم يتم الادعاء باكتشاف مهارات.";}
+  finally{button.disabled=false;}
   return;
  }
  button.disabled=true;
