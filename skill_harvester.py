@@ -46,12 +46,12 @@ SKILL_PRIORITY = {
     "brainstorming": 50,
 }
 PLATFORM_DEPENDENCY_PATTERNS = (
-    re.compile(r"\\bbrowser_skill_cli\\b", re.I),
-    re.compile(r"\\bDINGTALK_[A-Z0-9_]+\\b|钉钉", re.I),
-    re.compile(r"\\bCowork\\b|Skill Center", re.I),
-    re.compile(r"\\bAIRFLOW_(?:API_URL|AUTH_TOKEN|USERNAME|PASSWORD)\\b|\\brun_af\\b|astro-airflow-mcp", re.I),
+    re.compile(r"\bbrowser_skill_cli\b", re.I),
+    re.compile(r"\bDINGTALK_[A-Z0-9_]+\b|钉钉", re.I),
+    re.compile(r"\bCowork\b|Skill Center", re.I),
+    re.compile(r"\bAIRFLOW_(?:API_URL|AUTH_TOKEN|USERNAME|PASSWORD)\b|\brun_af\b|astro-airflow-mcp", re.I),
 )
-LOCAL_MARKDOWN_REFERENCE = re.compile(r"(?<![/:A-Za-z0-9])([A-Za-z0-9_.-]+\\.md)(?:#[A-Za-z0-9_-]+)?")
+LOCAL_MARKDOWN_REFERENCE = re.compile(r"(?<![/:A-Za-z0-9])([A-Za-z0-9_.-]+\.md)(?:#[A-Za-z0-9_-]+)?")
 
 
 def search_skill_repositories(query: str, limit: int = MAX_REPOSITORIES, fetcher=request_json) -> list[dict]:
