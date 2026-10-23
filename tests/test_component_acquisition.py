@@ -176,5 +176,21 @@ class ComponentAcquisitionTests(unittest.TestCase):
 
 
 
+    def test_already_staged_revision_does_not_consume_auto_acquisition_quota(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            url = f"https://github.com/{OWNER}/{REPO}"
+            first = auto_acquire_repositories(
+                [{"url": url}], enabled=True, max_items=1, root=tmp, fetcher=fake_fetcher
+            )
+            self.assertEqual(first["copied"], 1)
+            second = auto_acquire_repositories(
+                [{"url": url}, {"url": url}], enabled=True, max_items=1, root=tmp, fetcher=fake_fetcher
+            )
+            self.assertEqual(second["attempted"], 0)
+            self.assertEqual(second["copied"], 0)
+            self.assertTrue(all(item["status"] == "ALREADY_STAGED" for item in second["items"]))
+
+
+
 if __name__ == "__main__":
     unittest.main()
