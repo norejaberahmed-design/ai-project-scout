@@ -1,7 +1,10 @@
 import json
 import os
 import tempfile
+import threading
 import unittest
+import urllib.request
+from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
 import api_server
@@ -103,6 +106,58 @@ class ApiServerTests(unittest.TestCase):
         self.assertTrue(any(item["name"] == "candidate-skill" and item["status"] == "DISCOVERED"
                             for item in payload["lifecycle_records"]))
         self.assertFalse(any(item["name"] == "candidate-skill" for item in payload["active_runtime"]))
+
+
+    def test_live_http_chat_pipeline_uses_planned_search_and_hides_skill_metadata(self):
+        selected = [{"name": "internal-test-skill", "description": "Verify source evidence",
+                     "content": "Search official sources first.", "relevance_score": 3}]
+        search_result = {
+            "query": "planned search query",
+            "provider": "test-search",
+            "coverage_note": "Mocked test sources only.",
+            "result_count": 1,
+            "results": [{"title": "Official documentation", "url": "https://example.org/docs",
+                         "snippet": "Evidence from a controlled test.", "source": "test"}],
+        }
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch.dict(os.environ, {
+                "SCOUT_LLM_API_KEY": "test-secret-never-returned",
+                "SCOUT_LLM_MODEL": "test-model",
+                "TAVILY_API_KEY": "test-search-key",
+            }, clear=True), \
+                 patch("api_server.select_skills", return_value=selected) as select, \
+                 patch("api_server.plan_search_query", return_value="planned search query") as plan, \
+                 patch("api_server.search_web", return_value=search_result) as search, \
+                 patch("api_server.discover_github", return_value=[]) as github, \
+                 patch("api_server.generate_answer", return_value="إجابة مبنية على المصدر.",) as answer:
+                payload = json.dumps({"question": "ابحث عن الوثائق الرسمية"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/chat",
+                    data=payload,
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    body = json.loads(response.read().decode("utf-8"))
+
+                select.assert_called_once()
+                plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
+                search.assert_called_once_with("planned search query")
+                github.assert_called_once_with("planned search query")
+                answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected)
+                self.assertEqual(body["answer"], "إجابة مبنية على المصدر.")
+                self.assertEqual(body["sources"][0]["url"], "https://example.org/docs")
+                self.assertNotIn("skills_considered", body)
+                self.assertNotIn("internal-test-skill", json.dumps(body, ensure_ascii=False))
+                self.assertNotIn("test-secret-never-returned", json.dumps(body, ensure_ascii=False))
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
 
     def test_origins_are_explicitly_configurable(self):
         with patch.dict(os.environ, {"SCOUT_ALLOWED_ORIGINS": "https://app.example, https://test.example/"}):
