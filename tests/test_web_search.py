@@ -53,7 +53,7 @@ class WebSearchTests(unittest.TestCase):
         self.assertEqual(result["query"], "public AI tools")
         self.assertEqual(result["result_count"], 1)
         self.assertEqual(result["results"][0]["url"], "https://example.org/a")
-        self.assertIn("not every website", result["coverage_note"])
+        self.assertIn("لا تشمل كل الإنترنت", result["coverage_note"])
         request = urlopen.call_args.args[0]
         payload = json.loads(request.data.decode())
         self.assertEqual(payload["query"], "public AI tools")
@@ -74,6 +74,24 @@ class WebSearchTests(unittest.TestCase):
         self.assertEqual(result["provider"], "DuckDuckGo")
         self.assertIn("fallback_note", result)
         self.assertNotIn("do-not-leak-this", str(result))
+
+    @patch("web_search._search_tavily")
+    def test_tutorial_queries_add_youtube_sources_near_front(self, search_tavily):
+        search_tavily.side_effect = [
+            {"query": "AI agent skills tutorial", "provider": "Tavily", "results": [
+                {"title": "Web result " + str(i), "url": "https://example.org/" + str(i),
+                 "snippet": "Evidence", "source": "Tavily"} for i in range(8)
+            ], "result_count": 8, "coverage_note": "public web"},
+            {"query": "AI agent skills tutorial", "provider": "Tavily", "results": [
+                {"title": "Video tutorial", "url": "https://www.youtube.com/watch?v=abc123",
+                 "snippet": "Video evidence", "source": "Tavily"}
+            ], "result_count": 1, "coverage_note": "public web"},
+        ]
+        result = web_search.search_web("AI agent skills tutorial", api_key="test-key")
+        self.assertEqual(result["youtube_search"], "searched")
+        self.assertEqual(result["results"][4]["url"], "https://www.youtube.com/watch?v=abc123")
+        self.assertEqual(result["results"][4]["source"], "YouTube-focused discovery")
+        self.assertEqual(result["result_count"], 9)
 
 
 if __name__ == "__main__":
