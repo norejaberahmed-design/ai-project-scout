@@ -380,7 +380,8 @@ class AgentHandler(BaseHTTPRequestHandler):
             selected_skills = select_skills(question, load_active_skills(), limit=4)
             # Proposals can contribute useful procedures to the answer, but are explicitly
             # labeled untrusted data and are never used to rewrite the search query.
-            candidate_skills = select_skills(question, load_proposed_skills(), limit=2) if self.path == "/api/chat" else []
+            proposed_skills = load_proposed_skills() if self.path == "/api/chat" else []
+            candidate_skills = select_skills(question, proposed_skills, limit=2) if proposed_skills else []
             search_query = plan_search_query(question, selected_skills) if self.path == "/api/chat" else question
             found = search_web(search_query)
             if self.path == "/api/search":
