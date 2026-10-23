@@ -149,17 +149,14 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
                 "reason": "Skill depends on an external integration not provided by this agent.",
             })
             continue
-        skill_dir = str(Path(upstream_path).parent)
         referenced_docs = set(LOCAL_MARKDOWN_REFERENCE.findall(upstream_document))
-        missing_local_docs = [
-            name for name in referenced_docs
-            if name not in {Path(path).name for path in all_paths if str(Path(path).parent) == skill_dir}
-        ]
-        if missing_local_docs:
+        if referenced_docs:
+            # The runtime currently loads one SKILL.md, not arbitrary upstream reference trees.
+            # Refuse incomplete copies rather than pretending referenced docs were imported.
             proposals.append({
                 "source_path": upstream_path,
-                "status": "SKIPPED_MISSING_SUPPORT_FILES",
-                "missing_files": sorted(missing_local_docs)[:12],
+                "status": "SKIPPED_SUPPORT_FILES_NOT_BUNDLED",
+                "referenced_files": sorted(referenced_docs)[:12],
             })
             continue
         checked = inspect_candidate(upstream_document)
