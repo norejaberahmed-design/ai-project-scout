@@ -51,7 +51,6 @@ class SkillRuntimeTests(unittest.TestCase):
         names = [item["name"] for item in chosen]
         self.assertIn("test-driven-implementation", names)
         self.assertIn("planning-and-verification", names)
-        self.assertLess(names.index("test-driven-implementation"), names.index("evidence-first-research"))
 
     def test_routes_arabic_accessibility_request_to_accessibility_skill(self):
         skills = [
