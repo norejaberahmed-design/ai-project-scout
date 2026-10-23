@@ -104,6 +104,7 @@ def skill_registry_payload() -> dict:
             "source_revision": item["source_revision"],
             "license_spdx": item["license_spdx"],
             "license_evidence": item["license_evidence"],
+            "license_verified": bool(item["license_verified"]),
             "inspected_files": item["inspected_files"],
             "evidence": item["evidence"],
             "risk_flags": item["risk_flags"],
