@@ -134,12 +134,21 @@ jobs:
           import json, shutil
           from pathlib import Path
           from skill_registry import list_skills
+          from skill_runtime import load_active_skills
           reports = Path("reports")
           data = Path("site/data")
-          active_skills = []
-          for skill_path in sorted(Path("skills/active").glob("*/SKILL.md"))[:4]:
-              active_skills.append({"name": skill_path.parent.name, "content": skill_path.read_text(encoding="utf-8")[:6000]})
-          (data / "active-skills.json").write_text(json.dumps({"skills": active_skills}, ensure_ascii=False, indent=2), encoding="utf-8")
+          # Export every validated skill that the API runtime can actually load.
+          # The old [:4] slice hid most installed skills from the published app.
+          active_skills = [
+              {"name": skill["name"], "description": skill["description"],
+               "content": skill["content"][:6000], "status": "active"}
+              for skill in load_active_skills()
+          ]
+          (data / "active-skills.json").write_text(json.dumps({
+              "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+              "skills": active_skills,
+              "note": "Only validated skills loaded by the runtime are listed as active."
+          }, ensure_ascii=False, indent=2), encoding="utf-8")
           scout_files = [p for p in reports.glob("*.json") if p.name[:4].isdigit() and "ai-updates-" not in p.name and not p.name.startswith("agent-")]
           updates_files = list(reports.glob("ai-updates-*.json"))
           agent_files = list(reports.glob("agent-*.json"))
@@ -161,6 +170,23 @@ jobs:
               "run_number": "${{ github.run_number }}",
               "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }, ensure_ascii=False, indent=2), encoding="utf-8")
+          PY
+      - name: Verify published skill inventory matches runtime
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from skill_runtime import load_active_skills
+          exported = json.loads(Path("site/data/active-skills.json").read_text(encoding="utf-8"))
+          runtime_names = {skill["name"] for skill in load_active_skills()}
+          exported_names = {skill["name"] for skill in exported.get("skills", [])}
+          if exported_names != runtime_names:
+              raise SystemExit(
+                  "Published active-skill inventory mismatch: "
+                  f"missing={sorted(runtime_names-exported_names)}, "
+                  f"unexpected={sorted(exported_names-runtime_names)}"
+              )
+          print(f"Verified {len(exported_names)} active skills are included in the published app.")
           PY
       - name: Upload reports for download
         uses: actions/upload-artifact@v4
