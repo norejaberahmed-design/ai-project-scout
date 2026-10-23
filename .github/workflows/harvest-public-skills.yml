@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "skill_harvester.py"
+      - "api_server.py"
       - "web_search.py"
       - "component_acquisition.py"
       - "skill_runtime.py"
