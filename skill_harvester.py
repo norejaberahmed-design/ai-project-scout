@@ -124,7 +124,6 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
     info = inspect_repository(canonical, fetcher=fetcher)
     if info.get("license_spdx") not in ALLOWED_LICENSES or not info.get("license_text_verified"):
         raise ValueError("A verified allowlisted license is required.")
-    all_paths = {str(item.get("path", "")) for item in info.get("eligible_files", [])}
     candidates = [
         item for item in info.get("eligible_files", [])
         if Path(str(item.get("path", ""))).name.lower() == "skill.md"
