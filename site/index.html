@@ -29,7 +29,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid rgba(130,151,182,.14)}.chat-title{font-size:13px;font-weight:750}.chat-subtitle{font-size:11px;color:var(--muted)}
 .chat{min-height:230px;max-height:min(52vh,570px);overflow:auto;padding:18px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
 .bubble{max-width:94%;white-space:pre-wrap;overflow-wrap:anywhere;padding:13px 15px;border:1px solid var(--line);border-radius:17px;background:#141c29;font-size:13px;line-height:1.8}.bubble.user{align-self:flex-start;background:#202b3b;border-color:#394b65;border-bottom-right-radius:5px}.bubble.assistant{align-self:stretch;border-bottom-left-radius:5px}.bubble.error{border-color:#6d3b42}
-.sources{display:grid;gap:8px;margin-top:13px}.source{padding:11px 12px;border:1px solid #283449;border-radius:12px;background:#0c121c}.source a{color:var(--blue);font-size:12px;font-weight:700;overflow-wrap:anywhere;text-decoration:none}.source a:hover{text-decoration:underline}.source p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.7}
+.sources{display:grid;gap:8px;margin-top:13px}.coverage{margin-top:13px;padding:11px 12px;border:1px solid #35445a;border-radius:12px;background:#0d1520;font-size:11px;color:var(--muted)}.coverage strong{display:block;color:var(--gold);font-size:12px}.coverage p{margin:5px 0 0;overflow-wrap:anywhere}.coverage .coverage-limit{color:#aab7c8}.source{padding:11px 12px;border:1px solid #283449;border-radius:12px;background:#0c121c}.source a{color:var(--blue);font-size:12px;font-weight:700;overflow-wrap:anywhere;text-decoration:none}.source a:hover{text-decoration:underline}.source p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.7}
 .composer{padding:12px 14px 15px;border-top:1px solid rgba(130,151,182,.14);background:rgba(10,14,21,.72)}.composebox{display:flex;gap:10px;align-items:flex-end;border:1px solid #3a465b;background:#0d131d;border-radius:16px;padding:7px;transition:border-color .15s}.composebox:focus-within{border-color:#9c8457;box-shadow:0 0 0 3px rgba(230,193,123,.06)}.composebox textarea{flex:1;min-width:0;resize:vertical;min-height:48px;max-height:160px;border:0;outline:0;background:transparent;color:var(--text);padding:9px 10px;font-size:14px;line-height:1.65}.composebox textarea::placeholder{color:#77869a}.send{background:linear-gradient(145deg,#f0d393,#d7ad60);color:#17130b;border:0;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:850;cursor:pointer;min-height:46px}.send:disabled{opacity:.55;cursor:wait}.composer-note{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px;color:#8190a5;padding:8px 3px 0}
 .skills-panel{margin:24px 0 12px;padding:clamp(15px,3vw,23px);border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(19,27,40,.98),rgba(11,16,24,.98))}
 .skills-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.skills-head h2{font-size:20px;letter-spacing:-.4px;margin:0}.skills-head p{margin:3px 0 0}.muted{color:var(--muted);font-size:12px}
@@ -54,7 +54,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  <button class="navbtn" id="tab-components" type="button" role="tab" aria-selected="false" aria-controls="view-components">مكتبة الأكواد</button>
 </nav>
 <section id="view-chat" class="view" role="tabpanel" aria-labelledby="tab-chat">
- <section class="intro"><div class="eyebrow"><span aria-hidden="true">✦</span> مساعد البحث والتطوير</div><h2>ما الذي تريد اكتشافه اليوم؟</h2><p>اسأل بطريقتك المعتادة. يبحث الإيجنت في الويب العام، ويضيف بحثًا موجّهًا إلى YouTube عند الحاجة إلى شروحات وأدوات وكود. عند اتصال الخادم يعرض نتائج فعلية وإجابة مستندة إلى المصادر؛ وبدونه يوضح أن الروابط المباشرة ليست نتائج بحث جلبها الإيجنت. المهارات الخارجية تُراجع وتُختبر قبل تفعيلها وتستخدم المهارات النشطة تلقائيًا في المهام المناسبة.</p>
+ <section class="intro"><div class="eyebrow"><span aria-hidden="true">✦</span> مساعد البحث والتطوير</div><h2>ما الذي تريد اكتشافه اليوم؟</h2><p>اسأل بالعربية أو الإنجليزية. عند اتصال الخادم، يبحث الإيجنت في الويب العام ويضيف مستودعات GitHub أو نتائج YouTube ذات الصلة عند توفرها، ثم يعرض روابط المصادر وملاحظة تغطية صريحة. لا يدّعي أنه غطّى الإنترنت كله؛ وعند انقطاع الخادم يوضح أن الروابط البديلة ليست نتائج جلبها بنفسه. المهارات الخارجية تمر بالمراجعة والاختبار قبل تفعيلها.</p>
   <div class="examples"><button class="chipbtn" data-prompt="ابحث عن أحدث أدوات الوكلاء مفتوحة المصدر وقارن وظائفها ومصادرها">اكتشاف أدوات الذكاء الاصطناعي</button><button class="chipbtn" data-prompt="حلل هذا المشروع هندسيًا، وحدد ما يمكن اختباره بأمان وما لا يزال غير مثبت: https://github.com/">تحليل مستودع GitHub</button><button class="chipbtn" data-prompt="اقترح مهارة داخلية جديدة لتحسين البحث والتحقق، مع اختبار قبول ومخاطر واضحة">تحسين البحث والتحقق</button></div>
  </section>
  <section class="chat-shell" aria-label="منطقة المحادثة">
@@ -104,6 +104,28 @@ function setStatus(message,state="neutral"){statusText.textContent=message;statu
 function bubble(text,who="assistant",error=false){const el=document.createElement("div");el.className="bubble "+who+(error?" error":"");el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;return el;}
 function safeUrl(raw){try{const u=new URL(raw);return ["http:","https:"].includes(u.protocol)?u.href:null;}catch{return null;}}
 function renderSources(parent,sources){if(!Array.isArray(sources)||!sources.length)return;const wrap=document.createElement("div");wrap.className="sources";for(const s of sources.slice(0,8)){const url=safeUrl(s.url);if(!url)continue;const item=document.createElement("article");item.className="source";const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener noreferrer";a.textContent=s.title||url;item.appendChild(a);if(s.snippet){const p=document.createElement("p");p.textContent=s.snippet;item.appendChild(p);}wrap.appendChild(item);}if(wrap.childNodes.length)parent.appendChild(wrap);}
+function renderCoverage(parent,data){
+ const sources=Array.isArray(data.sources)?data.sources:[];
+ if(!sources.length)return;
+ const counts={youtube:0,github:0,web:0};
+ const domains=new Set();
+ for(const item of sources){
+  const url=safeUrl(item.url);if(!url)continue;
+  let host="";try{host=new URL(url).hostname.toLowerCase().replace(/^www\\./,"");}catch{}
+  if(host==="youtube.com"||host==="youtu.be"||host.endsWith(".youtube.com"))counts.youtube++;
+  else if(host==="github.com"||host.endsWith(".github.com"))counts.github++;
+  else counts.web++;
+  if(host)domains.add(host);
+ }
+ const panel=document.createElement("div");panel.className="coverage";
+ const heading=document.createElement("strong");heading.textContent="تغطية البحث في هذه الإجابة";panel.appendChild(heading);
+ const detail=document.createElement("p");
+ detail.textContent="مصادر معروضة: "+sources.length+" · مواقع مستقلة: "+domains.size+" · الويب العام: "+counts.web+" · GitHub: "+counts.github+" · YouTube: "+counts.youtube;
+ panel.appendChild(detail);
+ const provider=document.createElement("p");provider.textContent="مزود البحث: "+String(data.search_provider||data.provider||"غير محدد من الخادم");panel.appendChild(provider);
+ const limitation=document.createElement("p");limitation.className="coverage-limit";limitation.textContent="هذا وصف للمصادر التي أعادها هذا الطلب فقط، وليس قياسًا لتغطية الإنترنت كله. صفر نتائج من موقع ما لا يعني أنه جرى البحث فيه.";panel.appendChild(limitation);
+ parent.appendChild(panel);
+}
 function saveApi(){const raw=apiurl.value.trim();if(!raw){apiBase="";localStorage.removeItem("scoutApiBase");setStatus("عنوان الخادم غير مضبوط","bad");apihelp.textContent="أدخل عنوان خادم HTTPS منشورًا، دون مسار /api.";return false;}const safe=safeUrl(raw);if(!safe||!safe.startsWith("https://")){apihelp.textContent="استخدم عنوان HTTPS صحيحًا. لا تدخل مفتاح API أو رمز وصول.";setStatus("عنوان الخادم غير صالح","bad");return false;}apiBase=safe.replace(/\/+$/,"");localStorage.setItem("scoutApiBase",apiBase);apiurl.value=apiBase;apihelp.textContent="تم حفظ عنوان الخادم في هذا المتصفح فقط، وليس مفتاحًا أو سرًا.";return true;}
 async function checkApi(){if(!saveApi())return;setStatus("جارٍ اختبار الخادم…");try{const r=await fetch(apiBase+"/api/health",{headers:{Accept:"application/json"}});if(!r.ok)throw new Error("HTTP "+r.status);const d=await r.json();setStatus("الخادم متصل","ok");apihelp.textContent="اتصال ناجح. البحث العام: "+(d.web_search_available?"متاح عبر "+(d.web_search_provider||"مزود عام"):"غير متاح")+"؛ مفتاح Tavily: "+(d.web_search_configured?"مهيأ":"غير مهيأ (قد يعمل DuckDuckGo احتياطيًا)")+"؛ البحث عن فيديوهات YouTube: "+(d.youtube_search_available?"متاح عند توفر النتائج":"غير متاح")+"؛ النموذج: "+(d.model_configured?"مهيأ":"غير مهيأ")+". لا ترسل مفاتيح في الواجهة.";if(!d.model_configured)bubble("البحث العام قد يعمل حتى دون النموذج، لكن الإجابة الذكية تحتاج SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL على الخادم.","assistant",true);}catch(e){setStatus("تعذر الاتصال بالخادم","bad");apihelp.textContent="فشل الاتصال. تحقق من عنوان HTTPS، ونشر الخادم، وإعداد CORS. التفاصيل: "+e.message;}}
 function cleanSnippet(value){return String(value||"").replace(/<[^>]*>/g," ").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/\s+/g," ").trim().slice(0,700);}
@@ -135,6 +157,7 @@ async function submit(text){
   pending.textContent=data.answer||message||"اكتمل البحث.";
   pending.removeAttribute("aria-busy");
   renderSources(pending,data.sources);
+  renderCoverage(pending,data);
   if(data.coverage_note){const note=document.createElement("p");note.className="notice";note.textContent=data.coverage_note;pending.appendChild(note);}
   setStatus(status,state);
  };
