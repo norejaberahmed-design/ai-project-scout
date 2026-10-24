@@ -349,6 +349,7 @@ Compare embedding quality, chunking, and retrieval relevance.
             return {"tree": [
                 {"type": "blob", "path": "LICENSE"},
                 {"type": "blob", "path": "skills/vector/SKILL.md"},
+                {"type": "blob", "path": "skills/vector/helper.py"},
             ]}
         if "/search/repositories?" in url:
             return {"items": []}
@@ -363,6 +364,8 @@ Compare embedding quality, chunking, and retrieval relevance.
             return RawResponse(license_text)
         if url.endswith("/skills/vector/SKILL.md"):
             return RawResponse(skill_text)
+        if url.endswith("/skills/vector/helper.py"):
+            return RawResponse("def retrieve(query):\\n    return query.strip()\\n")
         raise AssertionError("Unexpected raw content URL: " + url)
 
     monkeypatch.setattr(module, "_github_get", fake_github_get)
@@ -370,7 +373,12 @@ Compare embedding quality, chunking, and retrieval relevance.
     result = module.discover_skills(1)
     assert len(result["created"]) == 1
     assert result["created"][0]["name"] == "vector-retrieval"
-    assert (tmp_path / "proposed" / "vector-retrieval" / "SKILL.md").is_file()
+    proposal = tmp_path / "proposed" / "vector-retrieval"
+    assert (proposal / "SKILL.md").is_file()
+    assert (proposal / "supporting_files" / "helper.py").is_file()
+    manifest = __import__("json").loads((proposal / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["supporting_files"][0]["source_path"] == "skills/vector/helper.py"
+    assert len(manifest["supporting_files"][0]["sha256"]) == 64
 
 def test_public_skill_discovery_works_without_admin_token_and_is_bounded(monkeypatch):
     monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
