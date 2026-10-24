@@ -164,7 +164,9 @@ def answer_task(query: str, history: list | None = None, search: bool = False) -
     query = query.strip()
     if not query or len(query) > 8000:
         raise ValueError("query must contain 1–8000 characters")
-    search_requested = search or should_search_web(query)
+    # This product is skill-first, not a general web-search chatbot. The only
+    # automatic external discovery happens in discover_skills() against GitHub.
+    search_requested = bool(search)
     search_warning = None
     try:
         sources = web_search(query) if search_requested else []
