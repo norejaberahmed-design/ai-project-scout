@@ -157,5 +157,40 @@ class WebSearchTests(unittest.TestCase):
             web_search.build_research_queries("   ")
 
 
+    def test_research_query_builder_is_bounded_and_keeps_original_first(self):
+        queries = web_search.build_research_queries("latest open source AI agent tools")
+        self.assertEqual(queries[0], "latest open source AI agent tools")
+        self.assertGreaterEqual(len(queries), 2)
+        self.assertLessEqual(len(queries), web_search.MAX_RESEARCH_QUERIES)
+        self.assertTrue(all(len(query) <= web_search.MAX_QUERY_CHARS for query in queries))
+
+    def test_multi_query_research_deduplicates_sources_and_preserves_query_evidence(self):
+        def fake_search(query, api_key=None, timeout=20):
+            if query.endswith("independent evidence comparison"):
+                return {
+                    "provider": "Bing RSS",
+                    "results": [{"title": "Another source", "url": "https://example.org/other",
+                                 "snippet": "Independent evidence", "source": "Bing"}],
+                }
+            return {
+                "provider": "DuckDuckGo",
+                "results": [{"title": "Guide", "url": "https://example.org/guide#section",
+                             "snippet": "Public evidence", "source": "DuckDuckGo"}],
+            }
+        with patch("web_search.search_web", side_effect=fake_search) as search:
+            result = web_search.search_web_research("How do AI agents work?", max_queries=3)
+        self.assertEqual(search.call_count, 3)
+        self.assertTrue(result["research_mode"])
+        self.assertEqual(result["result_count"], 2)
+        self.assertEqual(result["results"][0]["url"], "https://example.org/other")
+        self.assertTrue(all("matched_query" in item for item in result["results"]))
+        self.assertIn("ليست تغطية شاملة", result["coverage_note"])
+
+    def test_multi_query_research_fails_clearly_when_all_providers_fail(self):
+        with patch("web_search.search_web", side_effect=RuntimeError("provider blocked")):
+            with self.assertRaisesRegex(RuntimeError, "وضع البحث المعمق"):
+                web_search.search_web_research("Find useful public sources", max_queries=2)
+
+
 if __name__ == "__main__":
     unittest.main()
