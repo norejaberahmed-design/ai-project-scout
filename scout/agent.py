@@ -155,7 +155,11 @@ def _skills_for_task(query: str) -> list[dict]:
     global _last_auto_discovery
     active = select_skills(query, _active_skills())
     specialized = [skill for skill in active if skill.get("name") not in GENERIC_SKILL_NAMES]
-    if specialized:
+    explicit_discovery = bool(re.search(
+        r"(?:\\bgithub\\b|\\bskill(?:s)?\\b|\\bdiscover\\b|\\bharvest\\b|"
+        r"مهار(?:ة|ات)|اكتشف|استكشف|مستودع(?:ات)?|اجمع المهارات)",
+        query, re.IGNORECASE))
+    if specialized and not explicit_discovery:
         generic = [skill for skill in active if skill.get("name") in GENERIC_SKILL_NAMES]
         return (specialized + generic)[:4]
 
