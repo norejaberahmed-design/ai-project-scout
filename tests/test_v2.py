@@ -447,3 +447,22 @@ def test_discovery_endpoint_forwards_task_query(monkeypatch):
     )
     assert response.status_code == 200
     assert calls == [(1, "Build Flask database app")]
+
+def test_explicit_github_skill_request_triggers_discovery_even_with_matching_skill(monkeypatch):
+    import scout.agent as module
+    existing = {
+        "name": "github-skill-discovery",
+        "description": "Discover and inspect agent skills from GitHub repositories.",
+        "content": "Search repository metadata and inspect skill manifests.",
+        "status": "active",
+    }
+    calls = []
+    monkeypatch.setattr(module, "_active_skills", lambda: [existing])
+    monkeypatch.setattr(module, "_proposed_skills", lambda: [])
+    monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
+    monkeypatch.setattr(module.time, "time", lambda: 100_000.0)
+    monkeypatch.setattr(module, "discover_skills",
+                        lambda limit, task_query="": calls.append((limit, task_query)) or {"created": []})
+    selected = module._skills_for_task("Search GitHub for skills to build a Flask app")
+    assert calls == [(1, "Search GitHub for skills to build a Flask app")]
+    assert selected and selected[0]["name"] == "github-skill-discovery"
