@@ -375,3 +375,32 @@ Compare embedding quality, chunking, and retrieval relevance.
     assert result["created"][0]["name"] == "vector-retrieval"
     assert (tmp_path / "proposed" / "vector-retrieval" / "SKILL.md").is_file()
 
+def test_public_skill_discovery_works_without_admin_token_and_is_bounded(monkeypatch):
+    monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
+    monkeypatch.setattr(webapp, "_last_public_discovery_at", 0.0)
+    calls = []
+    monkeypatch.setattr(webapp, "discover_skills", lambda limit: calls.append(limit) or {
+        "repositories_considered": 3, "documents_inspected": 2,
+        "created": [{"name": "example-skill"}], "skipped": []
+    })
+    client = webapp.app.test_client()
+    response = client.post("/api/skills/discover", json={"max_proposals": 2})
+    assert response.status_code == 200
+    assert response.json["access_mode"] == "public_limited"
+    assert calls == [2]
+    # The public route is rate-limited to avoid exhausting GitHub API quota/storage.
+    blocked = client.post("/api/skills/discover", json={"max_proposals": 1})
+    assert blocked.status_code == 429
+    assert blocked.json["error"] == "DISCOVERY_COOLDOWN"
+    # Public requests cannot ask for the admin-only batch size.
+    monkeypatch.setattr(webapp, "_last_public_discovery_at", 0.0)
+    invalid = client.post("/api/skills/discover", json={"max_proposals": 3})
+    assert invalid.status_code == 400
+
+
+def test_public_skill_discovery_rejects_bad_payload(monkeypatch):
+    monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
+    monkeypatch.setattr(webapp, "_last_public_discovery_at", 0.0)
+    response = webapp.app.test_client().post("/api/skills/discover", json={"max_proposals": 99})
+    assert response.status_code == 400
+
