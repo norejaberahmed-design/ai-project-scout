@@ -484,7 +484,7 @@ class AgentHandler(BaseHTTPRequestHandler):
                 if len(answers) < 2:
                     self._send(502, {"error": "تعذرت مقارنة نموذجين على الأقل. تحقق من مفاتيح المزودات وحدودها.", "failures": failures})
                     return
-                combined = "\\n\\n".join("=== " + item["label"] + " ===\\n" + item["answer"] for item in answers)
+                combined = "\n\n".join("=== " + item["label"] + " ===\n" + item["answer"] for item in answers)
                 response_payload = {
                     "answer": combined,
                     "model_answers": answers,
