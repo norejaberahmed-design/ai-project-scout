@@ -25,10 +25,10 @@ from security_redaction import redact_text, redact_value
 from component_acquisition import acquire_repository, inspect_repository, list_proposals
 from skill_harvester import run_harvest
 
-MAX_BODY_BYTES = 12_000
+MAX_BODY_BYTES = 20_000
 MAX_QUERY_CHARS = 500
 MAX_HISTORY_MESSAGES = 8
-MAX_HISTORY_MESSAGE_CHARS = 1_200
+MAX_HISTORY_MESSAGE_CHARS = 700
 RATE_LIMIT_REQUESTS = 30
 RATE_LIMIT_WINDOW = 60
 MAX_RATE_LIMIT_CLIENTS = 10_000
