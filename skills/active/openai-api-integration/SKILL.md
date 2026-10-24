@@ -1,5 +1,5 @@
 ---
-name: openai-api-integration
+name: chatgpt-openai-api-integration
 description: Use the public OpenAI API and documented ChatGPT platform capabilities to build reliable AI features.
 version: 1.0.0
 ---
