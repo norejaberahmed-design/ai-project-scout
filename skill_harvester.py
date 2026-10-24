@@ -164,11 +164,15 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         upstream_document = _get_skill_text(canonical, info["revision"], upstream_path, fetcher)
         unsupported = [pattern.pattern for pattern in PLATFORM_DEPENDENCY_PATTERNS
                        if pattern.search(upstream_document)]
-        if unsupported:
+        declares_runtime_tools = bool(re.search(r"(?im)^allowed-tools\\s*:", upstream_document))
+        if unsupported or declares_runtime_tools:
             proposals.append({
                 "source_path": upstream_path,
                 "status": "SKIPPED_PLATFORM_SPECIFIC",
-                "reason": "Skill depends on an external integration not provided by this agent.",
+                "reason": (
+                    "Skill depends on an external integration or declares tool permissions "
+                    "for a different agent runtime; only portable procedures are eligible."
+                ),
             })
             continue
         referenced_docs = set(LOCAL_MARKDOWN_REFERENCE.findall(upstream_document))
