@@ -143,7 +143,7 @@ class SkillHarvesterTests(unittest.TestCase):
             self.assertEqual(result["proposals"][0]["status"], "SKIPPED_PLATFORM_SPECIFIC")
             self.assertFalse((root / "skills" / "proposed").exists())
 
-        runtime_bound_skill = SKILL + "\\nallowed-tools: Bash, WebSearch, WebFetch\\n"
+        runtime_bound_skill = SKILL + chr(10) + "allowed-tools: Bash, WebSearch, WebFetch" + chr(10)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             with patch("skill_harvester.inspect_repository", return_value=info):
