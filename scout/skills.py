@@ -144,7 +144,7 @@ def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
         ".py", ".js", ".ts", ".sh", ".ps1", ".go", ".rs"
     }][:30]
     headings = [line.strip("# ").strip() for line in skill_content.splitlines() if line.startswith("#")][:20]
-    steps = [line.strip() for line in skill_content.splitlines() if re.match(r"^\s*(?:[-*]\s+|\d+[.)]\s+)", line)][:25]
+    steps = [line.strip() for line in skill_content.splitlines() if re.match(r"^\s*(?:[-*]|\d+[.)]), line)][:25]
     commands = [line.strip() for line in skill_content.splitlines() if any(token in line for token in ("pip install", "npm install", "python ", "pytest", "npx "))][:20]
     lines = [
         "# Static reverse-engineering report", "",
