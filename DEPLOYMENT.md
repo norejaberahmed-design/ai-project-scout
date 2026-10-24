@@ -1,21 +1,35 @@
 # Deployment
 
-## Local
-Install Python 3.11+, run `pip install -r requirements.txt`, copy `.env.example` to `.env`, configure server-only values, then run `python app.py`.
+## Important architecture fact
 
-## Render
-Connect this repository to Render using `render.yaml`. In the host dashboard set `SCOUT_LLM_API_KEY`, `SCOUT_LLM_MODEL`, and `SCOUT_ADMIN_TOKEN`. `TAVILY_API_KEY` is optional; without it, the app attempts free DuckDuckGo search. Never commit secrets.
+GitHub Pages is a static file host. It cannot run Flask/Python, search GitHub on behalf of the app, call a model with server-held secrets, or persist acquired skill files. The interface therefore defaults to the Render service URL `https://ai-project-scout-v2.onrender.com`, but this URL only works after the Render Blueprint has actually been created and deployed.
 
-After deployment verify `/api/health`, perform a real search, and send a real chat request. A successful build alone does not prove provider connectivity. Free-host storage may be ephemeral; configure a persistent disk before relying on durable skill history.
+## Create the backend service
 
-## GitHub Pages + remote API
+1. Open [Render Dashboard](https://dashboard.render.com/).
+2. Choose **New → Blueprint** and connect this repository: `norejaberahmed-design/ai-project-scout`.
+3. Let Render read the repository's `render.yaml` and create the `ai-project-scout-v2` web service.
+4. In the Render service's Environment settings, set:
+   - `SCOUT_LLM_API_KEY`: secret API key for a compatible model provider.
+   - `SCOUT_LLM_MODEL`: exact model identifier enabled for that key.
+   - `SCOUT_ADMIN_TOKEN`: a strong random administrative token.
+   - Optional `GITHUB_TOKEN`: improves GitHub API rate limits and code search access.
+5. Deploy and wait for the service to become **Live**.
+6. Open `https://ai-project-scout-v2.onrender.com/api/health`. It should return JSON with `status: "ok"` and `model_configured: true`.
+7. Open [the GitHub Pages interface](https://norejaberahmed-design.github.io/ai-project-scout/). It automatically tries the default Render URL. If you use another Render hostname, open **إعداد اتصال الخادم** and save that HTTPS base URL.
 
-GitHub Pages serves the browser interface only; it cannot run the Flask/Python API. The main search box now works as a conversational assistant: it sends the question and recent conversation to `POST /api/chat` with web search enabled, then displays the model's answer, selected skills, and source links together.
+## Verify the complete workflow
 
-1. Deploy this repository as a Render Blueprint using `render.yaml`.
-2. In Render, set `SCOUT_LLM_API_KEY`, `SCOUT_LLM_MODEL`, and `SCOUT_ADMIN_TOKEN` in the service's environment. Keep these secrets on the server. `TAVILY_API_KEY` is optional because DuckDuckGo is the fallback search provider.
-3. Wait until the service is live and verify `https://YOUR-SERVICE.onrender.com/api/health`. Then test a real `POST /api/chat` request or use the interface.
-4. Open the GitHub Pages site, expand **إعداد اتصال خادم الذكاء الاصطناعي**, enter the service's HTTPS base URL (without a trailing slash), and tap **حفظ واختبار الاتصال**. The browser stores only this public URL, not API secrets.
-5. Ask a question in the main box. The assistant should return an answer with web source links. If the server URL is missing, the interface now explains that Pages alone cannot run the API.
+1. Check that the interface status changes to **الخادم متصل**.
+2. Click **اكتشاف مهارات جديدة من GitHub**. The report must show the repositories considered, skill documents inspected, and any new proposals.
+3. Submit a real task, e.g. ask it to implement a small Python function and tests. Confirm the response lists skills used when applicable.
+4. Inspect the skill cards and verify the original source link and license evidence for any discovered procedure.
 
-CORS must allow `https://norejaberahmed-design.github.io` (already listed in the supplied Render Blueprint). If the browser reports a network/CORS error, check the Render service status, the exact HTTPS URL, and `SCOUT_ALLOWED_ORIGINS`.
+## Limitations to understand
+
+- A successful GitHub Pages workflow only deploys the static interface; it does not deploy the Flask API.
+- This repository includes a Render Blueprint, but committing `render.yaml` does not create a Render service by itself. The service must be created from the Render dashboard.
+- Model credentials must be configured on Render. Without them, the agent cannot generate task responses.
+- The free Render filesystem may be ephemeral. Skills discovered during a running instance may disappear after restart or redeploy. Durable skill retention requires persistent storage or a repository-backed persistence mechanism.
+- General web search is intentionally not part of the primary interface; discovery focuses on public GitHub skill repositories.
+- Do not put API keys or administrative tokens in GitHub Pages, the repository, or the browser's local storage.
