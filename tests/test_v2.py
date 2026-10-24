@@ -171,3 +171,38 @@ def test_search_summary_uses_source_evidence_and_returns_model_answer(monkeypatc
     assert answer == "Evidence-backed answer [1]"
     assert "https://example.com/a" in captured["messages"][1]["content"]
     assert "[1]" in captured["messages"][1]["content"]
+
+def test_agent_uses_relevant_proposed_skill_without_manual_activation(monkeypatch):
+    import scout.agent as module
+    proposal = {
+        "name": "sql-query-optimization",
+        "description": "Optimize SQL database queries and indexes.",
+        "content": "---\\nname: sql-query-optimization\\ndescription: Optimize SQL database queries and indexes.\\n---\\nReview query plans and indexes.",
+        "status": "proposed",
+    }
+    monkeypatch.setattr(module, "_active_skills", lambda: [])
+    monkeypatch.setattr(module, "_proposed_skills", lambda: [proposal])
+    monkeypatch.setattr(module, "discover_skills", lambda limit: (_ for _ in ()).throw(AssertionError("should reuse existing proposal")))
+    selected = module._skills_for_task("Optimize my SQL database query")
+    assert selected and selected[0]["name"] == "sql-query-optimization"
+    assert selected[0]["status"] == "proposed"
+
+
+def test_agent_auto_discovers_one_skill_when_no_skill_matches(monkeypatch):
+    import scout.agent as module
+    proposal = {
+        "name": "api-integration",
+        "description": "Integrate APIs and troubleshoot HTTP API connections.",
+        "content": "---\\nname: api-integration\\ndescription: Integrate APIs and troubleshoot HTTP API connections.\\n---\\nVerify URLs and status codes.",
+        "status": "proposed",
+    }
+    calls = []
+    monkeypatch.setattr(module, "_active_skills", lambda: [])
+    monkeypatch.setattr(module, "_proposed_skills", lambda: [proposal] if calls else [])
+    monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
+    monkeypatch.setattr(module.time, "time", lambda: 10_000.0)
+    monkeypatch.setattr(module, "discover_skills", lambda limit: calls.append(limit) or {"created": []})
+    selected = module._skills_for_task("Help me integrate an HTTP API connection")
+    assert calls == [1]
+    assert selected and selected[0]["name"] == "api-integration"
+    assert selected[0]["status"] == "proposed"
