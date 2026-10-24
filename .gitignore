@@ -1,6 +1,8 @@
-__pycache__/
-*.py[cod]
-.venv/
 .env
-data/
-reports/
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.coverage
+htmlcov/
+.DS_Store
