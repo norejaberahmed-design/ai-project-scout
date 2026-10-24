@@ -145,7 +145,9 @@ def discover_skills(max_proposals: int = 2) -> dict:
                 slug = meta["name"]
                 if (PROPOSED_DIR / slug).exists() or (ACTIVE_DIR / slug).exists():
                     skipped.append({"repository": full, "path": path, "reason": "skill name already exists"}); continue
-                digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                source_digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                stored_content = content.rstrip() + "\\n"
+                digest = hashlib.sha256(stored_content.encode("utf-8")).hexdigest()
                 dest = PROPOSED_DIR / slug
                 dest.mkdir(parents=True, exist_ok=False)
                 (dest / "SKILL.md").write_text(content.rstrip() + "\n", encoding="utf-8")
@@ -155,7 +157,7 @@ def discover_skills(max_proposals: int = 2) -> dict:
                     f"# Attribution\n\n- Repository: {repo['html_url']}\n- File: {source_url}\n- Revision: {revision}\n- SPDX: {repo['license']}\n- SHA-256: {digest}\n- Status: proposal only; not executed or activated.\n", encoding="utf-8")
                 manifest = {"name": slug, "description": meta["description"], "source_url": source_url,
                     "repository": full, "revision": revision, "path": path, "license": repo["license"],
-                    "license_text_verified": True, "sha256": digest, "created_at": int(time.time()), "status": "proposed"}
+                    "license_text_verified": True, "sha256": digest, "source_sha256": source_digest, "created_at": int(time.time()), "status": "proposed"}
                 (dest / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
                 created.append({"name": slug, "description": meta["description"], "source_url": source_url,
                                 "license": repo["license"], "sha256": digest, "status": "proposed"})
