@@ -416,6 +416,33 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(api_server.allowed_origins(), {"https://app.example", "https://test.example"})
 
 
+    def test_chat_routes_to_openai_deepseek_and_gemini_endpoints(self):
+        provider_cases = [
+            ("openai", "SCOUT_OPENAI_API_KEY", "openai-test-secret",
+             "https://api.openai.com/v1/chat/completions", "gpt-4.1-mini"),
+            ("deepseek", "SCOUT_DEEPSEEK_API_KEY", "deepseek-test-secret",
+             "https://api.deepseek.com/chat/completions", "deepseek-chat"),
+            ("gemini", "SCOUT_GEMINI_API_KEY", "gemini-test-secret",
+             "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini-2.5-flash"),
+        ]
+        for provider, key_name, secret, endpoint, model in provider_cases:
+            with self.subTest(provider=provider):
+                response = MagicMock()
+                response.__enter__.return_value.read.return_value = json.dumps({
+                    "choices": [{"message": {"content": "Provider test answer"}}]
+                }).encode("utf-8")
+                with patch.dict(os.environ, {key_name: secret}, clear=True), \\
+                     patch("api_server.urllib.request.urlopen", return_value=response) as opener:
+                    answer = api_server.generate_answer("test question", {"results": []},
+                                                        skills=[], provider=provider)
+                self.assertEqual(answer, "Provider test answer")
+                request = opener.call_args.args[0]
+                self.assertEqual(request.full_url, endpoint)
+                self.assertEqual(request.get_header("Authorization"), "Bearer " + secret)
+                body = json.loads(request.data.decode("utf-8"))
+                self.assertEqual(body["model"], model)
+
+
     def test_provider_status_endpoint_never_exposes_provider_secrets(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
         worker = threading.Thread(target=server.serve_forever, daemon=True)
