@@ -108,14 +108,14 @@ def _proposal_is_usable(document: str) -> bool:
         return False
     # This app's chat runtime does not expose a shell or GitHub CLI. Do not
     # feed tool-specific instructions that would encourage pretending to run them.
-    if re.search(r"(?im)^\\s*allowed-tools\\s*:", document):
+    if re.search(r"(?im)^\s*allowed-tools\s*:", document):
         return False
-    if re.search(r"\\bgh\\s+(?:issue|pr|repo|api)\\b|\\bgit\\s+worktree\\b|\\bgh\\s+pr\\s+merge\\b", lowered):
+    if re.search(r"\bgh\s+(?:issue|pr|repo|api)\b|\bgit\s+worktree\b|\bgh\s+pr\s+merge\b", lowered):
         return False
     body = document.split("## Source provenance", 1)[0]
     action_lines = [
         line.strip() for line in body.splitlines()
-        if re.match(r"^(?:[-*]|(?:step\\s+)?[1-9][0-9]?[.)])\\s+\\S.{17,}$", line.strip(), re.I)
+        if re.match(r"^(?:[-*]|(?:step\s+)?[1-9][0-9]?[.)])\s+\\S.{17,}$", line.strip(), re.I)
     ]
     return len(body) >= 180 and len(action_lines) >= 3
 
