@@ -401,3 +401,41 @@ def test_public_skill_discovery_rejects_bad_payload(monkeypatch):
     response = webapp.app.test_client().post("/api/skills/discover", json={"max_proposals": 99})
     assert response.status_code == 400
 
+def test_task_search_terms_translate_arabic_and_preserve_technical_keywords():
+    from scout.skills import task_search_terms
+    terms = task_search_terms("أريد بناء تطبيق Flask وقاعدة بيانات SQLite")
+    assert "flask" in terms
+    assert "sqlite" in terms
+    assert "web" in terms or "app" in terms
+    assert "database" in terms
+
+
+def test_reverse_engineering_report_summarizes_skill_steps_without_execution():
+    from scout.skills import _reverse_engineering_report
+    report = _reverse_engineering_report(
+        "https://github.com/example/skill-pack", "a" * 40, "skills/api/SKILL.md",
+        ["README.md", "pyproject.toml", "tests/test_api.py", "src/main.py"],
+        "MIT",
+        "---\nname: api-integration\ndescription: Integrate APIs safely.\n---\n"
+        "# API integration\n1. Read API docs.\n2. Test responses.\nUse pytest to verify.",
+    )
+    assert "Immutable revision: " + "a" * 40 in report
+    assert "API integration" in report
+    assert "Numbered/bulleted procedural steps observed: 2" in report
+    assert "pyproject.toml" in report
+    assert "not proof that a feature works" in report
+
+
+def test_discovery_endpoint_forwards_task_query(monkeypatch):
+    monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
+    monkeypatch.setattr(webapp, "_last_public_discovery_at", 0.0)
+    calls = []
+    monkeypatch.setattr(webapp, "discover_skills", lambda limit, task_query="": calls.append((limit, task_query)) or {
+        "repositories_considered": 0, "documents_inspected": 0, "created": [], "skipped": [],
+        "search_terms": ["flask", "database"]
+    })
+    response = webapp.app.test_client().post(
+        "/api/skills/discover", json={"max_proposals": 1, "query": "Build Flask database app"}
+    )
+    assert response.status_code == 200
+    assert calls == [(1, "Build Flask database app")]
