@@ -14,7 +14,7 @@
 <script>
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function apiBase(){return ($('apiBase')?.value.trim()||localStorage.getItem('scoutApiBase')||'').replace(/\\/+$/,'');}
+function apiBase(){return ($('apiBase')?.value.trim()||localStorage.getItem('scoutApiBase')||'').replace(/\/+$/,'');}
 async function api(path,body,token){const headers=body?{'Content-Type':'application/json'}:{};if(token)headers['Authorization']='Bearer '+token;const r=await fetch(apiBase()+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined});const d=await r.json().catch(()=>({message:'استجابة غير صالحة'}));if(!r.ok)throw new Error(d.message||d.error||('HTTP '+r.status));return d;}
 function err(el,e){el.innerHTML='<p class="error">'+esc(e.message)+'</p>';}
 function sources(list){return !list?.length?'<p class="muted">لا توجد نتائج؛ تحقق من إعداد مفتاح البحث على الخادم.</p>':list.map(x=>'<article class="source"><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title||x.url)+'</a><p>'+esc(x.snippet||'')+'</p><small class="muted">'+esc(x.published_date||'')+'</small></article>').join('');}
@@ -28,6 +28,6 @@ async function loadSkills(){try{let d=await api('/api/skills');$('activeSkills')
 $('discoverBtn').onclick=async()=>{$('discoverBtn').disabled=true;$('skillsStatus').textContent='يجري البحث عن مستودعات عامة وفحص الملفات والتراخيص…';try{let d=await api('/api/skills/discover',{max_proposals:2},$('adminToken').value.trim());$('skillsStatus').innerHTML='<span class="success">اكتمل الفحص: '+d.repositories_considered+' مستودعات، '+d.documents_inspected+' ملفات، '+d.created.length+' مقترحات.</span>'+(d.skipped?.length?'<details><summary>تفاصيل الملفات المتخطاة</summary><pre>'+esc(JSON.stringify(d.skipped,null,2))+'</pre></details>':'');await loadSkills();}catch(e){$('skillsStatus').textContent=e.message;}finally{$('discoverBtn').disabled=false;}};
 $('apiBase').value=localStorage.getItem('scoutApiBase')||'';
 async function checkHealth(){try{const d=await api('/api/health');$('status').textContent='الخادم متصل · بحث '+(d.web_search_configured?'جاهز':'يحتاج مفتاح')+' · نموذج '+(d.model_configured?'جاهز':'يحتاج إعداد');}catch(e){$('status').textContent='تعذر الاتصال بالخادم';}}
-$('saveApiBase').onclick=()=>{localStorage.setItem('scoutApiBase',$('apiBase').value.trim().replace(/\\/+$/,''));checkHealth();};
+$('saveApiBase').onclick=()=>{localStorage.setItem('scoutApiBase',$('apiBase').value.trim().replace(/\/+$/,''));checkHealth();};
 checkHealth();
 </script></body></html>
