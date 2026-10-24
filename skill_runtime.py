@@ -95,6 +95,31 @@ def load_active_skills(root: Path | None = None) -> list[dict]:
     return loaded
 
 
+def _proposal_is_usable(document: str) -> bool:
+    """Keep placeholders and procedures requiring unavailable shell integrations out of chat context."""
+    lowered = (document or "").lower()
+    if any(phrase in lowered for phrase in (
+        "do the task described above",
+        "perform the task described above",
+        "insert skill instructions here",
+        "todo: add skill instructions",
+        "replace this with the actual skill",
+    )):
+        return False
+    # This app's chat runtime does not expose a shell or GitHub CLI. Do not
+    # feed tool-specific instructions that would encourage pretending to run them.
+    if re.search(r"(?im)^\\s*allowed-tools\\s*:", document):
+        return False
+    if re.search(r"\\bgh\\s+(?:issue|pr|repo|api)\\b|\\bgit\\s+worktree\\b|\\bgh\\s+pr\\s+merge\\b", lowered):
+        return False
+    body = document.split("## Source provenance", 1)[0]
+    action_lines = [
+        line.strip() for line in body.splitlines()
+        if re.match(r"^(?:[-*]|(?:step\\s+)?[1-9][0-9]?[.)])\\s+\\S.{17,}$", line.strip(), re.I)
+    ]
+    return len(body) >= 350 and len(action_lines) >= 3
+
+
 def load_proposed_skills(root: Path | None = None, limit: int = 50) -> list[dict]:
     """Load statically valid proposals as untrusted reference material, never as trusted instructions."""
     directory = (root or ROOT) / "skills" / "proposed"
@@ -105,7 +130,7 @@ def load_proposed_skills(root: Path | None = None, limit: int = 50) -> list[dict
         try:
             document = path.read_text(encoding="utf-8")
             checked = inspect_candidate(document)
-            if not checked.get("valid"):
+            if not checked.get("valid") or not _proposal_is_usable(document):
                 continue
             metadata = checked["metadata"]
             if path.parent.name != metadata.get("name"):
