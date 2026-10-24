@@ -91,12 +91,95 @@ def _github_get(url: str) -> dict:
         raise SkillError(f"GITHUB_HTTP_{response.status_code}")
     return response.json()
 
-def discover_skills(max_proposals: int = 2) -> dict:
+def task_search_terms(task_query: str) -> list[str]:
+    """Turn an Arabic/English task into bounded English GitHub search terms."""
+    text = str(task_query or "").lower()
+    words = re.findall(r"[a-z][a-z0-9+#.-]{1,30}", text)
+    stop = {"please", "help", "want", "need", "make", "build", "create", "write", "with",
+            "from", "that", "this", "into", "using", "for", "and", "the", "you", "can"}
+    words = [word.strip(".-") for word in words if word not in stop and len(word.strip(".-")) > 1]
+    arabic_map = {
+        "تطبيق": ["web", "app", "application"], "موقع": ["website", "web"],
+        "موقعا": ["website", "web"], "ويب": ["web", "frontend"],
+        "بايثون": ["python"], "بايثون": ["python"], "برمجة": ["software", "coding"],
+        "برمجي": ["software", "coding"], "برمجية": ["software", "coding"],
+        "قاعدة": ["database", "sql"], "بيانات": ["database", "data"],
+        "ذكاء": ["ai", "agent", "llm"], "اصطناعي": ["ai", "agent", "llm"],
+        "ايجنت": ["agent", "llm"], "وكيل": ["agent", "llm"],
+        "واجهة": ["frontend", "ui"], "خادم": ["backend", "api"],
+        "api": ["api", "integration"], "اختبار": ["testing", "pytest"],
+        "اختبارات": ["testing", "pytest"], "أمان": ["security"], "امن": ["security"],
+        "بحث": ["research", "search"], "مهارة": ["agent", "skills"],
+        "مهارات": ["agent", "skills"], "تلقائي": ["automation"], "اتصال": ["integration"],
+    }
+    for arabic, mapped in arabic_map.items():
+        if arabic in text:
+            words.extend(mapped)
+    result, seen_terms = [], set()
+    for word in words:
+        word = re.sub(r"[^a-z0-9+#.-]", "", word).strip(".-")
+        if word and word not in seen_terms:
+            result.append(word)
+            seen_terms.add(word)
+        if len(result) >= 6:
+            break
+    return result
+
+
+def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
+                                tree_paths: list[str], license_spdx: str) -> str:
+    """Create a reproducible static map of a skill repository without running its code."""
+    names = [Path(path).name.lower() for path in tree_paths]
+    readmes = [path for path in tree_paths if Path(path).name.lower().startswith("readme")][:3]
+    manifests = [path for path in tree_paths if Path(path).name.lower() in {
+        "pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "package.json",
+        "go.mod", "cargo.toml", "pom.xml", "composer.json"
+    }][:12]
+    tests = [path for path in tree_paths if re.search(r"(^|/)(tests?|specs?)(/|$)|(^|/)(test_|.*_test\\.)", path.lower())][:20]
+    entrypoints = [path for path in tree_paths if Path(path).name.lower() in {
+        "main.py", "app.py", "cli.py", "__main__.py", "index.js", "index.ts", "server.py"
+    }][:15]
+    scripts = [path for path in tree_paths if Path(path).suffix.lower() in {
+        ".py", ".js", ".ts", ".sh", ".ps1", ".go", ".rs"
+    }][:30]
+    lines = [
+        "# Static reverse-engineering report", "",
+        "- Repository: " + repository,
+        "- Immutable revision: " + revision,
+        "- Skill document: " + skill_path,
+        "- Declared license: " + license_spdx,
+        "- Analysis mode: static file-tree inspection only; no source code was executed.",
+        "",
+        "## Likely purpose",
+        "This repository contains a reusable SKILL.md procedure. The procedure text is stored separately and remains untrusted task guidance until reviewed.",
+        "",
+        "## Repository structure signals",
+        "- README files: " + (", ".join(readmes) if readmes else "not found"),
+        "- Dependency/build manifests: " + (", ".join(manifests) if manifests else "not found"),
+        "- Test paths: " + (", ".join(tests) if tests else "not found"),
+        "- Likely entry points: " + (", ".join(entrypoints) if entrypoints else "not identified"),
+        "- Source/script files (first 30): " + (", ".join(scripts) if scripts else "not identified"),
+        "",
+        "## Reuse decision",
+        "- The SKILL.md procedure may be supplied to the language model as guidance after selection.",
+        "- Source scripts and dependencies are not imported, installed, or executed by discovery.",
+        "- If executable functionality is required, create a separate sandboxed package proposal, review dependencies and license obligations, add tests, and require explicit approval before activation.",
+        "- File-tree names are evidence of repository structure, not proof that a feature works.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
     max_proposals = max(1, min(int(max_proposals), int_setting("SCOUT_MAX_SKILLS_PER_DISCOVERY", MAX_PROPOSALS_PER_DISCOVERY, 1, MAX_PROPOSALS_PER_DISCOVERY)))
     PROPOSED_DIR.mkdir(parents=True, exist_ok=True)
     # Search repository metadata and READMEs for real reusable skill packs.
     # GitHub code search is used as an additional source when GITHUB_TOKEN exists.
-    queries = [
+    task_terms = task_search_terms(task_query)
+    queries = []
+    if task_terms:
+        queries.append(" ".join(task_terms) + " skills in:readme stars:>=1")
+        queries.append(" ".join(task_terms) + " agent skill in:name,description stars:>=1")
+    queries.extend([
         "agent-skills in:name stars:>=5",
         "SKILL.md in:readme stars:>=5",
         "agent skills in:name,description stars:>=5",
@@ -106,7 +189,7 @@ def discover_skills(max_proposals: int = 2) -> dict:
         "copilot instructions skills in:readme stars:>=5",
         "openai agents skills in:readme stars:>=5",
         "gemini agent skills in:readme stars:>=5",
-    ]
+    ])
     repositories, seen = [], set()
 
     # Authenticated code search finds actual SKILL.md files rather than relying only
@@ -204,6 +287,11 @@ def discover_skills(max_proposals: int = 2) -> dict:
                 source_url = f"{repo['html_url']}/blob/{revision}/{quote(path, safe='/')}"
                 (dest / "ATTRIBUTION.md").write_text(
                     f"# Attribution\n\n- Repository: {repo['html_url']}\n- File: {source_url}\n- Revision: {revision}\n- SPDX: {repo['license']}\n- Source SHA-256: {source_digest}\n- Stored SHA-256: {digest}\n- Status: proposal only; not executed or activated.\n", encoding="utf-8")
+                (dest / "REVERSE_ENGINEERING.md").write_text(
+                    _reverse_engineering_report(repo["html_url"], revision, path,
+                                                [node.get("path", "") for node in nodes],
+                                                repo["license"]),
+                    encoding="utf-8")
                 manifest = {"name": slug, "description": meta["description"], "source_url": source_url,
                     "repository": full, "revision": revision, "path": path, "license": repo["license"],
                     "license_text_verified": True, "sha256": digest, "source_sha256": source_digest, "created_at": int(time.time()), "status": "proposed"}
@@ -212,7 +300,8 @@ def discover_skills(max_proposals: int = 2) -> dict:
                                 "license": repo["license"], "sha256": digest, "status": "proposed"})
         except (requests.RequestException, ValueError, KeyError, OSError, SkillError) as exc:
             skipped.append({"repository": full, "reason": str(exc)[:180]})
-    return {"repositories_considered": len(repositories), "documents_inspected": inspected,
+    return {"task_query": str(task_query or "")[:500], "search_terms": task_terms,
+            "repositories_considered": len(repositories), "documents_inspected": inspected,
             "created": created, "skipped": skipped[:30]}
 
 def approve_skill(name: str) -> dict:
