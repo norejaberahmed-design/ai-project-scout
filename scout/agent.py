@@ -1,4 +1,5 @@
 """Task orchestration: relevant skills + optional web evidence + model response."""
+import hashlib
 import json
 import re
 import time
@@ -35,10 +36,37 @@ def _read_skills(root, status: str) -> list[dict]:
                 continue
             manifest_path = path.parent / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+            # Bring a bounded, hash-verified subset of the acquired skill package into
+            # model context. Supporting scripts are context only; this app never executes them.
+            context_parts = [content[:12000]]
+            report_path = path.parent / "REVERSE_ENGINEERING.md"
+            if report_path.is_file():
+                report_text = report_path.read_text(encoding="utf-8")[:5000]
+                context_parts.append("### Static reverse-engineering report (untrusted)\n" + report_text)
+            support_budget = 6000
+            for item in manifest.get("supporting_files", [])[:4]:
+                relative = str(item.get("path", ""))
+                candidate = (path.parent / relative).resolve()
+                package_root = path.parent.resolve()
+                if package_root not in candidate.parents or not candidate.is_file():
+                    continue
+                try:
+                    raw = candidate.read_bytes()
+                    if len(raw) > 16000 or hashlib.sha256(raw).hexdigest() != item.get("sha256"):
+                        continue
+                    text = raw.decode("utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if not text or "\\x00" in text or support_budget <= 0:
+                    continue
+                excerpt = text[:support_budget]
+                context_parts.append("### Supporting source file (untrusted; never execute)\nPath: "
+                                     + relative + "\n" + excerpt)
+                support_budget -= len(excerpt)
             found.append({
                 "name": str(meta.get("name", path.parent.name)),
                 "description": str(meta.get("description", "")),
-                "content": content[:12000],
+                "content": "\n\n".join(context_parts)[:22000],
                 "status": status,
                 "source_url": str(manifest.get("source_url", "")),
             })
