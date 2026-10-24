@@ -13,6 +13,7 @@ import time
 import urllib.error
 import urllib.request
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Lock
 from model_providers import provider_config, list_provider_status, any_provider_configured, normalize_provider
@@ -337,7 +338,7 @@ class AgentHandler(BaseHTTPRequestHandler):
         if origin and origin not in allowed_origins():
             self._send(403, {"error": "Origin not allowed"})
             return
-        allowed_paths = {"/api/search", "/api/chat", "/api/skills/discover", "/api/components/inspect", "/api/components/acquire"}
+        allowed_paths = {"/api/search", "/api/chat", "/api/compare", "/api/skills/discover", "/api/components/inspect", "/api/components/acquire"}
         if self.path not in allowed_paths:
             self._send(404, {"error": "Not found"})
             return
@@ -435,6 +436,11 @@ class AgentHandler(BaseHTTPRequestHandler):
                     message = "المزود المختار غير مهيأ: " + config["label"] + ". أضف مفتاحه واسم النموذج في إعدادات الخادم."
                 self._send(503, {"error": message})
                 return
+        if self.path == "/api/compare":
+            available = [item for item in list_provider_status() if item.get("configured") and item.get("id") != "legacy"]
+            if len(available) < 2:
+                self._send(503, {"error": "مقارنة النماذج تحتاج إلى تهيئة مزودين على الأقل من OpenAI وDeepSeek وGemini وOpenRouter على الخادم."})
+                return
         try:
             # User queries search the public web. GitHub is reserved for the separate
             # SKILL.md discovery pipeline; repository metadata is never used as user-answer evidence.
@@ -457,7 +463,40 @@ class AgentHandler(BaseHTTPRequestHandler):
             if self.path == "/api/search":
                 self._send(200, found)
                 return
-            history = sanitize_history(data.get("history", [])) if self.path == "/api/chat" else []
+            history = sanitize_history(data.get("history", [])) if self.path in {"/api/chat", "/api/compare"} else []
+            if self.path == "/api/compare":
+                available = [item for item in list_provider_status() if item.get("configured") and item.get("id") != "legacy"]
+                answers = []
+                failures = []
+                with ThreadPoolExecutor(max_workers=min(4, len(available))) as pool:
+                    future_map = {
+                        pool.submit(generate_answer, question, found, selected_skills, candidate_skills,
+                                    item["id"], history): item
+                        for item in available
+                    }
+                    for future in as_completed(future_map):
+                        item = future_map[future]
+                        try:
+                            answers.append({"provider": item["id"], "label": item["label"], "answer": future.result()})
+                        except (RuntimeError, ValueError) as exc:
+                            failures.append({"provider": item["id"], "error": str(exc)[:250]})
+                answers.sort(key=lambda item: next((i for i, p in enumerate(available) if p["id"] == item["provider"]), 99))
+                if len(answers) < 2:
+                    self._send(502, {"error": "تعذرت مقارنة نموذجين على الأقل. تحقق من مفاتيح المزودات وحدودها.", "failures": failures})
+                    return
+                combined = "\\n\\n".join("=== " + item["label"] + " ===\\n" + item["answer"] for item in answers)
+                response_payload = {
+                    "answer": combined,
+                    "model_answers": answers,
+                    "model_failures": failures,
+                    "sources": found["results"],
+                    "search_provider": found.get("provider", "غير محدد"),
+                    "model_provider": "comparison",
+                    "source_count": len(found.get("results", [])),
+                    "coverage_note": found.get("coverage_note", "لا تتوفر ملاحظة تغطية من مزود البحث."),
+                }
+                self._send(200, response_payload)
+                return
             answer = generate_answer(question, found, skills=selected_skills, candidate_skills=candidate_skills, provider=requested_provider, history=history)
             response_payload = {
                 "answer": answer,
