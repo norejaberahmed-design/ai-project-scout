@@ -146,9 +146,9 @@ class SkillHarvesterTests(unittest.TestCase):
         runtime_bound_skill = SKILL + "\\nallowed-tools: Bash, WebSearch, WebFetch\\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            with patch("skill_harvester.inspect_repository", return_value=info), \\
-                 patch("skill_harvester._get_skill_text", return_value=runtime_bound_skill):
-                result = skill_harvester.harvest_repository(
+            with patch("skill_harvester.inspect_repository", return_value=info):
+                with patch("skill_harvester._get_skill_text", return_value=runtime_bound_skill):
+                    result = skill_harvester.harvest_repository(
                     "https://github.com/example/platform-skills", root=root,
                     db_path=root / "runtime-bound.sqlite", fetcher=fake_tree_fetcher
                 )
