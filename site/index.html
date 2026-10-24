@@ -65,7 +65,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  <section class="chat-shell" aria-label="منطقة المحادثة">
   <div class="chat-head"><div><div class="chat-title">المحادثة</div><div class="chat-subtitle">إجابات واضحة ومصادر قابلة للفتح</div></div><button id="newchat" class="btn" type="button" aria-label="بدء محادثة جديدة">محادثة جديدة ↺</button></div>
   <section id="chat" class="chat" role="log" aria-live="polite" aria-label="رسائل المحادثة"><div class="bubble assistant">مرحبًا! اكتب سؤالك وسأبحث في المصادر المتاحة. إذا لم يكن خادم الذكاء الاصطناعي متصلًا، سأوضح ذلك ولن أقدّم نتائج محدودة على أنها بحث شامل. لا تضع مفاتيح API هنا.</div></section>
-  <form id="form" class="composer"><div class="provider-row"><label for="modelprovider">نموذج الإجابة:</label><select id="modelprovider" aria-label="اختر مزود الذكاء الاصطناعي"><option value="legacy">الإعداد الحالي للخادم</option><option value="openai">ChatGPT / OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option></select><span id="providerhelp" class="provider-help">تظهر حالة الإعداد بعد اتصال الخادم.</span></div><label class="research-row" for="researchmode"><input id="researchmode" type="checkbox"><span><strong>بحث معمّق متعدد الاستعلامات</strong> — يبحث بصيغ مترابطة، يزيل النتائج المكررة، ويعرض المصادر. يستخدم طلبات بحث إضافية.</span></label><div class="composebox"><textarea id="question" dir="auto" lang="ar" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
+  <form id="form" class="composer"><div class="provider-row"><label for="modelprovider">نموذج الإجابة:</label><select id="modelprovider" aria-label="اختر مزود الذكاء الاصطناعي"><option value="legacy">الإعداد الحالي للخادم</option><option value="openai">ChatGPT / OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option></select><span id="providerhelp" class="provider-help">تظهر حالة الإعداد بعد اتصال الخادم.</span></div><label class="research-row" for="researchmode"><input id="researchmode" type="checkbox"><span><strong>بحث معمّق متعدد الاستعلامات</strong> — يبحث بصيغ مترابطة، يزيل النتائج المكررة، ويعرض المصادر. يستخدم طلبات بحث إضافية.</span></label>
+  <label class="research-row" for="comparemodels"><input id="comparemodels" type="checkbox"><span><strong>مقارنة النماذج</strong> — اطلب إجابات مستقلة من مزودين مهيئين على الأقل (OpenAI وDeepSeek وGemini وOpenRouter). قد يزيد التكلفة والوقت.</span></label><div class="composebox"><textarea id="question" dir="auto" lang="ar" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
  </section>
 </section>
 <section id="view-skills" class="view" role="tabpanel" aria-labelledby="tab-skills" hidden>
@@ -101,7 +102,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 "use strict";
 const $=id=>document.getElementById(id);
 const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$("question"),send=$("send"),apiurl=$("apiurl"),apihelp=$("apihelp"),connectionBanner=$("connection-banner"),connectionTitle=$("connection-title"),connectionMessage=$("connection-message");
-const modelProvider=$("modelprovider"),providerHelp=$("providerhelp"),researchMode=$("researchmode");
+const modelProvider=$("modelprovider"),providerHelp=$("providerhelp"),researchMode=$("researchmode"),compareModels=$("comparemodels");
 let conversationHistory=[];
 let providerStatuses=[];
 modelProvider.value=(localStorage.getItem("scoutModelProvider")||"legacy");
@@ -356,6 +357,9 @@ async function submit(text){
  try{
   if(!apiBase){
    const fallback=researchMode.checked?await searchBrowserResearch(q):await searchBrowserSources(q);
+   if(compareModels.checked){
+    fallback.answer="مقارنة النماذج غير متاحة دون خادم API. "+fallback.answer+"\n\nانشر الخادم واضبط مفاتيح مزودين على الأقل لتفعيل مقارنة الإجابات.";
+   }
    showData(fallback,
     fallback.sources.length?"اكتمل البحث المباشر المحدود":"لم تُسترجع نتائج",
     fallback.answer,
@@ -366,7 +370,7 @@ async function submit(text){
   const timeout=setTimeout(()=>controller.abort(),45000);
   let response,data={};
   try{
-   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q,provider:modelProvider.value,research_mode:researchMode.checked,history:conversationHistory.slice(-8)}),signal:controller.signal});
+   response=await fetch(apiBase+(compareModels.checked?"/api/compare":"/api/chat"),{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q,provider:modelProvider.value,research_mode:researchMode.checked,history:conversationHistory.slice(-8)}),signal:controller.signal});
    try{data=await response.json();}catch{data={};}
   }finally{clearTimeout(timeout);}
   if(response.ok&&typeof data.answer==="string"&&data.answer.trim()){
