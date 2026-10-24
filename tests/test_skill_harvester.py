@@ -143,6 +143,18 @@ class SkillHarvesterTests(unittest.TestCase):
             self.assertEqual(result["proposals"][0]["status"], "SKIPPED_PLATFORM_SPECIFIC")
             self.assertFalse((root / "skills" / "proposed").exists())
 
+        runtime_bound_skill = SKILL + "\\nallowed-tools: Bash, WebSearch, WebFetch\\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("skill_harvester.inspect_repository", return_value=info), \\
+                 patch("skill_harvester._get_skill_text", return_value=runtime_bound_skill):
+                result = skill_harvester.harvest_repository(
+                    "https://github.com/example/platform-skills", root=root,
+                    db_path=root / "runtime-bound.sqlite", fetcher=fake_tree_fetcher
+                )
+            self.assertEqual(result["proposals"][0]["status"], "SKIPPED_PLATFORM_SPECIFIC")
+            self.assertFalse((root / "skills" / "proposed").exists())
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             support_text = "# API reference\n\nUse this local reference to understand the supported procedure.\n"
