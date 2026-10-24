@@ -102,6 +102,38 @@ def discover_skills(max_proposals: int = 2) -> dict:
         "gemini agent skills in:readme stars:>=5",
     ]
     repositories, seen = [], set()
+
+    # Authenticated code search finds actual SKILL.md files rather than relying only
+    # on repository descriptions. If no token is configured, public repository
+    # search below remains available without exposing or requiring credentials.
+    if setting("GITHUB_TOKEN"):
+        for code_query in ("filename:SKILL.md", "path:skills filename:SKILL.md"):
+            try:
+                code_url = "https://api.github.com/search/code?q=" + quote(code_query, safe="") + "&per_page=20"
+                code_payload = _github_get(code_url)
+            except (requests.RequestException, ValueError, SkillError):
+                continue
+            for code_item in code_payload.get("items", []):
+                full = str((code_item.get("repository") or {}).get("full_name", ""))
+                if not full or full.lower() in seen:
+                    continue
+                seen.add(full.lower())
+                try:
+                    metadata = _github_get(f"https://api.github.com/repos/{full}")
+                except (requests.RequestException, ValueError, SkillError):
+                    continue
+                if metadata.get("fork") or metadata.get("archived"):
+                    continue
+                license_id = str((metadata.get("license") or {}).get("spdx_id") or "UNKNOWN")
+                if license_id not in ALLOWED_LICENSES:
+                    continue
+                repositories.append({
+                    "full_name": full,
+                    "license": license_id,
+                    "branch": metadata.get("default_branch") or "main",
+                    "html_url": metadata.get("html_url") or f"https://github.com/{full}",
+                })
+
     for query in queries:
         url = "https://api.github.com/search/repositories?q=" + quote(query) + "&sort=updated&order=desc&per_page=15"
         try:
