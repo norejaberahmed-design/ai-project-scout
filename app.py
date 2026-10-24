@@ -4,7 +4,7 @@ load_dotenv()
 
 from flask import Flask, jsonify, request, send_from_directory
 from scout import config
-from scout.agent import answer_task
+from scout.agent import answer_task, summarize_search_results
 from scout.providers import ProviderError
 from scout.search import SearchError, web_search
 from scout.skills import SkillError, approve_skill, discover_skills, list_skills
@@ -60,7 +60,15 @@ def search():
         if count is not None and (not isinstance(count,int) or isinstance(count,bool) or count not in range(1,9)):
             return jsonify({"error":"INVALID_RESULT_COUNT","message":"max_results must be 1–8"}),400
         results = web_search(query,count)
-        return jsonify({"query":query,"results":results,"count":len(results)})
+        payload = {"query":query,"results":results,"count":len(results),"answer":None}
+        if config.setting("SCOUT_LLM_API_KEY") and config.setting("SCOUT_LLM_MODEL") and results:
+            try:
+                payload["answer"] = summarize_search_results(query, results)
+            except ProviderError:
+                payload["summary_warning"] = "تم جلب نتائج الويب، لكن تعذر إنشاء الملخص الذكي. تحقق من إعداد مزود النموذج."
+        elif results:
+            payload["summary_warning"] = "تم جلب نتائج الويب. أضف إعداد النموذج على الخادم لتفعيل الملخص الذكي."
+        return jsonify(payload)
     except ValueError as exc:
         return jsonify({"error":"INVALID_REQUEST","message":str(exc)}),400
     except SearchError as exc:
