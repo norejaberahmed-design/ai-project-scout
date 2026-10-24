@@ -1,0 +1,38 @@
+{
+  "files": [
+    {
+      "path": "agents/bamboo.yaml",
+      "source_path": "builtin_skills/plan/agents/bamboo.yaml",
+      "source_url": "https://github.com/bigduu/Bamboo-agent/blob/436e7d58bfbd7440056397bca960b5704abc9c53/builtin_skills/plan/agents/bamboo.yaml",
+      "bytes": 173,
+      "sha256": "9212de49070a2beb3e7207092247fe231ba8d2a89d596f05347720469179c0a8",
+      "executed": false
+    },
+    {
+      "path": "agents/openai.yaml",
+      "source_path": "builtin_skills/plan/agents/openai.yaml",
+      "source_url": "https://github.com/bigduu/Bamboo-agent/blob/436e7d58bfbd7440056397bca960b5704abc9c53/builtin_skills/plan/agents/openai.yaml",
+      "bytes": 249,
+      "sha256": "b35a1751dd1b58ebf2125dc878ea01b282ca72b9cefb0d73962e9a8b31f21421",
+      "executed": false
+    },
+    {
+      "path": "evals/scenarios.json",
+      "source_path": "builtin_skills/plan/evals/scenarios.json",
+      "source_url": "https://github.com/bigduu/Bamboo-agent/blob/436e7d58bfbd7440056397bca960b5704abc9c53/builtin_skills/plan/evals/scenarios.json",
+      "bytes": 962,
+      "sha256": "32516d1b1d88d68ad45b69fcbdb5642907251bbeb9856865734a39c2df22f61c",
+      "executed": false
+    },
+    {
+      "path": "evals/trigger-evals.json",
+      "source_path": "builtin_skills/plan/evals/trigger-evals.json",
+      "source_url": "https://github.com/bigduu/Bamboo-agent/blob/436e7d58bfbd7440056397bca960b5704abc9c53/builtin_skills/plan/evals/trigger-evals.json",
+      "bytes": 1154,
+      "sha256": "e0faa736958733d40597b339bad879dff6dcfd1ef5364084ce0d5ff8c93fc239",
+      "executed": false
+    }
+  ],
+  "total_bytes": 2538,
+  "policy": "review-only; no dependency install or execution"
+}
