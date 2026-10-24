@@ -30,7 +30,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .chat{min-height:230px;max-height:min(52vh,570px);overflow:auto;padding:18px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
 .bubble{max-width:94%;white-space:pre-wrap;overflow-wrap:anywhere;padding:13px 15px;border:1px solid var(--line);border-radius:17px;background:#141c29;font-size:13px;line-height:1.9;direction:rtl;text-align:start;unicode-bidi:plaintext}.bubble.user{align-self:flex-start;background:#202b3b;border-color:#394b65;border-bottom-right-radius:5px}.bubble.assistant{align-self:stretch;border-bottom-left-radius:5px}.bubble.error{border-color:#6d3b42}
 .sources{display:grid;gap:8px;margin-top:13px}.coverage{margin-top:13px;padding:11px 12px;border:1px solid #35445a;border-radius:12px;background:#0d1520;font-size:11px;color:var(--muted)}.coverage strong{display:block;color:var(--gold);font-size:12px}.coverage p{margin:5px 0 0;overflow-wrap:anywhere}.coverage .coverage-limit{color:#aab7c8}.source{padding:11px 12px;border:1px solid #283449;border-radius:12px;background:#0c121c}.source a{color:var(--blue);font-size:12px;font-weight:700;overflow-wrap:anywhere;text-decoration:none}.source a:hover{text-decoration:underline}.source p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.7}
-.composer{padding:12px 14px 15px;border-top:1px solid rgba(130,151,182,.14);background:rgba(10,14,21,.72)}.composebox{display:flex;gap:10px;align-items:flex-end;border:1px solid #3a465b;background:#0d131d;border-radius:16px;padding:7px;transition:border-color .15s}.composebox:focus-within{border-color:#9c8457;box-shadow:0 0 0 3px rgba(230,193,123,.06)}.composebox textarea{flex:1;min-width:0;resize:vertical;min-height:48px;max-height:160px;border:0;outline:0;background:transparent;color:var(--text);padding:9px 10px;font-size:14px;line-height:1.65}.composebox textarea::placeholder{color:#77869a}.send{background:linear-gradient(145deg,#f0d393,#d7ad60);color:#17130b;border:0;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:850;cursor:pointer;min-height:46px}.send:disabled{opacity:.55;cursor:wait}.composer-note{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px;color:#8190a5;padding:8px 3px 0}.provider-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 3px 9px;color:var(--muted);font-size:11px}.provider-row label{white-space:nowrap}.provider-row select{min-width:0;flex:1;max-width:270px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#101722;color:var(--text);font:inherit}.provider-help{font-size:10px;color:#8c9bb0}
+.composer{padding:12px 14px 15px;border-top:1px solid rgba(130,151,182,.14);background:rgba(10,14,21,.72)}.composebox{display:flex;gap:10px;align-items:flex-end;border:1px solid #3a465b;background:#0d131d;border-radius:16px;padding:7px;transition:border-color .15s}.composebox:focus-within{border-color:#9c8457;box-shadow:0 0 0 3px rgba(230,193,123,.06)}.composebox textarea{flex:1;min-width:0;resize:vertical;min-height:48px;max-height:160px;border:0;outline:0;background:transparent;color:var(--text);padding:9px 10px;font-size:14px;line-height:1.65}.composebox textarea::placeholder{color:#77869a}.send{background:linear-gradient(145deg,#f0d393,#d7ad60);color:#17130b;border:0;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:850;cursor:pointer;min-height:46px}.send:disabled{opacity:.55;cursor:wait}.composer-note{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px;color:#8190a5;padding:8px 3px 0}.provider-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 3px 9px;color:var(--muted);font-size:11px}.provider-row label{white-space:nowrap}.provider-row select{min-width:0;flex:1;max-width:270px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#101722;color:var(--text);font:inherit}.provider-help{font-size:10px;color:#8c9bb0}.research-row{display:flex;align-items:center;gap:8px;padding:0 3px 10px;color:var(--muted);font-size:11px}.research-row input{accent-color:var(--gold);width:16px;height:16px}.research-row strong{color:var(--gold);font-weight:700}.research-row span{line-height:1.6}
 .skills-panel{margin:24px 0 12px;padding:clamp(15px,3vw,23px);border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(19,27,40,.98),rgba(11,16,24,.98))}
 .skills-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.skills-head h2{font-size:20px;letter-spacing:-.4px;margin:0}.skills-head p{margin:3px 0 0}.muted{color:var(--muted);font-size:12px}
 .skill-summary{margin:17px 0;padding:12px 14px;border:1px solid rgba(130,151,182,.13);border-radius:13px;background:#0c121b;color:var(--muted);font-size:12px}
@@ -65,7 +65,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  <section class="chat-shell" aria-label="منطقة المحادثة">
   <div class="chat-head"><div><div class="chat-title">المحادثة</div><div class="chat-subtitle">إجابات واضحة ومصادر قابلة للفتح</div></div><button id="newchat" class="btn" type="button" aria-label="بدء محادثة جديدة">محادثة جديدة ↺</button></div>
   <section id="chat" class="chat" role="log" aria-live="polite" aria-label="رسائل المحادثة"><div class="bubble assistant">مرحبًا! اكتب سؤالك وسأبحث في المصادر المتاحة. إذا لم يكن خادم الذكاء الاصطناعي متصلًا، سأوضح ذلك ولن أقدّم نتائج محدودة على أنها بحث شامل. لا تضع مفاتيح API هنا.</div></section>
-  <form id="form" class="composer"><div class="provider-row"><label for="modelprovider">نموذج الإجابة:</label><select id="modelprovider" aria-label="اختر مزود الذكاء الاصطناعي"><option value="legacy">الإعداد الحالي للخادم</option><option value="openai">ChatGPT / OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option></select><span id="providerhelp" class="provider-help">تظهر حالة الإعداد بعد اتصال الخادم.</span></div><div class="composebox"><textarea id="question" dir="auto" lang="ar" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
+  <form id="form" class="composer"><div class="provider-row"><label for="modelprovider">نموذج الإجابة:</label><select id="modelprovider" aria-label="اختر مزود الذكاء الاصطناعي"><option value="legacy">الإعداد الحالي للخادم</option><option value="openai">ChatGPT / OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option></select><span id="providerhelp" class="provider-help">تظهر حالة الإعداد بعد اتصال الخادم.</span></div><label class="research-row" for="researchmode"><input id="researchmode" type="checkbox"><span><strong>بحث معمّق متعدد الاستعلامات</strong> — يبحث بصيغ مترابطة، يزيل النتائج المكررة، ويعرض المصادر. يستخدم طلبات بحث إضافية.</span></label><div class="composebox"><textarea id="question" dir="auto" lang="ar" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
  </section>
 </section>
 <section id="view-skills" class="view" role="tabpanel" aria-labelledby="tab-skills" hidden>
@@ -101,7 +101,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 "use strict";
 const $=id=>document.getElementById(id);
 const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$("question"),send=$("send"),apiurl=$("apiurl"),apihelp=$("apihelp"),connectionBanner=$("connection-banner"),connectionTitle=$("connection-title"),connectionMessage=$("connection-message");
-const modelProvider=$("modelprovider"),providerHelp=$("providerhelp");
+const modelProvider=$("modelprovider"),providerHelp=$("providerhelp"),researchMode=$("researchmode");
 let conversationHistory=[];
 let providerStatuses=[];
 modelProvider.value=(localStorage.getItem("scoutModelProvider")||"legacy");
@@ -294,6 +294,34 @@ async function searchNpm(q){
  const data=await response.json();
  return (Array.isArray(data.objects)?data.objects:[]).map(x=>({title:"npm package: "+cleanSnippet(x.package?.name,180),url:safeUrl(x.package?.links?.npm),snippet:cleanSnippet(x.package?.description||"لا يوجد وصف.",650),source:"npm Registry",date:x.package?.date||""})).filter(x=>x.title.length>12&&x.url).slice(0,5);
 }
+async function searchBrowserResearch(q){
+ const suffix=/\b(ai|agent|skill|skills|python|javascript|typescript|library|framework|api|code|coding|programming|open.?source|llm|rag|model|package|npm|debug|software|developer)\b|ذكاء اصطناعي|مهار|برمج|كود|مكتبة|وكيل|ايجنت|تطبيق|تقني/i.test(q)
+  ?" official documentation repository":" reliable primary sources";
+ const queries=[q,(q+suffix).slice(0,500),(q+" independent evidence comparison").slice(0,500)];
+ const settled=await Promise.allSettled(queries.map(searchBrowserSources));
+ const sources=[],providers=[],failed=[];
+ for(const item of settled){
+  if(item.status==="fulfilled"){
+   if(item.value.provider&&!providers.includes(item.value.provider))providers.push(item.value.provider);
+   sources.push(...(Array.isArray(item.value.sources)?item.value.sources:[]));
+  }else failed.push(String(item.reason?.message||"مصدر غير متاح"));
+ }
+ const unique=[],seen=new Set();
+ for(const source of sources){
+  const url=safeUrl(source.url);if(!url)continue;
+  const key=url.split("#")[0].replace(/\/$/,"").toLowerCase();
+  if(seen.has(key))continue;seen.add(key);
+  unique.push({...source,url});
+ }
+ return {
+  answer:unique.length?"اكتمل البحث المعمق المحدود عبر عدة صيغ للاستعلام. المصادر التالية مسترجعة من واجهات عامة متعددة؛ لم تُستخدم مستودعات GitHub لإجابة المستخدم.":"تعذر استرجاع نتائج من واجهات البحث العامة في محاولات البحث المعمق.",
+  sources:unique.slice(0,12),
+  provider:"بحث معمّق في المتصفح: "+providers.join(" + "),
+  result_count:Math.min(unique.length,12),
+  research_mode:true,
+  coverage_note:"بحث احتياطي متعدد الاستعلامات عبر واجهات عامة محدودة، وليس فهرسًا شاملًا للويب. "+(failed.length?"تعذر بعض الاستعلامات: "+failed.slice(0,3).join("؛ "):"")
+ };
+}
 async function searchBrowserSources(q){
  const software=/\b(ai|agent|skill|skills|python|javascript|typescript|library|framework|api|code|coding|programming|open.?source|llm|rag|model|package|npm|debug|error|software|developer)\b|ذكاء اصطناعي|مهار|برمج|كود|مكتبة|وكيل|ايجنت|تطبيق|خطأ برمجي|مشكلة تقنية/i.test(q);
  const research=/\b(research|paper|study|scientific|academic|evidence|clinical|journal|publication)\b|بحث علمي|دراسة|دراسات|علمي|أبحاث|ابحاث|دليل علمي/i.test(q);
@@ -327,7 +355,7 @@ async function submit(text){
  };
  try{
   if(!apiBase){
-   const fallback=await searchBrowserSources(q);
+   const fallback=researchMode.checked?await searchBrowserResearch(q):await searchBrowserSources(q);
    showData(fallback,
     fallback.sources.length?"اكتمل البحث المباشر المحدود":"لم تُسترجع نتائج",
     fallback.answer,
@@ -338,7 +366,7 @@ async function submit(text){
   const timeout=setTimeout(()=>controller.abort(),45000);
   let response,data={};
   try{
-   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q,provider:modelProvider.value,history:conversationHistory.slice(-8)}),signal:controller.signal});
+   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q,provider:modelProvider.value,research_mode:researchMode.checked,history:conversationHistory.slice(-8)}),signal:controller.signal});
    try{data=await response.json();}catch{data={};}
   }finally{clearTimeout(timeout);}
   if(response.ok&&typeof data.answer==="string"&&data.answer.trim()){
@@ -347,7 +375,7 @@ async function submit(text){
   }
   const chatError=data.error||("فشل طلب الإجابة HTTP "+response.status);
   // If the model is missing or unavailable, still run the web-search endpoint and show real results.
-  const searchResponse=await fetch(apiBase+"/api/search",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({query:q})});
+  const searchResponse=await fetch(apiBase+"/api/search",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({query:q,research_mode:researchMode.checked})});
   const searchData=await searchResponse.json().catch(()=>({}));
   if(searchResponse.ok&&Array.isArray(searchData.results)&&searchData.results.length){
    const bullets=searchData.results.slice(0,8).map((item,i)=>(i+1)+". "+String(item.title||"مصدر")+"\n"+String(item.snippet||"")).join("\n\n");
@@ -666,7 +694,7 @@ async function discoverGitHubSkillFiles(){
  return {found,repositoryCount:repositories.length,total:Number(searchData.total_count||0)};
 }
 async function discoverSkills(){
- const button=$("discoverskills"),summary=$("skill-summary"),updated=$("skills-updated");
+ const button=$("discoverskills"),summary=$("skill-summary"),updated=$("skills-updated"),candidateEl=$("candidate-skills");
  if(!apiBase){
   button.disabled=true;
   summary.textContent="جارٍ البحث مباشرة في GitHub عن مستودعات تحتوي ملفات SKILL.md…";
