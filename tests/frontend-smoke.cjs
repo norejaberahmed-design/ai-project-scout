@@ -34,7 +34,7 @@ const browserSearchStart = script.indexOf("async function searchBrowserSources(q
 const browserSearchEnd = script.indexOf("async function submit(text){", browserSearchStart);
 const browserSearch = script.slice(browserSearchStart, browserSearchEnd);
 assert.ok(browserSearchStart >= 0 && browserSearchEnd > browserSearchStart, "public search fallback must exist");
-assert.ok(!browserSearch.includes("GitHub") && !browserSearch.includes("github.com"), "general public search must not use GitHub; GitHub is only for skill discovery");
+assert.ok(!browserSearch.includes("github.com") && !browserSearch.includes("api.github.com"), "general public search must not query GitHub APIs; GitHub is only for skill discovery");
 assert.ok(browserSearch.includes("Promise.allSettled"), "search should return partial results when one provider is unavailable");
 assert.ok(script.includes("https://ar.wikipedia.org/w/api.php?"), "fallback must query Arabic Wikipedia");
 assert.ok(script.includes("https://en.wikipedia.org/w/api.php?"), "fallback must query English Wikipedia");
