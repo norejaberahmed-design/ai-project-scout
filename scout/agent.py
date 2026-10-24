@@ -177,7 +177,7 @@ def _skills_for_task(query: str) -> list[dict]:
             # Skill harvesting is optional; the user request must still proceed.
             pass
         proposed = _proposed_skills()
-    return select_skills(query, proposed)
+    return select_skills(query, proposed) or select_skills(query, active)
 
 
 SEARCH_INTENT_PATTERNS = (
