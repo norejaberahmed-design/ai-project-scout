@@ -478,6 +478,41 @@ class ApiServerTests(unittest.TestCase):
                 self.assertEqual(body["model"], model)
 
 
+    def test_search_api_can_use_multi_query_research_on_explicit_request(self):
+        research = {
+            "query": "compare AI tools",
+            "provider": "DuckDuckGo + Bing RSS",
+            "research_mode": True,
+            "result_count": 2,
+            "coverage_note": "Bounded multi-query research.",
+            "results": [
+                {"title": "Source A", "url": "https://example.org/a", "snippet": "Evidence A"},
+                {"title": "Source B", "url": "https://example.org/b", "snippet": "Evidence B"},
+            ],
+        }
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch("api_server.search_web_research", return_value=research) as search:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/search",
+                    data=json.dumps({"query": "compare AI tools", "research_mode": True}).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    body = json.loads(response.read().decode("utf-8"))
+            search.assert_called_once_with("compare AI tools")
+            self.assertTrue(body["research_mode"])
+            self.assertEqual(body["result_count"], 2)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
+
     def test_provider_status_endpoint_never_exposes_provider_secrets(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
         worker = threading.Thread(target=server.serve_forever, daemon=True)
