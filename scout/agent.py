@@ -26,16 +26,48 @@ def _active_skills() -> list[dict]:
         except (OSError, ValueError, yaml.YAMLError): continue
     return found
 
+ARABIC_INTENTS = {
+    "برمج": {"code", "coding", "software", "programming", "development", "implementation"},
+    "كود": {"code", "coding", "software", "programming"},
+    "تطبيق": {"app", "application", "software", "development", "coding"},
+    "بناء": {"build", "implementation", "development", "coding"},
+    "ابن": {"build", "implementation", "development", "coding"},
+    "طوّر": {"develop", "development", "software", "coding"},
+    "بحث": {"research", "search", "evidence", "sources", "citations"},
+    "ابحث": {"research", "search", "evidence", "sources", "citations"},
+    "مصادر": {"research", "evidence", "sources", "citations"},
+    "معلومات": {"research", "evidence", "sources"},
+    "خطأ": {"debug", "troubleshooting", "error", "fix"},
+    "مشكلة": {"debug", "troubleshooting", "error", "fix"},
+    "عطل": {"debug", "troubleshooting", "error", "fix"},
+    "اصلح": {"debug", "troubleshooting", "fix", "repair"},
+    "اختبر": {"test", "testing", "verification", "quality"},
+    "اختبار": {"test", "testing", "verification", "quality"},
+    "اكتب": {"writing", "draft", "document", "content"},
+    "كتابة": {"writing", "draft", "document", "content"},
+    "ترجم": {"translation", "translate", "language"},
+    "ترجمة": {"translation", "translate", "language"},
+    "حلل": {"analysis", "analyze", "data", "insights"},
+    "بيانات": {"analysis", "data", "analytics"},
+    "أمان": {"security", "safety", "vulnerability", "risk"},
+    "امن": {"security", "safety", "vulnerability", "risk"},
+}
+
 def select_skills(query: str, skills: list[dict] | None = None, limit: int = 4) -> list[dict]:
     skills = _active_skills() if skills is None else skills
-    words = set(re.findall(r"[\w-]{3,}", query.lower()))
+    lowered = query.lower()
+    words = set(re.findall(r"[\w-]{2,}", lowered))
+    for arabic, expansions in ARABIC_INTENTS.items():
+        if arabic in lowered:
+            words.update(expansions)
     scored = []
     for skill in skills:
-        terms = set(re.findall(r"[\w-]{3,}", f"{skill.get('name','')} {skill.get('description','')}".lower()))
+        terms = set(re.findall(r"[\w-]{2,}", f"{skill.get('name','')} {skill.get('description','')}".lower()))
         overlap = len(words & terms)
-        if overlap: scored.append((overlap / max(1, len(terms) ** 0.5), skill))
+        if overlap:
+            scored.append((overlap / max(1, len(terms) ** 0.5), skill))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [x[1] for x in scored[:limit]]
+    return [x[1] for x in scored[:max(1, min(limit, 4))]]
 
 def answer_task(query: str, history: list | None = None, search: bool = False) -> dict:
     query = query.strip()

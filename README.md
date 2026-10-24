@@ -7,7 +7,7 @@ Python 3.11+: `pip install -r requirements.txt`, copy `.env.example` to `.env`, 
 
 ## Server environment
 - `SCOUT_LLM_API_KEY`, `SCOUT_LLM_MODEL`, optional `SCOUT_LLM_API_URL`
-- `TAVILY_API_KEY` for actual public-web search
+- Optional `TAVILY_API_KEY` for Tavily search; without it, the app attempts free DuckDuckGo search
 - optional `GITHUB_TOKEN` to increase GitHub API limits for skill discovery
 
 ## API
