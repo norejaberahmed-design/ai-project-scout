@@ -101,3 +101,45 @@ def test_arabic_task_selects_software_builder_skill():
     ]
     selected = select_skills("أريد بناء تطبيق برمجي", skills)
     assert selected[0]["name"] == "software-builder"
+
+def test_search_falls_back_to_duckduckgo_when_tavily_fails(monkeypatch):
+    import scout.search as module
+
+    class FailedTavily:
+        status_code = 503
+        def json(self):
+            return {"results": []}
+
+    class FakeDDGS:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def text(self, query, **kwargs):
+            return [{"title": "Fallback result", "href": "https://example.org/fallback", "body": "Fallback evidence"}]
+
+    monkeypatch.setenv("TAVILY_API_KEY", "configured-but-failing")
+    monkeypatch.setattr(module.requests, "post", lambda *a, **kw: FailedTavily())
+    monkeypatch.setattr(module, "DDGS", FakeDDGS)
+    results = module.web_search("general web search")
+    assert len(results) == 1
+    assert results[0]["title"] == "Fallback result"
+    assert results[0]["url"] == "https://example.org/fallback"
+
+
+def test_search_reports_error_if_all_providers_fail(monkeypatch):
+    import scout.search as module
+
+    class FailedTavily:
+        status_code = 503
+
+    class FailedDDGS:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def text(self, query, **kwargs): raise RuntimeError("offline")
+
+    monkeypatch.setenv("TAVILY_API_KEY", "configured-but-failing")
+    monkeypatch.setattr(module.requests, "post", lambda *a, **kw: FailedTavily())
+    monkeypatch.setattr(module, "DDGS", FailedDDGS)
+    with pytest.raises(SearchError, match="SEARCH_UNAVAILABLE"):
+        module.web_search("general web search")
