@@ -120,13 +120,9 @@ class SkillHarvesterTests(unittest.TestCase):
             self.assertEqual(result["proposals"][0]["status"], "REJECTED_STATIC_CHECKS")
             self.assertFalse((root / "skills" / "proposed").exists())
 
-    def test_harvest_rejects_unavailable_platform_tools_and_unbundled_references(self):
-        candidates = [
-            (SKILL + "\nUse browser_skill_cli to control the user browser.\n",
-             "SKIPPED_PLATFORM_SPECIFIC"),
-            (SKILL + "\nRead api-reference.md for the full procedure.\n",
-             "SKIPPED_SUPPORT_FILES_NOT_BUNDLED"),
-        ]
+    def test_harvest_rejects_platform_only_skills_and_bundles_referenced_docs(self):
+        platform_skill = SKILL + "\nUse browser_skill_cli to control the user browser.\n"
+        referenced_skill = SKILL + "\nRead api-reference.md for the full procedure.\n"
         info = {
             "repository": "example/platform-skills",
             "repository_url": "https://github.com/example/platform-skills",
@@ -134,20 +130,56 @@ class SkillHarvesterTests(unittest.TestCase):
             "license_spdx": "MIT",
             "license_text_verified": True,
             "license_file_paths": ["LICENSE"],
-            "eligible_files": [{"path": "SKILL.md", "size": 100}],
+            "eligible_files": [{"path": "SKILL.md", "size": len(referenced_skill.encode("utf-8"))}],
         }
-        for candidate, expected_status in candidates:
-            with self.subTest(expected_status=expected_status), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)
-                with patch("skill_harvester.inspect_repository", return_value=info), \
-                     patch("skill_harvester._get_skill_text", return_value=candidate):
-                    result = skill_harvester.harvest_repository(
-                        "https://github.com/example/platform-skills", root=root,
-                        db_path=root / "skills.sqlite", fetcher=fake_tree_fetcher
-                    )
-                self.assertEqual(result["proposals"][0]["status"], expected_status)
-                self.assertFalse((root / "skills" / "proposed").exists())
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("skill_harvester.inspect_repository", return_value=info), \
+                 patch("skill_harvester._get_skill_text", return_value=platform_skill):
+                result = skill_harvester.harvest_repository(
+                    "https://github.com/example/platform-skills", root=root,
+                    db_path=root / "platform.sqlite", fetcher=fake_tree_fetcher
+                )
+            self.assertEqual(result["proposals"][0]["status"], "SKIPPED_PLATFORM_SPECIFIC")
+            self.assertFalse((root / "skills" / "proposed").exists())
 
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            support_text = "# API reference\n\nUse this local reference to understand the supported procedure.\n"
+            tree = {
+                "truncated": False,
+                "tree": [
+                    {"path": "SKILL.md", "type": "blob", "mode": "100644", "size": len(referenced_skill.encode("utf-8"))},
+                    {"path": "api-reference.md", "type": "blob", "mode": "100644", "size": len(support_text.encode("utf-8"))},
+                ],
+            }
+            def tree_fetcher(url):
+                if "/git/trees/" in url:
+                    return tree
+                raise AssertionError("Unexpected URL: " + url)
+            def content_fetcher(url):
+                if "/git/trees/" in url:
+                    return tree
+                if "/contents/SKILL.md?" in url:
+                    return {"content": __import__("base64").b64encode(referenced_skill.encode()).decode(), "encoding": "base64"}
+                if "/contents/api-reference.md?" in url:
+                    return {"content": __import__("base64").b64encode(support_text.encode()).decode(), "encoding": "base64"}
+                if "/contents/LICENSE?" in url:
+                    return {"content": __import__("base64").b64encode(b"MIT License").decode(), "encoding": "base64"}
+                raise AssertionError("Unexpected URL: " + url)
+            with patch("skill_harvester.inspect_repository", return_value=info):
+                result = skill_harvester.harvest_repository(
+                    "https://github.com/example/platform-skills", root=root,
+                    db_path=root / "bundled.sqlite", fetcher=content_fetcher
+                )
+            proposal = result["proposals"][0]
+            self.assertEqual(proposal["status"], "PROPOSED_REVIEW_REQUIRED")
+            proposal_dir = Path(proposal["proposal_path"]).parent
+            self.assertEqual(proposal["bundled_file_count"], 1)
+            self.assertEqual((proposal_dir / "bundle" / "api-reference.md").read_text(encoding="utf-8"), support_text)
+            manifest = __import__("json").loads((proposal_dir / "BUNDLE_MANIFEST.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["files"][0]["source_path"], "api-reference.md")
+            self.assertFalse(manifest["files"][0]["executed"])
     def test_harvest_skips_skills_bound_to_unsupported_vendor_integrations(self):
         platform_skill = SKILL + "\nUse Deepline analytics and snowflake_get_semantic_layer to answer this request.\n"
         info = {
