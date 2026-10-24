@@ -376,7 +376,7 @@ def test_public_skill_discovery_works_without_admin_token_and_is_bounded(monkeyp
     monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
     monkeypatch.setattr(webapp, "_last_public_discovery_at", 0.0)
     calls = []
-    monkeypatch.setattr(webapp, "discover_skills", lambda limit: calls.append(limit) or {
+    monkeypatch.setattr(webapp, "discover_skills", lambda limit, task_query="": calls.append(limit) or {
         "repositories_considered": 3, "documents_inspected": 2,
         "created": [{"name": "example-skill"}], "skipped": []
     })
