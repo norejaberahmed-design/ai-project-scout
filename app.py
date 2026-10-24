@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify, request, send_from_directory
+import time
 from scout import config
 from scout.agent import answer_task, summarize_search_results
 from scout.providers import ProviderError
@@ -11,6 +12,8 @@ from scout.skills import SkillError, approve_skill, discover_skills, list_skills
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+_PUBLIC_DISCOVERY_COOLDOWN_SECONDS = 300
+_last_public_discovery_at = 0.0
 
 @app.after_request
 def security_headers(response):
@@ -98,13 +101,28 @@ def admin_authorized():
 
 @app.post("/api/skills/discover")
 def discover():
-    if not admin_authorized():
-        return jsonify({"error":"UNAUTHORIZED","message":"Admin token is required for skill discovery."}), 401
+    global _last_public_discovery_at
+    is_admin = admin_authorized()
     try:
         body=json_body(); limit=body.get("max_proposals",2)
-        if not isinstance(limit,int) or isinstance(limit,bool) or limit not in range(1,11):
-            return jsonify({"error":"INVALID_LIMIT","message":"max_proposals must be an integer from 1 to 10"}),400
-        return jsonify(discover_skills(limit))
+        max_allowed = 10 if is_admin else 2
+        if not isinstance(limit,int) or isinstance(limit,bool) or limit not in range(1,max_allowed+1):
+            return jsonify({"error":"INVALID_LIMIT","message":f"max_proposals must be an integer from 1 to {max_allowed}"}),400
+        # Public users can trigger small, bounded GitHub-only discovery runs without
+        # an admin token. A process-wide cooldown protects API quota and storage.
+        if not is_admin:
+            now = time.monotonic()
+            remaining = _PUBLIC_DISCOVERY_COOLDOWN_SECONDS - (now - _last_public_discovery_at)
+            if remaining > 0:
+                return jsonify({
+                    "error":"DISCOVERY_COOLDOWN",
+                    "message":f"Public skill discovery is rate-limited. Try again in about {int(remaining)+1} seconds."
+                }),429
+        result = discover_skills(limit)
+        result["access_mode"] = "admin" if is_admin else "public_limited"
+        if not is_admin:
+            _last_public_discovery_at = time.monotonic()
+        return jsonify(result)
     except SkillError as exc:
         return jsonify({"error":"SKILL_DISCOVERY_FAILED","message":str(exc)}),502
     except (ValueError,TypeError) as exc:
