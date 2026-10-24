@@ -143,11 +143,32 @@ def _skills_for_task(query: str) -> list[dict]:
     return select_skills(query, proposed)
 
 
+SEARCH_INTENT_PATTERNS = (
+    r"\\b(search|research|look up|find sources|latest|current|today|news|verify|fact check)\\b",
+    r"(ابحث|بحث|ابحث لي|مصادر|المصادر|آخر الأخبار|اخر الاخبار|أحدث|احدث|حاليًا|حالياً|اليوم|تحقق من|تأكد من|دور لي)",
+)
+
+
+def should_search_web(query: str) -> bool:
+    """Infer explicit research intent so chat requests do not silently skip web search."""
+    lowered = query.lower()
+    return any(re.search(pattern, lowered, re.IGNORECASE) for pattern in SEARCH_INTENT_PATTERNS)
+
+
 def answer_task(query: str, history: list | None = None, search: bool = False) -> dict:
     query = query.strip()
     if not query or len(query) > 8000:
         raise ValueError("query must contain 1–8000 characters")
-    sources = web_search(query) if search else []
+    search_requested = search or should_search_web(query)
+    search_warning = None
+    try:
+        sources = web_search(query) if search_requested else []
+    except Exception as exc:
+        from .search import SearchError
+        if not isinstance(exc, SearchError):
+            raise
+        sources = []
+        search_warning = str(exc)
     skills = _skills_for_task(query)
     evidence = "\n".join(
         f"[{i+1}] {s['title']}\nURL: {s['url']}\nSnippet: {s['snippet']}" for i, s in enumerate(sources)
@@ -168,9 +189,14 @@ def answer_task(query: str, history: list | None = None, search: bool = False) -
             if isinstance(item, dict) and item.get("role") in {"user", "assistant"} and isinstance(item.get("content"), str):
                 messages.append({"role": item["role"], "content": item["content"][:4000]})
     messages.append({"role": "user", "content": query})
+    answer = chat_completion(messages)
+    if search_warning:
+        answer += "\\n\\nتنبيه البحث: تعذّر الوصول إلى محرك بحث الويب في هذه المحاولة؛ لم أتحقق من المعلومات عبر الويب. تحقق من اتصال الخادم أو إعداد TAVILY_API_KEY."
     return {
-        "answer": chat_completion(messages),
+        "answer": answer,
         "sources": sources,
+        "search_requested": search_requested,
+        "search_warning": search_warning,
         "skills_used": [
             {"name": s["name"], "description": s["description"], "status": s.get("status", "active"),
              "source_url": s.get("source_url", "")}
