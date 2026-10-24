@@ -1,4 +1,7 @@
 """Flask entry point for AI Project Scout V2."""
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, jsonify, request, send_from_directory
 from scout import config
 from scout.agent import answer_task
