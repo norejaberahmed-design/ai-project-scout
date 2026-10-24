@@ -315,7 +315,7 @@ def test_generic_builder_skill_does_not_block_specialized_skill_discovery(monkey
     monkeypatch.setattr(module, "_proposed_skills", lambda: [specialized] if calls else [])
     monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
     monkeypatch.setattr(module.time, "time", lambda: 100_000.0)
-    monkeypatch.setattr(module, "discover_skills", lambda limit: calls.append(limit) or {"created": []})
+    monkeypatch.setattr(module, "discover_skills", lambda limit, task_query="": calls.append(limit) or {"created": []})
     selected = module._skills_for_task("Build semantic search with vector database retrieval")
     assert calls == [1]
     assert selected and selected[0]["name"] == "vector-database-retrieval"
