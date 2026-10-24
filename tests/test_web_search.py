@@ -128,7 +128,7 @@ class WebSearchTests(unittest.TestCase):
     @patch("web_search.search_web")
     def test_research_mode_deduplicates_results_and_reports_real_query_coverage(self, search):
         def fake_search(query, api_key=None, timeout=20):
-            if query == "compare AI agents":
+            if query == "compare AI agents" or "independent evidence comparison" in query:
                 url = "https://example.org/shared"
             else:
                 url = "https://example.org/" + str(len(query))
