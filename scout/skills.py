@@ -209,7 +209,7 @@ def _inspect_repository_files(owner: str, repo: str, revision: str,
         if response.status_code != 200:
             continue
         raw = response.content
-        if not raw or len(raw) > 12000 or b"\\x00" in raw or total + len(raw) > 30000:
+        if not raw or len(raw) > 12000 or b"\x00" in raw or total + len(raw) > 30000:
             continue
         try:
             text = raw.decode("utf-8")
@@ -217,21 +217,21 @@ def _inspect_repository_files(owner: str, repo: str, revision: str,
             continue
         if Path(path).name.lower().startswith("readme"):
             lines = text.splitlines()[:35]
-            excerpt = "\\n".join(lines)[:3000]
-            evidence.append("README excerpt from " + path + ":\\n" + excerpt)
+            excerpt = "\n".join(lines)[:3000]
+            evidence.append("README excerpt from " + path + ":\n" + excerpt)
         elif Path(path).suffix.lower() in {".toml", ".txt", ".json", ".cfg"}:
-            excerpt = "\\n".join(text.splitlines()[:50])[:3000]
-            evidence.append("Dependency/build manifest excerpt from " + path + ":\\n" + excerpt)
+            excerpt = "\n".join(text.splitlines()[:50])[:3000]
+            evidence.append("Dependency/build manifest excerpt from " + path + ":\n" + excerpt)
         elif re.search(r"(^|/)(tests?|specs?)(/|$)", path.lower()):
             test_names = [line.strip() for line in text.splitlines()
-                          if re.search(r"def test_|it\\(|describe\\(|test\\(", line)][:25]
-            evidence.append("Test declarations from " + path + ":\\n" +
-                            ("\\n".join(test_names) if test_names else "No conventional test names detected."))
+                          if re.search(r"def test_|it\(|describe\(|test\(", line)][:25]
+            evidence.append("Test declarations from " + path + ":\n" +
+                            ("\n".join(test_names) if test_names else "No conventional test names detected."))
         else:
             signatures = [line.strip() for line in text.splitlines()
-                          if re.match(r"^\\s*(?:import |from |def |class |async def |export |function |app\\.(?:get|post|route)|if __name__)", line)][:35]
-            evidence.append("Entry-point/source signatures from " + path + ":\\n" +
-                            ("\\n".join(signatures) if signatures else "No common entry-point signatures detected."))
+                          if re.match(r"^\s*(?:import |from |def |class |async def |export |function |app\.(?:get|post|route)|if __name__)", line)][:35]
+            evidence.append("Entry-point/source signatures from " + path + ":\n" +
+                            ("\n".join(signatures) if signatures else "No common entry-point signatures detected."))
         total += len(raw)
     return evidence
 
