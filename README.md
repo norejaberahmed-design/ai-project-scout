@@ -39,7 +39,7 @@
     python -m unittest discover -s tests -v
     python api_server.py
 
-لإجابة محادثة مولّدة، عيّن SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL على الخادم فقط. TAVILY_API_KEY اختياري لتحسين البحث؛ عند غيابه يحاول الخادم DuckDuckGo. مفاتيح البحث والنموذج لا توضع في الواجهة. افحص /api/health و /api/skills. لا تضع المفاتيح في HTML أو JavaScript أو المستودع.
+لإجابة محادثة مولّدة، هيّئ مفتاحًا ونموذجًا لأحد مزودات OpenAI/ChatGPT API أو DeepSeek أو Gemini أو OpenRouter على الخادم فقط؛ الإعداد القديم SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL ما زال مدعومًا. TAVILY_API_KEY اختياري لتحسين البحث؛ عند غيابه يحاول الخادم DuckDuckGo ثم Bing RSS. مفاتيح البحث والنموذج لا توضع في الواجهة. افحص /api/health و /api/providers و /api/skills. لا تضع المفاتيح في HTML أو JavaScript أو المستودع.
 
 ## وضع التشغيل دون مفاتيح
 تعمل الواجهة الثابتة في وضع احتياطي بلا مفاتيح عبر واجهات عامة متعددة (Wikipedia وHacker News، وStack Exchange وnpm للأسئلة البرمجية، وCrossref/OpenAlex للبحث العلمي). لا يبحث مسار إجابة المستخدم في GitHub؛ GitHub مخصص لاكتشاف المهارات فقط. هذا الوضع لا يولّد إجابة بنموذج لغوي ولا يغطي كامل الويب. لتفعيل المحادثة الكاملة، انشر خادم API واضبط أسرار مزود البحث والنموذج كما هو موضح في [API_DEPLOYMENT.md](API_DEPLOYMENT.md).
