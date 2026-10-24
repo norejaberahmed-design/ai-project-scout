@@ -431,10 +431,10 @@ class ApiServerTests(unittest.TestCase):
                 response.__enter__.return_value.read.return_value = json.dumps({
                     "choices": [{"message": {"content": "Provider test answer"}}]
                 }).encode("utf-8")
-                with patch.dict(os.environ, {key_name: secret}, clear=True), \\
-                     patch("api_server.urllib.request.urlopen", return_value=response) as opener:
-                    answer = api_server.generate_answer("test question", {"results": []},
-                                                        skills=[], provider=provider)
+                with patch.dict(os.environ, {key_name: secret}, clear=True):
+                    with patch("api_server.urllib.request.urlopen", return_value=response) as opener:
+                        answer = api_server.generate_answer("test question", {"results": []},
+                                                            skills=[], provider=provider)
                 self.assertEqual(answer, "Provider test answer")
                 request = opener.call_args.args[0]
                 self.assertEqual(request.full_url, endpoint)
