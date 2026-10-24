@@ -1,0 +1,11 @@
+{
+  "name": "anthropic-claude-api-integration",
+  "description": "Integrate Anthropic's public Claude API using official Messages API documentation and guarded tool use.",
+  "source_url": "https://docs.anthropic.com/",
+  "source_type": "official_public_documentation",
+  "license": "Original procedural guide; not copied from proprietary model internals",
+  "license_text_verified": false,
+  "sha256": "authored-in-repository",
+  "status": "active",
+  "note": "Authored guidance based on publicly documented API behavior; not a proprietary internal skill."
+}
