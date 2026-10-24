@@ -7,7 +7,7 @@ const match = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(match, "inline app script must exist");
 assert.match(html, /id="modelprovider"/, "chat UI must expose model provider selection");
 assert.match(match[1], /fetch\(apiBase\+"\/api\/providers"/, "UI must load safe provider configuration status");
-assert.match(match[1], /JSON\.stringify\(\{question:q,provider:modelProvider\.value,history:conversationHistory\.slice\(-8\)\}\)/, "chat request must send the selected provider and bounded conversation history");
+assert.match(match[1], /JSON\.stringify\(\{question:q,provider:modelProvider\.value,research_mode:researchMode\.checked,history:conversationHistory\.slice\(-8\)\}\)/, "chat request must send selected provider, deep-research mode, and bounded conversation history");
 assert.match(match[1], /scoutModelProvider/, "provider preference may be saved without storing API keys");
 assert.match(html, /id="view-components"/, "component acquisition view must exist");
 assert.match(match[1], /\/api\/components\/inspect/, "UI must call component inspection API");
