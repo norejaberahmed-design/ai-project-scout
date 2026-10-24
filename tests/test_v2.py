@@ -284,3 +284,18 @@ def test_agent_searches_when_requested_even_if_chat_toggle_is_false(monkeypatch)
     assert result["search_requested"] is True
     assert result["sources"][0]["url"] == "https://example.com"
 
+def test_agent_returns_real_sources_when_model_is_unconfigured(monkeypatch):
+    import scout.agent as module
+    monkeypatch.setattr(module, "web_search", lambda query: [
+        {"title": "Official documentation", "url": "https://example.com/docs", "snippet": "Documented API facts"}
+    ])
+    monkeypatch.setattr(module, "_skills_for_task", lambda _query: [])
+    def missing_model(_messages):
+        from scout.providers import ProviderError
+        raise ProviderError("MODEL_NOT_CONFIGURED: test")
+    monkeypatch.setattr(module, "chat_completion", missing_model)
+    result = module.answer_task("ابحث عن توثيق API")
+    assert "Official documentation" in result["answer"]
+    assert result["sources"][0]["url"] == "https://example.com/docs"
+    assert result["model_warning"] == "MODEL_NOT_CONFIGURED: test"
+
