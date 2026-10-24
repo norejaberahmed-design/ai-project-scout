@@ -110,7 +110,7 @@ def discover():
             return jsonify({"error":"INVALID_LIMIT","message":f"max_proposals must be an integer from 1 to {max_allowed}"}),400
         # Public users can trigger small, bounded GitHub-only discovery runs without
         # an admin token. A process-wide cooldown protects API quota and storage.
-        if not is_admin:
+        if not is_admin and _last_public_discovery_at > 0:
             now = time.monotonic()
             remaining = _PUBLIC_DISCOVERY_COOLDOWN_SECONDS - (now - _last_public_discovery_at)
             if remaining > 0:
