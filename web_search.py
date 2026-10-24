@@ -266,7 +266,7 @@ def build_research_queries(query: str) -> list[str]:
 def search_web_research(query: str, api_key: str | None = None,
                         timeout: int = 12, max_queries: int = MAX_RESEARCH_QUERIES) -> dict:
     """Run a bounded multi-query research pass and deduplicate its real search results."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import ThreadPoolExecutor
 
     queries = build_research_queries(query)
     max_queries = max(1, min(int(max_queries), MAX_RESEARCH_QUERIES))
@@ -277,12 +277,10 @@ def search_web_research(query: str, api_key: str | None = None,
     # At most three independent search requests run concurrently; no page content
     # is executed, and every displayed result comes from a search provider response.
     with ThreadPoolExecutor(max_workers=len(queries)) as pool:
-        futures = {
-            pool.submit(search_web, item, api_key=api_key, timeout=timeout): item
-            for item in queries
-        }
-        for future in as_completed(futures):
-            search_query = futures[future]
+        # Preserve query order in the merged result even when later requests finish first.
+        futures = [(pool.submit(search_web, item, api_key=api_key, timeout=timeout), item)
+                   for item in queries]
+        for future, search_query in futures:
             try:
                 result = future.result()
                 provider = str(result.get("provider") or "Public web search")
