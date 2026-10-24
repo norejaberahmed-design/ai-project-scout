@@ -11,7 +11,7 @@ services:
       - key: SCOUT_API_PORT
         value: "8080"
       - key: SCOUT_ALLOWED_ORIGINS
-        value: "*"
+        value: https://norejaberahmed-design.github.io,http://127.0.0.1:8080,http://localhost:8080
       - key: SCOUT_LLM_API_KEY
         sync: false
       - key: SCOUT_LLM_MODEL
@@ -19,4 +19,6 @@ services:
       - key: SCOUT_LLM_API_URL
         value: https://openrouter.ai/api/v1/chat/completions
       - key: TAVILY_API_KEY
+        sync: false
+      - key: SCOUT_ADMIN_TOKEN
         sync: false
