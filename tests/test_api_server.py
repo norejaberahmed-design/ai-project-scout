@@ -536,5 +536,50 @@ class ApiServerTests(unittest.TestCase):
             worker.join(timeout=2)
 
 
+    def test_compare_endpoint_queries_web_once_and_returns_two_configured_models(self):
+        api_server.REQUEST_TIMES.clear()
+        api_server.LAST_SKILL_DISCOVERY = time.monotonic()
+        web = {
+            "query": "comparison query", "provider": "Mock search",
+            "coverage_note": "shared sources", "result_count": 1,
+            "results": [{"title": "Source", "url": "https://example.org/source", "snippet": "Evidence"}],
+        }
+        providers = [
+            {"id": "openai", "label": "ChatGPT / OpenAI", "configured": True},
+            {"id": "deepseek", "label": "DeepSeek", "configured": True},
+            {"id": "gemini", "label": "Google Gemini", "configured": False},
+            {"id": "legacy", "label": "Legacy", "configured": True},
+        ]
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch("api_server.list_provider_status", return_value=providers), \
+                 patch("api_server.select_skills", return_value=[]), \
+                 patch("api_server.load_proposed_skills", return_value=[]), \
+                 patch("api_server.plan_search_query", return_value="comparison query"), \
+                 patch("api_server.search_web", return_value=web) as search, \
+                 patch("api_server.generate_answer", side_effect=lambda question, found, skills=None, candidate_skills=None, provider=None, history=None: "Answer from " + str(provider)) as answer:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/compare",
+                    data=json.dumps({"question": "Compare models"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                    body = json.loads(response.read().decode("utf-8"))
+            search.assert_called_once_with("comparison query")
+            self.assertEqual({item["provider"] for item in body["model_answers"]}, {"openai", "deepseek"})
+            self.assertIn("Answer from openai", body["answer"])
+            self.assertIn("Answer from deepseek", body["answer"])
+            self.assertEqual(body["sources"][0]["url"], "https://example.org/source")
+            self.assertEqual(answer.call_count, 2)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
+
 if __name__ == "__main__":
     unittest.main()
