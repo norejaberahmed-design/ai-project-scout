@@ -189,7 +189,17 @@ def answer_task(query: str, history: list | None = None, search: bool = False) -
             if isinstance(item, dict) and item.get("role") in {"user", "assistant"} and isinstance(item.get("content"), str):
                 messages.append({"role": item["role"], "content": item["content"][:4000]})
     messages.append({"role": "user", "content": query})
-    answer = chat_completion(messages)
+    model_warning = None
+    try:
+        answer = chat_completion(messages)
+    except ProviderError as exc:
+        if not sources:
+            raise
+        model_warning = str(exc)
+        lines = ["تعذّر تشغيل نموذج الذكاء الاصطناعي، لذلك أعرض نتائج البحث الأصلية دون تلخيص مولّد:"]
+        for index, source in enumerate(sources, 1):
+            lines.append(f"{index}. {source['title']} — {source['snippet']} ({source['url']})")
+        answer = "\\n\\n".join(lines)
     if search_warning:
         answer += "\\n\\nتنبيه البحث: تعذّر الوصول إلى محرك بحث الويب في هذه المحاولة؛ لم أتحقق من المعلومات عبر الويب. تحقق من اتصال الخادم أو إعداد TAVILY_API_KEY."
     return {
@@ -197,6 +207,7 @@ def answer_task(query: str, history: list | None = None, search: bool = False) -
         "sources": sources,
         "search_requested": search_requested,
         "search_warning": search_warning,
+        "model_warning": model_warning,
         "skills_used": [
             {"name": s["name"], "description": s["description"], "status": s.get("status", "active"),
              "source_url": s.get("source_url", "")}
