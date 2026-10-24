@@ -94,11 +94,17 @@ def _github_get(url: str) -> dict:
 def discover_skills(max_proposals: int = 2) -> dict:
     max_proposals = max(1, min(int(max_proposals), int_setting("SCOUT_MAX_SKILLS_PER_DISCOVERY", MAX_PROPOSALS_PER_DISCOVERY, 1, MAX_PROPOSALS_PER_DISCOVERY)))
     PROPOSED_DIR.mkdir(parents=True, exist_ok=True)
+    # Search repository metadata and READMEs for real reusable skill packs.
+    # GitHub code search is used as an additional source when GITHUB_TOKEN exists.
     queries = [
+        "agent-skills in:name stars:>=5",
+        "SKILL.md in:readme stars:>=5",
         "agent skills in:name,description stars:>=5",
-        "SKILL.md agent skills stars:>=5",
         "awesome agent skills stars:>=5",
-        "claude skills agents in:readme stars:>=5",
+        "claude-code-skills in:name stars:>=5",
+        "awesome-claude-skills stars:>=5",
+        "copilot instructions skills in:readme stars:>=5",
+        "openai agents skills in:readme stars:>=5",
         "gemini agent skills in:readme stars:>=5",
     ]
     repositories, seen = [], set()
