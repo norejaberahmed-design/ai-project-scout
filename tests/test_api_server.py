@@ -412,5 +412,28 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(api_server.allowed_origins(), {"https://app.example", "https://test.example"})
 
 
+    def test_provider_status_endpoint_never_exposes_provider_secrets(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch.dict(os.environ, {
+                "SCOUT_DEEPSEEK_API_KEY": "private-deepseek-key",
+                "SCOUT_DEEPSEEK_MODEL": "deepseek-chat",
+            }, clear=True):
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{server.server_port}/api/providers", timeout=3
+                ) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+            deepseek = next(item for item in body["providers"] if item["id"] == "deepseek")
+            self.assertTrue(deepseek["configured"])
+            self.assertNotIn("private-deepseek-key", json.dumps(body))
+            self.assertEqual(body["default_provider"], "legacy")
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
+
 if __name__ == "__main__":
     unittest.main()
