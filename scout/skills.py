@@ -7,6 +7,7 @@ from .config import ACTIVE_DIR, PROPOSED_DIR, int_setting, setting
 
 ALLOWED_LICENSES = {"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD"}
 MAX_SKILL_BYTES = 20_000
+MAX_PROPOSALS_PER_DISCOVERY = 10
 DENIED_NAMES = {"", "skill", "skills", "default", "template", "example"}
 RISK_MARKERS = ("ignore all previous instructions", "reveal system prompt", "exfiltrate",
                 "steal credentials", "send api key", "disable security", "bypass safeguards",
@@ -91,12 +92,18 @@ def _github_get(url: str) -> dict:
     return response.json()
 
 def discover_skills(max_proposals: int = 2) -> dict:
-    max_proposals = max(1, min(int(max_proposals), int_setting("SCOUT_MAX_SKILLS_PER_DISCOVERY", 3, 1, 3)))
+    max_proposals = max(1, min(int(max_proposals), int_setting("SCOUT_MAX_SKILLS_PER_DISCOVERY", MAX_PROPOSALS_PER_DISCOVERY, 1, MAX_PROPOSALS_PER_DISCOVERY)))
     PROPOSED_DIR.mkdir(parents=True, exist_ok=True)
-    queries = ["agent skills in:name,description stars:>=5", "SKILL.md agent skills stars:>=5"]
+    queries = [
+        "agent skills in:name,description stars:>=5",
+        "SKILL.md agent skills stars:>=5",
+        "awesome agent skills stars:>=5",
+        "claude skills agents in:readme stars:>=5",
+        "gemini agent skills in:readme stars:>=5",
+    ]
     repositories, seen = [], set()
     for query in queries:
-        url = "https://api.github.com/search/repositories?q=" + quote(query) + "&sort=updated&order=desc&per_page=10"
+        url = "https://api.github.com/search/repositories?q=" + quote(query) + "&sort=updated&order=desc&per_page=15"
         try:
             payload = _github_get(url)
         except (requests.RequestException, ValueError, SkillError) as exc:
