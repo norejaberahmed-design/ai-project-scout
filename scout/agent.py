@@ -128,7 +128,8 @@ def _skills_for_task(query: str) -> list[dict]:
     active = select_skills(query, _active_skills())
     specialized = [skill for skill in active if skill.get("name") not in GENERIC_SKILL_NAMES]
     if specialized:
-        return specialized
+        generic = [skill for skill in active if skill.get("name") in GENERIC_SKILL_NAMES]
+        return (specialized + generic)[:4]
 
     proposed = _proposed_skills()
     matching = select_skills(query, proposed)
