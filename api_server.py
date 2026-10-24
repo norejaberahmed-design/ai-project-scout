@@ -449,14 +449,14 @@ class AgentHandler(BaseHTTPRequestHandler):
             selected_skills = select_skills(question, active_skills, limit=4)
             # Proposals can contribute useful procedures to the answer, but are explicitly
             # labeled untrusted data and are never used to rewrite the search query.
-            proposed_skills = load_proposed_skills() if self.path == "/api/chat" else []
-            candidate_skills = select_skills(question, proposed_skills, limit=2) if self.path == "/api/chat" else []
+            proposed_skills = load_proposed_skills() if self.path in {"/api/chat", "/api/compare"} else []
+            candidate_skills = select_skills(question, proposed_skills, limit=2) if self.path in {"/api/chat", "/api/compare"} else []
             # If this task matches no known skill, discover at most one candidate per cooldown
             # window and make it available as untrusted reference in the same chat turn.
-            if self.path == "/api/chat" and maybe_discover_skill_for_task(question, selected_skills, candidate_skills):
+            if self.path in {"/api/chat", "/api/compare"} and maybe_discover_skill_for_task(question, selected_skills, candidate_skills):
                 proposed_skills = load_proposed_skills()
                 candidate_skills = select_skills(question, proposed_skills, limit=2)
-            search_query = plan_search_query(question, selected_skills, requested_provider) if self.path == "/api/chat" else question
+            search_query = plan_search_query(question, selected_skills, requested_provider) if self.path in {"/api/chat", "/api/compare"} else question
             research_mode = bool(data.get("research_mode", False)) if isinstance(data, dict) else False
             found = (search_web_research(search_query) if research_mode
                      else search_web(search_query))
