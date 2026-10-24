@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "code-review-loop.md",
+      "source_path": "products/kyber-squad/skills/code-review-loop/code-review-loop.md",
+      "source_url": "https://github.com/dpalfery/kyber-weave/blob/0351a45c1a78021886d7e3a48c6b3dcd46076dba/products/kyber-squad/skills/code-review-loop/code-review-loop.md",
+      "bytes": 5694,
+      "sha256": "7fe20b785228426131c99fa091077d8fc1e9625ea3ca0a2f49dcdef40a296a68",
+      "executed": false
+    }
+  ],
+  "total_bytes": 5694,
+  "policy": "review-only; no dependency install or execution"
+}
