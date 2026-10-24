@@ -161,11 +161,7 @@ def activate_approved_skill(skill_id: str, reviewer: str, root: Path | None = No
         )
     except Exception:
         # Do not leave an unregistered skill in the runtime library after a failed transition.
-        try:
-            target.unlink(missing_ok=True)
-            target_dir.rmdir()
-        except OSError:
-            pass
+        shutil.rmtree(target_dir, ignore_errors=True)
         raise
     return {"skill_id": skill_id, "name": name, "status": active_record["status"],
             "reviewer": active_record["reviewer"], "path": str(target),
