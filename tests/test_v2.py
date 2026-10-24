@@ -206,3 +206,44 @@ def test_agent_auto_discovers_one_skill_when_no_skill_matches(monkeypatch):
     assert calls == [1]
     assert selected and selected[0]["name"] == "api-integration"
     assert selected[0]["status"] == "proposed"
+
+def test_four_provider_integration_skills_are_available_in_catalogue():
+    from scout.skills import list_skills
+    skills = list_skills()["active"]
+    names = {skill["name"] for skill in skills}
+    assert {
+        "chatgpt-openai-api-integration",
+        "deepseek-api-integration",
+        "google-gemini-api-integration",
+        "anthropic-claude-api-integration",
+    }.issubset(names)
+
+
+def test_provider_names_select_the_matching_builtin_skill():
+    from scout.agent import _active_skills
+    skills = _active_skills()
+    cases = [
+        ("Help integrate ChatGPT API", "chatgpt-openai-api-integration"),
+        ("Integrate DeepSeek API", "deepseek-api-integration"),
+        ("Use Gemini API", "google-gemini-api-integration"),
+        ("Use Claude Messages API", "anthropic-claude-api-integration"),
+    ]
+    for query, expected in cases:
+        selected = select_skills(query, skills)
+        assert selected and selected[0]["name"] == expected
+
+
+def test_discovery_endpoint_accepts_ten_proposals_with_admin_token(monkeypatch):
+    monkeypatch.setenv("SCOUT_ADMIN_TOKEN", "test-admin-token")
+    calls = []
+    monkeypatch.setattr(webapp, "discover_skills", lambda limit: calls.append(limit) or {
+        "repositories_considered": 0, "documents_inspected": 0, "created": [], "skipped": []
+    })
+    response = webapp.app.test_client().post(
+        "/api/skills/discover",
+        json={"max_proposals": 10},
+        headers={"Authorization": "Bearer test-admin-token"},
+    )
+    assert response.status_code == 200
+    assert calls == [10]
+
