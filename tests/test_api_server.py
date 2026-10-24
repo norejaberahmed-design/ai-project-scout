@@ -202,8 +202,7 @@ class ApiServerTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     body = json.loads(response.read().decode("utf-8"))
 
-                self.assertEqual(select.call_count, 3, "chat should retry skill selection after a bounded GitHub discovery")
-                harvest.assert_called_once_with(limit=1)
+                self.assertEqual(select.call_count, 2, "a relevant internal skill avoids unnecessary GitHub discovery")
                 plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
                 search.assert_called_once_with("planned search query")
                 answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected, candidate_skills=[])
