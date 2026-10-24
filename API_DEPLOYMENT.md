@@ -3,6 +3,20 @@
 ## الحالة
 الواجهة على GitHub Pages ثابتة؛ لا يمكنها تشغيل Python أو حفظ أسرار البحث والنموذج بأمان. يوجد خادم Python قياسي في api_server.py وملف Dockerfile، لكنهما غير منشورين تلقائيًا. لا تعتبر المحادثة الحية مكتملة قبل نشر الخادم وضبط أسراره واختباره.
 
+## مزودات نماذج متعددة
+
+تدعم واجهة المحادثة الآن اختيار مزود النموذج من القائمة أسفل مربع الكتابة. مفاتيح كل مزود تبقى على الخادم، ويمكن تهيئة واحد فقط أو أكثر. يرسل التطبيق نتائج البحث العام الفعلية إلى النموذج المختار ليصوغ إجابة مع المصادر؛ اختيار مزود غير مهيأ يعرض خطأ صريحًا ولا ينتحل اتصالًا ناجحًا.
+
+متغيرات اختيارية لكل مزود:
+- OpenAI / ChatGPT API: `SCOUT_OPENAI_API_KEY` (أو `OPENAI_API_KEY`) و`SCOUT_OPENAI_MODEL` (أو `OPENAI_MODEL`). النموذج الافتراضي في الكود `gpt-4.1-mini`.
+- DeepSeek: `SCOUT_DEEPSEEK_API_KEY` (أو `DEEPSEEK_API_KEY`) و`SCOUT_DEEPSEEK_MODEL` (أو `DEEPSEEK_MODEL`). النموذج الافتراضي `deepseek-chat`.
+- Google Gemini: `SCOUT_GEMINI_API_KEY` (أو `GEMINI_API_KEY` أو `GOOGLE_API_KEY`) و`SCOUT_GEMINI_MODEL` (أو `GEMINI_MODEL`). النموذج الافتراضي `gemini-2.5-flash`، عبر واجهة Google المتوافقة مع OpenAI.
+- OpenRouter: `SCOUT_OPENROUTER_API_KEY` و`SCOUT_OPENROUTER_MODEL` (يجب تحديد اسم النموذج).
+- الإعداد القديم متاح للتوافق: `SCOUT_LLM_API_KEY` و`SCOUT_LLM_MODEL` و`SCOUT_LLM_API_URL`.
+- `SCOUT_DEFAULT_PROVIDER`: اختياري؛ `openai` أو `deepseek` أو `gemini` أو `openrouter` أو `legacy`.
+
+لا تحتاج إلى إعداد كل المزودات. أضف فقط المفاتيح التي تملكها وتستطيع استخدامها، وراجع أسعار وحدود المزود نفسه. وجود مفتاح في الإعدادات لا يثبت أن الحساب يسمح بالنموذج؛ يلزم اختبار اتصال حي بعد النشر. لا تشارك المفاتيح في المحادثة ولا تضعها في GitHub Pages.
+
 ## متغيرات البيئة المطلوبة على الخادم فقط
 - TAVILY_API_KEY: اختياري لتحسين نتائج البحث؛ عند غيابه يستخدم الخادم سلسلة بحث عام: DuckDuckGo ثم Bing RSS إذا تعطل الأول؛ قد يفرض أي مزود قيودًا أو يحجب بعض الطلبات.
 - SCOUT_LLM_API_KEY: مفتاح مزود نموذج متوافق مع واجهة OpenAI Chat Completions.
