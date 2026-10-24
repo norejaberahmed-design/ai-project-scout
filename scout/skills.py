@@ -127,7 +127,8 @@ def task_search_terms(task_query: str) -> list[str]:
 
 
 def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
-                                tree_paths: list[str], license_spdx: str) -> str:
+                                tree_paths: list[str], license_spdx: str,
+                                skill_content: str = "") -> str:
     """Create a reproducible static map of a skill repository without running its code."""
     names = [Path(path).name.lower() for path in tree_paths]
     readmes = [path for path in tree_paths if Path(path).name.lower().startswith("readme")][:3]
@@ -142,6 +143,9 @@ def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
     scripts = [path for path in tree_paths if Path(path).suffix.lower() in {
         ".py", ".js", ".ts", ".sh", ".ps1", ".go", ".rs"
     }][:30]
+    headings = [line.strip("# ").strip() for line in skill_content.splitlines() if line.startswith("#")][:20]
+    steps = [line.strip() for line in skill_content.splitlines() if re.match(r"^\\s*(?:[-*]\\s+|\\d+[.)]\\s+)", line)][:25]
+    commands = [line.strip() for line in skill_content.splitlines() if any(token in line for token in ("pip install", "npm install", "python ", "pytest", "npx "))][:20]
     lines = [
         "# Static reverse-engineering report", "",
         "- Repository: " + repository,
@@ -150,8 +154,13 @@ def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
         "- Declared license: " + license_spdx,
         "- Analysis mode: static file-tree inspection only; no source code was executed.",
         "",
-        "## Likely purpose",
-        "This repository contains a reusable SKILL.md procedure. The procedure text is stored separately and remains untrusted task guidance until reviewed.",
+        "## Procedure analysis",
+        "- Headings observed in the skill procedure: " + ("; ".join(headings) if headings else "no Markdown headings"),
+        "- Numbered/bulleted procedural steps observed: " + str(len(steps)),
+        "- Commands/install hints observed in text: " + ("; ".join(commands) if commands else "none detected"),
+        "",
+        "### Procedure steps (static excerpt)",
+        *(["- " + step for step in steps] if steps else ["- No numbered or bulleted steps detected."]),
         "",
         "## Repository structure signals",
         "- README files: " + (", ".join(readmes) if readmes else "not found"),
@@ -290,7 +299,7 @@ def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
                 (dest / "REVERSE_ENGINEERING.md").write_text(
                     _reverse_engineering_report(repo["html_url"], revision, path,
                                                 [node.get("path", "") for node in nodes],
-                                                repo["license"]),
+                                                repo["license"], content),
                     encoding="utf-8")
                 manifest = {"name": slug, "description": meta["description"], "source_url": source_url,
                     "repository": full, "revision": revision, "path": path, "license": repo["license"],
