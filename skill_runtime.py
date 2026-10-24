@@ -117,7 +117,7 @@ def _proposal_is_usable(document: str) -> bool:
         line.strip() for line in body.splitlines()
         if re.match(r"^(?:[-*]|(?:step\\s+)?[1-9][0-9]?[.)])\\s+\\S.{17,}$", line.strip(), re.I)
     ]
-    return len(body) >= 350 and len(action_lines) >= 3
+    return len(body) >= 180 and len(action_lines) >= 3
 
 
 def load_proposed_skills(root: Path | None = None, limit: int = 50) -> list[dict]:
