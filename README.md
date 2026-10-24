@@ -18,6 +18,14 @@ Python 3.11+: `pip install -r requirements.txt`, copy `.env.example` to `.env`, 
 - `POST /api/skills/discover`
 - `POST /api/skills/<name>/approve`
 
+## Recent agent improvements
+
+- The chat agent now detects Arabic and English research intent automatically, even when the optional chat search toggle is off.
+- If web search fails, the response explicitly warns that sources were not verified; it does not silently present the answer as researched.
+- If the model provider is unavailable but web results were found, the UI can still display the real source links and snippets instead of discarding the search.
+- When `GITHUB_TOKEN` is configured on the server, discovery searches GitHub Code Search for actual `SKILL.md` files, then checks repository licensing and pinned revisions. Without a token, public repository search remains the fallback.
+- A generic builder/research skill no longer blocks discovery of a more specialized skill; discovered procedures remain proposals and are never executed as imported code.
+
 ## Principles
 Search results are real backend calls, not simulated. General web search and GitHub skill discovery are separate. Only Markdown SKILL.md files can be proposed. External code is never executed or installed. Proposals preserve immutable source revision, attribution, license text and SHA-256; explicit approval is required before use. Secrets remain server-side.
 
