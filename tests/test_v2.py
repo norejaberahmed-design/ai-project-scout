@@ -473,8 +473,8 @@ def test_agent_uses_hash_verified_supporting_skill_files_as_context(monkeypatch,
     import scout.agent as module
     skill_dir = tmp_path / "active" / "api-helper"
     skill_dir.mkdir(parents=True)
-    skill = "---\\nname: api-helper\\ndescription: Help integrate APIs safely.\\n---\\nUse the reference helper when writing integration code.\\n"
-    support = "def normalize_response(value):\\n    return str(value).strip()\\n"
+    skill = "---\nname: api-helper\ndescription: Help integrate APIs safely.\n---\nUse the reference helper when writing integration code.\n"
+    support = "def normalize_response(value):\n    return str(value).strip()\n"
     (skill_dir / "SKILL.md").write_text(skill, encoding="utf-8")
     support_path = skill_dir / "supporting_files" / "helper.py"
     support_path.parent.mkdir()
