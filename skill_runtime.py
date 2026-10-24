@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shutil
 from pathlib import Path
 
 from skill_registry import get_skill, transition_skill
@@ -152,6 +153,9 @@ def activate_approved_skill(skill_id: str, reviewer: str, root: Path | None = No
     target = target_dir / "SKILL.md"
     try:
         target.write_text(document, encoding="utf-8")
+        proposal_bundle = proposal.parent / "bundle"
+        if proposal_bundle.is_dir():
+            shutil.copytree(proposal_bundle, target_dir / "bundle", dirs_exist_ok=False)
         active_record = transition_skill(
             skill_id, "ACTIVE", db_path=db_path, reviewer=reviewer
         )
