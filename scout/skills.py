@@ -48,10 +48,11 @@ def parse_skill(content: str) -> tuple[dict, str]:
         raise ValueError("invalid YAML frontmatter") from exc
     if not isinstance(meta, dict):
         raise ValueError("frontmatter must be a YAML mapping")
-    name = slugify(meta.get("name", ""))
+    raw_name = str(meta.get("name", "")).strip()
+    name = slugify(raw_name)
     description = str(meta.get("description", "")).strip()
-    if not name or not description or len(description) > 500:
-        raise ValueError("valid name and description are required")
+    if not name or raw_name != name or not description or len(description) > 500:
+        raise ValueError("name must use lowercase kebab-case and a valid description is required")
     lowered = content.lower()
     flags = [marker for marker in RISK_MARKERS if marker in lowered]
     if flags:
