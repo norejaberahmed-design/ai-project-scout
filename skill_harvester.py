@@ -125,10 +125,13 @@ def _quality_gate(content: str) -> tuple[bool, list[str]]:
     for phrase in placeholder_phrases:
         if phrase in normalized:
             errors.append("Placeholder instruction detected: " + phrase)
-    body = normalized.split("## source provenance", 1)[0]
-    steps = re.findall(r"(?:^|\s)(?:step\s+)?(?:[1-9]|1[0-9])[.)]\s+[^.]{18,}", body)
-    if len(steps) < 3:
-        errors.append("Skill needs at least three concrete, non-trivial procedural steps.")
+    body = (content or "").split("## Source provenance", 1)[0]
+    action_lines = [
+        line.strip() for line in body.splitlines()
+        if re.match(r"^(?:[-*]|(?:step\s+)?[1-9][0-9]?[.)])\s+\S.{17,}$", line.strip(), re.I)
+    ]
+    if len(action_lines) < 3:
+        errors.append("Skill needs at least three concrete, non-trivial action lines.")
     if len(body) < 350:
         errors.append("Skill body is too short to provide a reusable procedure.")
     return not errors, errors
