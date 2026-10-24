@@ -48,6 +48,23 @@
 
 ولتشغيل اقتراح المهارات الداخلية واختبارها بالنموذج، أضف `SCOUT_LLM_API_KEY` في **Settings → Secrets and variables → Actions → Secrets**، وأضف `SCOUT_LLM_MODEL` و`SCOUT_LLM_API_URL` كـ **Variables**. هذه الإعدادات مستقلة عن أسرار خدمة Render؛ يجب ضبط الأسرار في كل بيئة تحتاجها، ولا تضعها في الملفات أو المحادثة.
 
+## مزودات النماذج المدعومة
+
+يمكن للمستخدم اختيار مزود الإجابة من قائمة المحادثة؛ الاختيار لا يرسل المفاتيح إلى المتصفح، بل يرسل معرّف المزود فقط إلى الخادم. عيّن الأسرار والنموذج في لوحة الاستضافة:
+
+| المزود | متغير المفتاح | متغير النموذج | نموذج افتراضي |
+|---|---|---|---|
+| ChatGPT / OpenAI | `SCOUT_OPENAI_API_KEY` | `SCOUT_OPENAI_MODEL` | `gpt-4.1-mini` |
+| DeepSeek | `SCOUT_DEEPSEEK_API_KEY` | `SCOUT_DEEPSEEK_MODEL` | `deepseek-chat` |
+| Google Gemini | `SCOUT_GEMINI_API_KEY` | `SCOUT_GEMINI_MODEL` | `gemini-2.5-flash` |
+| OpenRouter | `SCOUT_OPENROUTER_API_KEY` | `SCOUT_OPENROUTER_MODEL` | حدّد معرّف نموذج متاحًا لحسابك |
+
+لا تحتاج إلى ضبط جميع المزودات؛ اضبط واحدًا على الأقل، ثم اختره من الواجهة. يمكن ضبط `SCOUT_DEFAULT_PROVIDER` على `openai` أو `deepseek` أو `gemini` أو `openrouter` ليكون الافتراضي بدل `legacy`. المسارات المخصصة للمزودات تستخدم نقاط HTTPS ثابتة داخل التطبيق، ولا يسمح الخادم للمتصفح بإرسال عنوان endpoint اعتباطي.
+
+المحادثة تحفظ سياقًا محدودًا من الرسائل السابقة خلال الجلسة الحالية فقط، وتتيح زر «محادثة جديدة» لمسح ذلك السياق. لا تُرسل محادثة المتصفح إلى الخادم كذاكرة دائمة، ولا يوجد حاليًا تسجيل دخول أو مزامنة بين الأجهزة.
+
+**البحث مستقل عن مزود النموذج:** كل سؤال يمر أولًا عبر بحث الويب العام (Tavily إذا أُعدّ، وإلا DuckDuckGo ثم Bing RSS)، ثم تُمرر النتائج إلى النموذج المختار. البحث لا يشمل كل الإنترنت ولا الصفحات الخاصة. اكتشاف المهارات مسار منفصل ويستخدم GitHub العام فقط.
+
 ## التشغيل المحلي
     python -m unittest discover -s tests -v
     SCOUT_LLM_API_KEY=... SCOUT_LLM_MODEL=... SCOUT_LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions python api_server.py
