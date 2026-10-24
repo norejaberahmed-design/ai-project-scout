@@ -1,7 +1,7 @@
 """Discover and quarantine reusable public agent skills from licensed GitHub repositories.
 
-This module imports procedural SKILL.md documents only. It never imports Python modules,
-installs dependencies, executes upstream code, or activates a candidate.
+This module imports procedural SKILL.md documents plus bounded, licensed text support files.
+It never installs dependencies, executes upstream code, or activates a candidate.
 """
 from __future__ import annotations
 
@@ -186,7 +186,7 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
             parent = PurePosixPath(support_path).parent
             in_skill_folder = str(skill_parent) != "." and (parent == skill_parent or str(parent).startswith(str(skill_parent) + "/"))
             explicitly_referenced = PurePosixPath(support_path).name in referenced_docs
-            if in_skill_folder or (str(skill_parent) == "." and explicitly_referenced):
+            if in_skill_folder or (str(skill_parent) == "." and parent == PurePosixPath(".") and explicitly_referenced):
                 size = tree_item.get("size")
                 if isinstance(size, int) and 0 <= size <= MAX_SKILL_BYTES:
                     support_candidates.append({"path": support_path, "size": size})
