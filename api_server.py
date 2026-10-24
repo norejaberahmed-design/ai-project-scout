@@ -20,7 +20,7 @@ from model_providers import provider_config, list_provider_status, any_provider_
 from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, load_proposed_skills, select_skills
 from skill_proposal_sync import sync_proposed_skill_records
-from web_search import search_web
+from web_search import search_web, search_web_research
 from security_redaction import redact_text, redact_value
 from component_acquisition import acquire_repository, inspect_repository, list_proposals
 from skill_harvester import run_harvest
@@ -451,7 +451,9 @@ class AgentHandler(BaseHTTPRequestHandler):
                 proposed_skills = load_proposed_skills()
                 candidate_skills = select_skills(question, proposed_skills, limit=2)
             search_query = plan_search_query(question, selected_skills, requested_provider) if self.path == "/api/chat" else question
-            found = search_web(search_query)
+            research_mode = bool(data.get("research_mode", False)) if isinstance(data, dict) else False
+            found = (search_web_research(search_query) if research_mode
+                     else search_web(search_query))
             if self.path == "/api/search":
                 self._send(200, found)
                 return
