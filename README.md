@@ -29,6 +29,8 @@ Python 3.11+: `pip install -r requirements.txt`, copy `.env.example` to `.env`, 
 - `POST /api/skills/<name>/approve` — administrative approval
 
 ## Safety and limits
+- Each imported skill proposal includes a static reverse-engineering report (procedure headings/steps, repository structure, dependency manifests, tests, and likely entry points), source attribution, immutable revision, verified license text, and hashes. A bounded set of related text/source files from the skill directory may be preserved under `supporting_files/`; those files are hash-checked before being supplied as context and are never executed.
+- General executable libraries are not yet auto-installed or run. That requires a separate isolated package sandbox and explicit activation; discovery must not execute arbitrary upstream code.
 - Only public GitHub repositories and eligible `SKILL.md` documents are considered.
 - A source must have an allowlisted license with matching license text.
 - Source revision, attribution, and a content digest are preserved where available.
