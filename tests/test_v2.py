@@ -323,3 +323,55 @@ def test_generic_builder_skill_does_not_block_specialized_skill_discovery(monkey
     assert calls == [1]
     assert selected and selected[0]["name"] == "vector-database-retrieval"
 
+def test_skill_discovery_uses_github_code_search_when_token_is_configured(monkeypatch, tmp_path):
+    import scout.skills as module
+    revision = "a" * 40
+    skill_text = """---
+name: vector-retrieval
+description: Build semantic search and retrieval with vector databases.
+version: 1.0
+---
+# Vector retrieval
+Compare embedding quality, chunking, and retrieval relevance.
+"""
+    license_text = "Permission is hereby granted, free of charge. The software is provided as is."
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setenv("SCOUT_MAX_SKILLS_PER_DISCOVERY", "10")
+    monkeypatch.setattr(module, "PROPOSED_DIR", tmp_path / "proposed")
+    monkeypatch.setattr(module, "ACTIVE_DIR", tmp_path / "active")
+
+    def fake_github_get(url):
+        if "/search/code?" in url:
+            return {"items": [{"repository": {"full_name": "example/skill-pack"}}]}
+        if url.endswith("/repos/example/skill-pack"):
+            return {"full_name": "example/skill-pack", "html_url": "https://github.com/example/skill-pack",
+                    "license": {"spdx_id": "MIT"}, "default_branch": "main"}
+        if url.endswith("/commits/main"):
+            return {"sha": revision}
+        if "/git/trees/" in url:
+            return {"tree": [
+                {"type": "blob", "path": "LICENSE"},
+                {"type": "blob", "path": "skills/vector/SKILL.md"},
+            ]}
+        if "/search/repositories?" in url:
+            return {"items": []}
+        raise AssertionError("Unexpected GitHub API URL: " + url)
+
+    class RawResponse:
+        status_code = 200
+        def __init__(self, text): self.text = text
+
+    def fake_get(url, **kwargs):
+        if url.endswith("/LICENSE"):
+            return RawResponse(license_text)
+        if url.endswith("/skills/vector/SKILL.md"):
+            return RawResponse(skill_text)
+        raise AssertionError("Unexpected raw content URL: " + url)
+
+    monkeypatch.setattr(module, "_github_get", fake_github_get)
+    monkeypatch.setattr(module.requests, "get", fake_get)
+    result = module.discover_skills(1)
+    assert len(result["created"]) == 1
+    assert result["created"][0]["name"] == "vector-retrieval"
+    assert (tmp_path / "proposed" / "vector-retrieval" / "SKILL.md").is_file()
+
