@@ -118,5 +118,44 @@ class WebSearchTests(unittest.TestCase):
 
 
 
+    def test_build_research_queries_is_bounded_and_keeps_original_first(self):
+        queries = web_search.build_research_queries("How do Python AI agents work?")
+        self.assertEqual(queries[0], "How do Python AI agents work?")
+        self.assertGreaterEqual(len(queries), 2)
+        self.assertLessEqual(len(queries), web_search.MAX_RESEARCH_QUERIES)
+        self.assertTrue(all(len(query) <= web_search.MAX_QUERY_CHARS for query in queries))
+
+    @patch("web_search.search_web")
+    def test_research_mode_deduplicates_results_and_reports_real_query_coverage(self, search):
+        def fake_search(query, api_key=None, timeout=20):
+            if query == "compare AI agents":
+                url = "https://example.org/shared"
+            else:
+                url = "https://example.org/" + str(len(query))
+            return {
+                "query": query,
+                "provider": "Mock public web",
+                "results": [
+                    {"title": "Evidence " + str(len(query)), "url": url,
+                     "snippet": "Search provider result", "source": "Mock public web"}
+                ],
+                "result_count": 1,
+                "coverage_note": "bounded test evidence",
+            }
+        search.side_effect = fake_search
+        result = web_search.search_web_research("compare AI agents", max_queries=3)
+        self.assertTrue(result["research_mode"])
+        self.assertEqual(result["queries"][0], "compare AI agents")
+        self.assertLessEqual(len(result["queries"]), 3)
+        urls = [item["url"] for item in result["results"]]
+        self.assertEqual(len(urls), len(set(urls)))
+        self.assertGreaterEqual(search.call_count, 2)
+        self.assertIn("بحث معمق محدود", result["coverage_note"])
+
+    def test_research_mode_rejects_empty_query(self):
+        with self.assertRaises(ValueError):
+            web_search.build_research_queries("   ")
+
+
 if __name__ == "__main__":
     unittest.main()
