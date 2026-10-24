@@ -81,8 +81,14 @@ def chat():
 def skills():
     return jsonify(list_skills())
 
+def admin_authorized():
+    token = config.setting("SCOUT_ADMIN_TOKEN")
+    return bool(token) and request.headers.get("Authorization", "") == "Bearer " + token
+
 @app.post("/api/skills/discover")
 def discover():
+    if not admin_authorized():
+        return jsonify({"error":"UNAUTHORIZED","message":"Admin token is required for skill discovery."}), 401
     try:
         body=json_body(); limit=body.get("max_proposals",2)
         if not isinstance(limit,int) or isinstance(limit,bool) or limit not in (1,2,3):
@@ -95,10 +101,8 @@ def discover():
 
 @app.post("/api/skills/<name>/approve")
 def approve(name):
-    admin_token = config.setting("SCOUT_ADMIN_TOKEN")
-    supplied = request.headers.get("Authorization", "")
-    if not admin_token or supplied != "Bearer " + admin_token:
-        return jsonify({"error":"UNAUTHORIZED","message":"Admin approval token is missing or invalid."}), 401
+    if not admin_authorized():
+        return jsonify({"error":"UNAUTHORIZED","message":"Admin token is required for skill approval."}), 401
     try: return jsonify(approve_skill(name))
     except FileNotFoundError as exc: return jsonify({"error":"PROPOSAL_NOT_FOUND","message":str(exc)}),404
     except FileExistsError as exc: return jsonify({"error":"ALREADY_ACTIVE","message":str(exc)}),409
