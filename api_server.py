@@ -73,8 +73,9 @@ def maybe_discover_skill_for_task(question: str, selected_skills: list[dict], ca
     reference for this answer; it is never executed or silently activated.
     """
     global LAST_SKILL_DISCOVERY
-    # If a known internal skill or proposal already fits, use it instead of searching again.
-    if selected_skills or candidate_skills or not (question or "").strip():
+    # Internal baseline skills are useful, but do not replace discovery of task-specific
+    # skills from other public agents. Skip only if a relevant external proposal already exists.
+    if candidate_skills or not (question or "").strip():
         return False
     now = time.monotonic() if now is None else now
     with SKILL_DISCOVERY_LOCK:
