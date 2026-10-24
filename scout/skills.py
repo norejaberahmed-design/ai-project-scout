@@ -293,6 +293,55 @@ def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
                 dest.mkdir(parents=True, exist_ok=False)
                 (dest / "SKILL.md").write_text(stored_content, encoding="utf-8")
                 (dest / "UPSTREAM_LICENSE.txt").write_text(lr.text[:100000], encoding="utf-8")
+                # Preserve a small set of supporting text/source files referenced by the skill.
+                # They remain quarantined and are never imported or executed by this process.
+                skill_parent = str(Path(path).parent).replace("\\", "/")
+                allowed_extensions = {".md", ".py", ".js", ".ts", ".sh", ".json", ".yaml", ".yml",
+                                      ".toml", ".txt", ".sql", ".html", ".css"}
+                supporting_files = []
+                total_support_bytes = 0
+                support_root = dest / "supporting_files"
+                for node in nodes:
+                    support_path = str(node.get("path", ""))
+                    if support_path == path or not support_path or len(support_path) > 240:
+                        continue
+                    if node.get("mode") == "120000" or node.get("type") != "blob":
+                        continue
+                    parent_prefix = "" if skill_parent in {"", "."} else skill_parent.rstrip("/") + "/"
+                    under_skill = support_path.startswith(parent_prefix) if parent_prefix else "/" not in support_path
+                    relative = support_path[len(parent_prefix):] if under_skill else ""
+                    allowed_area = (under_skill and relative and
+                                    ("/" not in relative or relative.split("/", 1)[0].lower()
+                                     in {"scripts", "references", "assets", "examples"}))
+                    if not allowed_area or Path(support_path).suffix.lower() not in allowed_extensions:
+                        continue
+                    if Path(support_path).name.lower() == "skill.md":
+                        continue
+                    try:
+                        support_response = requests.get(
+                            f"https://raw.githubusercontent.com/{owner}/{name}/{revision}/{quote(support_path, safe='/')}",
+                            timeout=15)
+                    except requests.RequestException:
+                        continue
+                    if support_response.status_code != 200:
+                        continue
+                    support_text = support_response.text
+                    support_bytes = support_text.encode("utf-8")
+                    if (not support_text or "\\x00" in support_text or len(support_bytes) > 40000
+                            or total_support_bytes + len(support_bytes) > 120000):
+                        continue
+                    if any(part in {"", ".", ".."} for part in Path(relative).parts):
+                        continue
+                    support_target = support_root / relative
+                    support_target.parent.mkdir(parents=True, exist_ok=True)
+                    support_target.write_bytes(support_bytes)
+                    support_digest = hashlib.sha256(support_bytes).hexdigest()
+                    supporting_files.append({"path": str(Path("supporting_files") / relative).replace("\\", "/"),
+                                             "source_path": support_path, "sha256": support_digest,
+                                             "size_bytes": len(support_bytes)})
+                    total_support_bytes += len(support_bytes)
+                    if len(supporting_files) >= 8:
+                        break
                 source_url = f"{repo['html_url']}/blob/{revision}/{quote(path, safe='/')}"
                 (dest / "ATTRIBUTION.md").write_text(
                     f"# Attribution\n\n- Repository: {repo['html_url']}\n- File: {source_url}\n- Revision: {revision}\n- SPDX: {repo['license']}\n- Source SHA-256: {source_digest}\n- Stored SHA-256: {digest}\n- Status: proposal only; not executed or activated.\n", encoding="utf-8")
@@ -303,7 +352,9 @@ def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
                     encoding="utf-8")
                 manifest = {"name": slug, "description": meta["description"], "source_url": source_url,
                     "repository": full, "revision": revision, "path": path, "license": repo["license"],
-                    "license_text_verified": True, "sha256": digest, "source_sha256": source_digest, "created_at": int(time.time()), "status": "proposed"}
+                    "license_text_verified": True, "sha256": digest, "source_sha256": source_digest,
+                    "supporting_files": supporting_files, "reverse_engineering_report": "REVERSE_ENGINEERING.md",
+                    "created_at": int(time.time()), "status": "proposed"}
                 (dest / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
                 created.append({"name": slug, "description": meta["description"], "source_url": source_url,
                                 "license": repo["license"], "sha256": digest, "status": "proposed"})
