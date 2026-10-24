@@ -25,10 +25,19 @@ assert.ok(!submitHandler.includes("api.github.com/search/repositories"), "GitHub
 assert.ok(submitHandler.includes('fetch(apiBase+"/api/chat"'), "chat must call the answer backend");
 assert.ok(submitHandler.includes('fetch(apiBase+"/api/search"'), "chat must show public-web results if model chat fails");
 assert.ok(script.includes("async function searchWikipedia(q)"), "no-backend fallback must fetch real Wikipedia results");
-assert.ok(script.includes("async function searchGitHubRepositories(q)"), "software questions must search GitHub repositories directly");
+assert.ok(script.includes("async function searchHackerNews(q)"), "no-backend fallback must search Hacker News");
+assert.ok(script.includes("async function searchStackExchange(q)"), "software fallback must search Stack Exchange");
+assert.ok(script.includes("async function searchCrossref(q)"), "research fallback must search Crossref");
+assert.ok(script.includes("async function searchOpenAlex(q)"), "research fallback must search OpenAlex");
+assert.ok(script.includes("async function searchNpm(q)"), "software fallback must search npm Registry");
+const browserSearchStart = script.indexOf("async function searchBrowserSources(q){");
+const browserSearchEnd = script.indexOf("async function submit(text){", browserSearchStart);
+const browserSearch = script.slice(browserSearchStart, browserSearchEnd);
+assert.ok(browserSearchStart >= 0 && browserSearchEnd > browserSearchStart, "public search fallback must exist");
+assert.ok(!browserSearch.includes("GitHub") && !browserSearch.includes("github.com"), "general public search must not use GitHub; GitHub is only for skill discovery");
+assert.ok(browserSearch.includes("Promise.allSettled"), "search should return partial results when one provider is unavailable");
 assert.ok(script.includes("https://ar.wikipedia.org/w/api.php?"), "fallback must query Arabic Wikipedia");
 assert.ok(script.includes("https://en.wikipedia.org/w/api.php?"), "fallback must query English Wikipedia");
-assert.ok(script.includes("https://api.github.com/search/repositories?"), "software fallback must use GitHub repository search");
 assert.ok(!script.includes("https://www.youtube.com/results?search_query="), "skill discovery must not add video search");
 assert.ok(script.includes('fetch(apiBase+"/api/skills/discover"'), "skill harvesting must use the backend skill pipeline");
 assert.ok(script.includes("async function discoverGitHubSkillFiles()"), "disconnected skill discovery must query GitHub directly");
@@ -40,4 +49,4 @@ assert.ok(script.includes("روابط مباشرة وليست نتائج بحث 
 assert.ok(html.includes("تغطية البحث في هذه الإجابة"), "UI must show an Arabic source coverage summary");
 assert.ok(html.includes("ليس قياسًا لتغطية الإنترنت كله"), "UI must not claim complete internet coverage");
 new vm.Script(script, { filename: "site/index.html inline script" });
-console.log("Frontend smoke checks passed: JavaScript syntax, API-backed chat, actual Wikipedia and GitHub browser fallback searches, and separate GitHub skill harvesting.");
+console.log("Frontend smoke checks passed: JavaScript syntax, API-backed chat, multi-source public web fallback with GitHub isolated to skill harvesting.");
