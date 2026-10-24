@@ -74,3 +74,13 @@ def test_search_normalizes_and_deduplicates_results(monkeypatch):
     monkeypatch.setattr(module.requests,"post",lambda *a,**kw:FakeResponse())
     results=module.web_search("valid query")
     assert len(results)==1 and results[0]["title"]=="One"
+
+def test_license_text_matches_declared_spdx():
+    from scout.skills import license_text_matches
+    assert license_text_matches("MIT", "Permission is hereby granted, free of charge. The software is provided as is.")
+    assert not license_text_matches("MIT", "Apache License Version 2.0")
+    
+def test_skill_approval_requires_admin_token(monkeypatch):
+    monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
+    response = webapp.app.test_client().post("/api/skills/not-a-skill/approve", json={})
+    assert response.status_code == 401
