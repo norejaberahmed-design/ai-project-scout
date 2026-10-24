@@ -1,77 +1,26 @@
-# AI Project Scout — إيجنت البحث والتطوير الذاتي
+# AI Project Scout — Rebuild V2
 
-واجهة المحادثة: https://norejaberahmed-design.github.io/ai-project-scout/
+A mobile-first Arabic AI agent focused on real web research and discovering reusable agent skills, validating them, and applying approved skills to user tasks.
 
-## عقد المنتج
-- قواعد البرمجة ومعايير القبول: [AGENT_RULES.md](AGENT_RULES.md).
-- خطة التنفيذ المرحلية ومعايير الإنجاز: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
-اقرأ [AGENT_RULES.md](AGENT_RULES.md) قبل أي تغيير. المنتج النهائي له قدرتان فقط:
-1. محادثة عربية تبحث في الويب العام، وتجيب بمصادر وروابط، وتوضح حدود التحقق.
-2. اكتشاف مشاريع وأدوات الذكاء الاصطناعي العامة، وفحصها ساكنًا، واستخلاص فرص تحسين، واقتراح مهارات وتغييرات قابلة للاختبار.
+## Run locally
+Python 3.11+: `pip install -r requirements.txt`, copy `.env.example` to `.env`, configure server-side keys, then `python app.py`. Open http://127.0.0.1:8080.
 
-لا يعني الوصف أو عدد النجوم أن المشروع يعمل أو آمن. لا يشغّل النظام كودًا خارجيًا تلقائيًا. لا تُفعّل مهارة خارجية ولا تُدمج تغييرات في main تلقائيًا؛ التحسينات تُختبر وتُعرض في طلب مراجعة. راجع [SELF_DEVELOPING_AGENT.md](SELF_DEVELOPING_AGENT.md).
+## Server environment
+- `SCOUT_LLM_API_KEY`, `SCOUT_LLM_MODEL`, optional `SCOUT_LLM_API_URL`
+- `TAVILY_API_KEY` for actual public-web search
+- optional `GITHUB_TOKEN` to increase GitHub API limits for skill discovery
 
-## ما هو موجود في الفرع الحالي
-- site/index.html: واجهة محادثة واحدة متوافقة مع الهاتف، ولا تحتوي مفاتيح API. عند غياب الخادم، ينفّذ وضع المتصفح بحثًا فعليًا عبر Wikipedia وHacker News، ويضيف Stack Exchange وnpm للأسئلة البرمجية وCrossref/OpenAlex للبحث العلمي. هذا وضع احتياطي متعدد المصادر وليس فهرسًا شاملًا للويب أو إجابة مولّدة بنموذج. اكتشاف المهارات منفصل ويبحث في GitHub فقط.
-- api_server.py: خادم Python لنقاط /api/search و /api/chat و /api/skills؛ يعرض سجل المهارات الفعلي ويمرر للرد فقط المهارات المحملة من skills/active/.
-- يدعم اختيار مزود الإجابة من الواجهة بين ChatGPT/OpenAI وDeepSeek وGoogle Gemini وOpenRouter، مع مفاتيح منفصلة محفوظة على الخادم فقط. يتوفر أيضًا خيار اختياري لمقارنة إجابات المزودات المهيأة على الخادم، باستخدام نتائج بحث مشتركة؛ يتطلب مزودين على الأقل وقد يستهلك عدة طلبات مدفوعة. تدعم المحادثة سياقًا محدودًا للأسئلة المتتابعة وزر «محادثة جديدة» لمسح السياق؛ راجع [إعداد مزودات النماذج](API_DEPLOYMENT.md#مزودات-النماذج-المدعومة).
-- web_search.py: بحث عام في الويب عبر Tavily عند ضبط المفتاح، مع DuckDuckGo احتياطيًا دون مفتاح. اكتشاف المهارات منفصل ويبحث في مستودعات GitHub العامة فقط؛
-- وضع «بحث معمّق متعدد الاستعلامات» اختياري: ينفذ حتى ثلاثة استعلامات ويب مترابطة بالتوازي، يزيل الروابط المكررة، ويعيد مصادر حقيقية مع بيان التغطية. لا يُفعّل افتراضيًا لتقليل وقت الطلبات وتكلفتها. 
-- اكتشاف المهارات: يبحث في GitHub عن ملفات `SKILL.md`، ويحفظ المهارات المؤهلة مع ملفات المساندة النصية المرتبطة بها في `skills/proposed/`، مع مصدر ثابت ونص الترخيص والإسناد وبيان الملفات. لا تثبّت الاعتماديات أو تشغّل الكود أو تفعّل المهارة تلقائيًا.
-- skill_runtime.py: اختيار المهارات الموثوقة والتحقق من المرشحات وحفظها خارج مجلد المهارات النشطة. skill_registry.py: سجل SQLite دائم لمراحل اكتشاف المهارة واختبارها واعتمادها وتفعيلها، مع بوابات تمنع الاعتماد دون اختبار ناجح وترخيص موثق ومراجعة صريحة.
-- SKILL_LIFECYCLE_ARCHITECTURE.md: المعمارية المعتمدة، حالات دورة الحياة، خوارزميات الترتيب والقبول، وحدود الأمان.
-- skills_manager.py و reverse_engineer.py و autodev.py: اكتشاف وتحليل ساكن واقتراح تحسينات برمجية مع اختبارات وطلب مراجعة.
-- skill_proposer.py وسير عمل Guarded Skill Proposal: صياغة مهارة داخلية من فجوة موثقة، وفحصها، ووضعها في skills/proposed وفتح Draft PR؛ لا تُفعّل تلقائيًا.
-- `skills/active/receiving-code-review/` و`skills/active/finishing-development/`: مهارتان مكيّفتان من مهارات مفتوحة المصدر بترخيص MIT، مع نسبة المصدر ونص الترخيص محفوظين محليًا. تركزان على التحقق والاختبارات وتجنب الأسئلة الروتينية.
-- tests/: اختبارات آلية تشمل حدود البحث والأمان وتحليل GitHub واختيار المهارات.
+## API
+- `GET /api/health`
+- `POST /api/search` — Tavily search with source URLs
+- `POST /api/chat` — model response with optional search evidence and active skills
+- `GET /api/skills`
+- `POST /api/skills/discover`
+- `POST /api/skills/<name>/approve`
 
-- `github_api.py`: عميل GitHub مشترك بمهلة انتظار محدودة، واحترام `Retry-After` و`X-RateLimit-Reset`، وإعادة محاولات محدودة، وETag مع فصل ذاكرة التخزين حسب سياق الاعتماد.
-- `security_redaction.py`: تنقيح بيانات الاعتماد من رسائل HTTP والسجلات ومخرجات API قبل إخراجها.
-- Dockerfile و [API_DEPLOYMENT.md](API_DEPLOYMENT.md): أساس نشر الخادم وإعداد الأسرار.
+## Principles
+Search results are real backend calls, not simulated. General web search and GitHub skill discovery are separate. Only Markdown SKILL.md files can be proposed. External code is never executed or installed. Proposals preserve immutable source revision, attribution, license text and SHA-256; explicit approval is required before use. Secrets remain server-side.
 
-## اختيار مزود الذكاء الاصطناعي
+See [PLAN.md](PLAN.md), [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), and [DEPLOYMENT.md](DEPLOYMENT.md).
 
-تدعم واجهة المحادثة مزودات OpenAI/ChatGPT API وDeepSeek وGoogle Gemini وOpenRouter، مع اختيار المزود لكل محادثة. مفاتيح المزودات تُحفظ على الخادم فقط. راجع [إعداد المزودات والنشر](API_DEPLOYMENT.md#مزودات-نماذج-متعددة). هذه تكاملات API وليست نسخًا من النماذج أو اشتراكات ChatGPT/Gemini/DeepSeek؛ يلزم مفتاح صالح ونموذج متاح لدى المزود. نقطة `GET /api/providers` تعرض حالات الإعداد دون كشف المفاتيح.
-
-## التشغيل والاختبار
-يتطلب Python 3.12+ ولا يحتاج إلى حزم Python خارجية:
-
-    python -m compileall -q .
-    python -m unittest discover -s tests -v
-    python api_server.py
-
-لإجابة محادثة مولّدة، هيّئ مفتاحًا ونموذجًا لأحد مزودات OpenAI/ChatGPT API أو DeepSeek أو Gemini أو OpenRouter على الخادم فقط؛ الإعداد القديم SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL ما زال مدعومًا. TAVILY_API_KEY اختياري لتحسين البحث؛ عند غيابه يحاول الخادم DuckDuckGo ثم Bing RSS. مفاتيح البحث والنموذج لا توضع في الواجهة. افحص /api/health و /api/providers و /api/skills. لا تضع المفاتيح في HTML أو JavaScript أو المستودع.
-
-## وضع التشغيل دون مفاتيح
-تعمل الواجهة الثابتة في وضع احتياطي بلا مفاتيح عبر واجهات عامة متعددة (Wikipedia وHacker News، وStack Exchange وnpm للأسئلة البرمجية، وCrossref/OpenAlex للبحث العلمي). لا يبحث مسار إجابة المستخدم في GitHub؛ GitHub مخصص لاكتشاف المهارات فقط. هذا الوضع لا يولّد إجابة بنموذج لغوي ولا يغطي كامل الويب. لتفعيل المحادثة الكاملة، انشر خادم API واضبط أسرار مزود البحث والنموذج كما هو موضح في [API_DEPLOYMENT.md](API_DEPLOYMENT.md).
-
-## حدود GitHub API والبحث الحي
-
-- `github_api.py` هو عميل GitHub المشترك: يقيّد الطلبات إلى HTTPS `api.github.com`، يستخدم `GITHUB_TOKEN` من متغير البيئة فقط عند توفره، يحد حجم الاستجابة، يستفيد من ETag، ويعيد المحاولة بميزانية انتظار محدودة للأخطاء المؤقتة وحدود المعدل.
-- عند نفاد الحصة، لا يحوّل المحرك الخطأ إلى نتائج فارغة ولا يعتبر المرشح مفقودًا؛ إذا تجاوز انتظار إعادة المحاولة الحد التشغيلي يعرض وقت الاستئناف بدل الانتظار المفتوح.
-- اختبارات `tests/test_github_api.py` تستخدم ساعة ونومًا ومصدر استجابة وهمية حتمية. هذه اختبارات سلوك العميل وليست إثباتًا لحدود حساب GitHub الحي.
-- بحث الإجابات الكامل يستخدم محرك الويب العام عبر `web_search.py`; وضع المتصفح الاحتياطي يسترجع نتائج فعلية من واجهات عامة متعددة، دون استخدام GitHub كمصدر لإجابة المستخدم. اكتشاف المهارات يظل مسارًا منفصلًا يستهدف ملفات `SKILL.md` وملفات المساندة ضمن مجلد المهارة ويشترط التحقق قبل النسخ. صفحة GitHub Pages لا تشغّل Python ولا نموذجًا لغويًا، لذا تتطلب الإجابات الذكية الكاملة خادم HTTPS مضبوطًا في إعداد الاتصال.
-
-## حدود يجب عدم إخفائها
-- GitHub Pages يستضيف الواجهة الثابتة فقط؛ لا يشغّل خادم Python. يلزم نشر api_server.py على خدمة HTTPS خارجية، ثم وضع عنوانها في إعداد اتصال الخادم داخل الواجهة.
-- لم يتم إثبات اتصال حي بمزود البحث أو النموذج حتى تُضبط الأسرار وتُجرى تجربة حقيقية بعد النشر.
-- البحث يغطي النتائج العامة المفهرسة لدى مزود البحث، ولا يشمل كل الإنترنت أو المحتوى الخاص.
-- فحص GitHub ساكن ومحدود بالبيانات العامة وREADME وأسماء الملفات. لا يُعد اختبار تشغيل ولا إثباتًا لعمل ميزة.
-- حدود الطلبات الحالية في الذاكرة تكفي لاختبار أولي فقط؛ قبل فتح API للعامة أضف حماية إساءة الاستخدام وحدود إنفاق على مستوى الاستضافة والمزود.
-- إنشاء commit أو PR لا يعني دمج الكود أو نشره أو اكتمال المنتج.
-
-## الأتمتة والتطوير الذاتي
-تعمل مهام GitHub Actions الموجودة على اكتشاف المشاريع ومراجعة المهارات ومحاولة تحسين محدودة. اقرأ نتائج التشغيل الفعلية قبل اعتبار أي تغيير ناجحًا. يظل الدمج النهائي ومراجعة أي مهارة خارجية بوابة بشرية.
-
-## خطة التنفيذ ومعيار الجاهزية
-راجع [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) لترتيب مراحل التنفيذ وبوابات القبول. لا يُعلن اكتمال المنتج قبل نجاح اختبارات الانحدار والتكامل الحي بعد النشر.
-
-## حصاد المهارات العامة المرخصة
-- [سير العمل الآلي](.github/workflows/harvest-public-skills.yml): يعمل عند تحديث محرك الحصاد، ويمكن تشغيله يدويًا أو أسبوعيًا.
-- [محرك حصاد المهارات](skill_harvester.py): يبحث عن ملفات `SKILL.md` العامة، ويفحص الترخيص، ويثبت revision، ويحتفظ ببيانات المصدر ونص الترخيص، وينسخ ملفات المساندة النصية المسموح بها إلى `bundle/` مع بيان بصماتها؛ كل ذلك في `skills/proposed/` دون تشغيلها أو تفعيلها.
-- [مزامنة سجل المهارات](skill_proposal_sync.py): عند طلب `/api/skills`، يسجل المقترحات الموجودة في المستودع ضمن دورة الحياة دون تفعيلها؛ لا تُحمّل إلى runtime إلا بعد اجتياز بوابات الاعتماد والتفعيل.
-- [تعليمات نشر API](API_DEPLOYMENT.md#نشر-مبدئي-على-render) و[ملف Render Blueprint](render.yaml). النشر الحي يحتاج ضبط أسرار مزود النموذج والبحث على منصة الاستضافة.
-
-
-## البحث العام واكتشاف مهارات GitHub
-محرك البحث يدعم البحث العام عبر Tavily عند تهيئة المفتاح، وDuckDuckGo كخيار احتياطي من الخادم دون مفتاح. اكتشاف المهارات يعمل في مسار مستقل يبحث في مستودعات GitHub العامة وملفات SKILL.md، ويفحص الترخيص والنسخة والمحتوى قبل اقتراح النسخ.  إذا فشل النموذج لكن الخادم متصل، تحاول الواجهة عرض نتائج /api/search بدل إيقاف البحث. إذا لم يُضبط عنوان الخادم في المتصفح وفشلت واجهات البحث العامة، تعرض الواجهة روابط بحث مباشرة إلى Google وBing وDuckDuckGo وReddit؛ هذه الروابط ليست نتائج جلبها الإيجنت.
+GitHub Pages cannot run the Python API. Deploy to a Python-capable host. A successful build does not prove live provider connectivity; verify health, search and chat after deployment. Free-host filesystems may be ephemeral.
