@@ -105,6 +105,37 @@ class SkillRuntimeTests(unittest.TestCase):
             )
             self.assertEqual([item["name"] for item in load_proposed_skills(root)], ["careful-research"])
 
+    def test_proposed_placeholder_and_shell_dependent_skills_are_not_sent_to_chat(self):
+        placeholder = """---
+name: generic-placeholder
+description: A generic task template.
+---
+# Generic task template
+1. Read the input the user points to. If none is given, ask for the file or text.
+2. Do the task described above, step by step, and keep the user's own wording where it matters.
+3. Show the result, then a short list of what you changed or found, so the user can check it.
+"""
+        shell_bound = """---
+name: github-pr-sweeper
+description: Manage GitHub pull requests using the GitHub CLI.
+---
+# GitHub pull request sweep
+1. List open pull requests and inspect every review comment carefully.
+2. Run gh pr view 123 and inspect the complete change set before modifying it.
+3. Use gh pr merge 123 only after all checks pass and the user requested a merge.
+4. Report the exact commit SHA and verify the resulting branch state.
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, document in (
+                ("generic-placeholder", placeholder),
+                ("github-pr-sweeper", shell_bound),
+            ):
+                directory = root / "skills" / "proposed" / name
+                directory.mkdir(parents=True)
+                (directory / "SKILL.md").write_text(document, encoding="utf-8")
+            self.assertEqual(load_proposed_skills(root), [])
+
     def test_loads_only_active_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
