@@ -356,7 +356,23 @@ async function submit(text){
  };
  try{
   if(!apiBase){
-   const fallback=researchMode.checked?await searchBrowserResearch(q):await searchBrowserSources(q);
+   let fallback=researchMode.checked?await searchBrowserResearch(q):await searchBrowserSources(q);
+   // If the quick browser pass returns too few sources, automatically broaden
+   // to three intent-preserving queries instead of making the user retry manually.
+   if(!researchMode.checked&&fallback.sources.length<3){
+    const expanded=await searchBrowserResearch(q);
+    const merged=[],seen=new Set();
+    for(const source of [...(fallback.sources||[]),...(expanded.sources||[])]){
+     const url=safeUrl(source.url);
+     if(!url)continue;
+     const key=url.split("#")[0].replace(/\/$/,"").toLowerCase();
+     if(seen.has(key))continue;
+     seen.add(key);merged.push({...source,url});
+    }
+    fallback={...expanded,sources:merged.slice(0,12),result_count:Math.min(merged.length,12),
+     answer:merged.length?"لم يرجع البحث السريع مصادر كافية؛ وسّعت البحث تلقائيًا إلى عدة استعلامات ومصادر عامة. هذه نتائج فعلية من واجهات عامة محدودة، وليست بحثًا شاملًا في الويب.":expanded.answer,
+     provider:expanded.provider||fallback.provider};
+   }
    if(compareModels.checked){
     fallback.answer="مقارنة النماذج غير متاحة دون خادم API. "+fallback.answer+"\n\nانشر الخادم واضبط مفاتيح مزودين على الأقل لتفعيل مقارنة الإجابات.";
    }
