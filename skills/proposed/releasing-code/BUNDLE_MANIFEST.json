@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "path": "references/notes.md",
+      "source_path": "src/skills/releasing-code/references/notes.md",
+      "source_url": "https://github.com/alexei-led/cc-thingz/blob/67226617abc07f5905954c57d7af7eb55196c2c9/src/skills/releasing-code/references/notes.md",
+      "bytes": 1950,
+      "sha256": "04df56ecc8e0a90151f56a769263ed635ce4d87322a35ebf894358beb7edf49b",
+      "executed": false
+    },
+    {
+      "path": "scripts/release_notes.py",
+      "source_path": "src/skills/releasing-code/scripts/release_notes.py",
+      "source_url": "https://github.com/alexei-led/cc-thingz/blob/67226617abc07f5905954c57d7af7eb55196c2c9/src/skills/releasing-code/scripts/release_notes.py",
+      "bytes": 15532,
+      "sha256": "4997725d2a7be7e538f23f18fa0b0882fbc43dc418b36e90584cc2e5013803fb",
+      "executed": false
+    }
+  ],
+  "total_bytes": 17482,
+  "policy": "review-only; no dependency install or execution"
+}
