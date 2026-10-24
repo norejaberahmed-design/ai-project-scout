@@ -102,8 +102,8 @@ def discover():
         return jsonify({"error":"UNAUTHORIZED","message":"Admin token is required for skill discovery."}), 401
     try:
         body=json_body(); limit=body.get("max_proposals",2)
-        if not isinstance(limit,int) or isinstance(limit,bool) or limit not in (1,2,3):
-            return jsonify({"error":"INVALID_LIMIT","message":"max_proposals must be 1, 2, or 3"}),400
+        if not isinstance(limit,int) or isinstance(limit,bool) or limit not in range(1,11):
+            return jsonify({"error":"INVALID_LIMIT","message":"max_proposals must be an integer from 1 to 10"}),400
         return jsonify(discover_skills(limit))
     except SkillError as exc:
         return jsonify({"error":"SKILL_DISCOVERY_FAILED","message":str(exc)}),502
