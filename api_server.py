@@ -15,7 +15,7 @@ import urllib.request
 from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Lock
-from urllib.parse import urlparse
+from model_providers import provider_config, list_provider_status, any_provider_configured, normalize_provider
 
 from skill_registry import list_skills as list_skill_records
 from skill_runtime import load_active_skills, load_proposed_skills, select_skills
@@ -155,15 +155,15 @@ def skill_registry_payload() -> dict:
     return {"active_runtime": active_runtime, "lifecycle_records": records, "proposal_sync": proposal_sync}
 
 
-def plan_search_query(question: str, skills: list[dict]) -> str:
-    """Use relevant active skills to refine web/GitHub search; fall back to the user's wording."""
+def plan_search_query(question: str, skills: list[dict], provider: str | None = None) -> str:
+    """Use relevant active skills to refine web search; fail back to the user's wording."""
     if not skills:
         return question.strip()[:MAX_QUERY_CHARS]
-    api_key = os.getenv("SCOUT_LLM_API_KEY", "").strip()
-    model = os.getenv("SCOUT_LLM_MODEL", "").strip()
-    endpoint = os.getenv("SCOUT_LLM_API_URL", "https://openrouter.ai/api/v1/chat/completions").strip()
-    parsed = urlparse(endpoint)
-    if not api_key or not model or parsed.scheme != "https" or not parsed.netloc:
+    try:
+        config = provider_config(provider)
+    except (ValueError, RuntimeError):
+        return question.strip()[:MAX_QUERY_CHARS]
+    if not config["configured"]:
         return question.strip()[:MAX_QUERY_CHARS]
     system = (
         "You are a search-query planner. Return exactly one concise web search query, no explanation. "
@@ -180,14 +180,14 @@ def plan_search_query(question: str, skills: list[dict]) -> str:
         "constraint": "Return a query of at most 300 characters, in the user's language when practical.",
     }
     payload = json.dumps({
-        "model": model,
+        "model": config["model"],
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": json.dumps(user, ensure_ascii=False)}],
         "temperature": 0,
         "max_tokens": 100,
     }).encode("utf-8")
-    request = urllib.request.Request(endpoint, data=payload, method="POST", headers={
-        "Authorization": "Bearer " + api_key,
+    request = urllib.request.Request(config["endpoint"], data=payload, method="POST", headers={
+        "Authorization": "Bearer " + config["api_key"],
         "Content-Type": "application/json",
         "Accept": "application/json",
         "User-Agent": "AI-Project-Scout-Search-Planner/1.0",
@@ -199,35 +199,34 @@ def plan_search_query(question: str, skills: list[dict]) -> str:
         if isinstance(query, str):
             query = " ".join(query.strip().split()).strip().strip('"').strip("'")
             if query and len(query) <= 300 and "\\n" not in query:
-                # Keep the original Arabic terms while adding the model's focused
-                # query; bilingual discovery must not silently discard Arabic intent.
                 if any(0x0600 <= ord(char) <= 0x06ff for char in question) and not any(0x0600 <= ord(char) <= 0x06ff for char in query):
                     return (question.strip() + " " + query)[:MAX_QUERY_CHARS]
                 return query
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, UnicodeError,
-            json.JSONDecodeError, KeyError, IndexError, TypeError):
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
+            UnicodeError, json.JSONDecodeError, KeyError, IndexError, TypeError):
         pass
     return question.strip()[:MAX_QUERY_CHARS]
 
 
-def generate_answer(question: str, search_result: dict, skills: list[dict] | None = None, candidate_skills: list[dict] | None = None) -> str:
-    api_key = os.getenv("SCOUT_LLM_API_KEY", "").strip()
-    model = os.getenv("SCOUT_LLM_MODEL", "").strip()
-    endpoint = os.getenv("SCOUT_LLM_API_URL", "https://openrouter.ai/api/v1/chat/completions").strip()
-    if not api_key or not model:
-        raise RuntimeError("إعداد النموذج ناقص: اضبط SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL في الخادم.")
-    parsed = urlparse(endpoint)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise RuntimeError("SCOUT_LLM_API_URL يجب أن يكون عنوان HTTPS صالحًا.")
+def generate_answer(question: str, search_result: dict, skills: list[dict] | None = None,
+                    candidate_skills: list[dict] | None = None, provider: str | None = None) -> str:
+    try:
+        config = provider_config(provider)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from None
+    if not config["configured"]:
+        if config["id"] == "legacy":
+            raise RuntimeError("إعداد النموذج ناقص: اضبط SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL أو اختر مزودًا مهيأ.")
+        raise RuntimeError("المزود المختار غير مهيأ على الخادم: " + config["label"] + ". أضف مفتاحه واسم النموذج في إعدادات الاستضافة.")
     if skills is None:
         skills = select_skills(question, load_active_skills(), limit=4)
     payload = json.dumps({
-        "model": model,
+        "model": config["model"],
         "messages": make_chat_messages(question, search_result, skills, candidate_skills),
         "temperature": 0.2,
     }).encode("utf-8")
-    request = urllib.request.Request(endpoint, data=payload, method="POST", headers={
-        "Authorization": "Bearer " + api_key,
+    request = urllib.request.Request(config["endpoint"], data=payload, method="POST", headers={
+        "Authorization": "Bearer " + config["api_key"],
         "Content-Type": "application/json",
         "Accept": "application/json",
         "User-Agent": "AI-Project-Scout/1.0",
@@ -236,9 +235,9 @@ def generate_answer(question: str, search_result: dict, skills: list[dict] | Non
         with urllib.request.urlopen(request, timeout=35) as response:
             raw = response.read(1_000_000)
     except urllib.error.HTTPError as exc:
-        raise RuntimeError("مزود النموذج أعاد HTTP " + str(exc.code) + ".") from None
+        raise RuntimeError("مزود النموذج " + config["label"] + " أعاد HTTP " + str(exc.code) + ".") from None
     except (urllib.error.URLError, TimeoutError):
-        raise RuntimeError("تعذر الاتصال بمزود النموذج؛ حاول لاحقًا.") from None
+        raise RuntimeError("تعذر الاتصال بمزود النموذج " + config["label"] + "؛ حاول لاحقًا.") from None
     try:
         data = json.loads(raw.decode("utf-8"))
         answer = data["choices"][0]["message"]["content"]
@@ -247,7 +246,6 @@ def generate_answer(question: str, search_result: dict, skills: list[dict] | Non
     if not isinstance(answer, str) or not answer.strip():
         raise RuntimeError("لم يرجع مزود النموذج إجابة نصية.")
     return answer.strip()[:20_000]
-
 
 class AgentHandler(BaseHTTPRequestHandler):
     server_version = "AIProjectScoutAPI/1.0"
@@ -296,6 +294,10 @@ class AgentHandler(BaseHTTPRequestHandler):
         if self.path == "/api/components":
             self._send(200, list_proposals())
             return
+        if self.path == "/api/providers":
+            self._send(200, {"providers": list_provider_status(),
+                             "default_provider": os.getenv("SCOUT_DEFAULT_PROVIDER", "legacy").strip().lower() or "legacy"})
+            return
         if self.path != "/api/health":
             self._send(404, {"error": "Not found"})
             return
@@ -304,7 +306,8 @@ class AgentHandler(BaseHTTPRequestHandler):
             "web_search_configured": bool(os.getenv("TAVILY_API_KEY")),
             "web_search_available": True,
             "web_search_provider": "Tavily with DuckDuckGo and Bing RSS fallbacks",
-            "model_configured": bool(os.getenv("SCOUT_LLM_API_KEY") and os.getenv("SCOUT_LLM_MODEL")),
+            "model_configured": any_provider_configured(),
+            "providers": list_provider_status(),
         })
 
     def do_POST(self):
@@ -391,12 +394,21 @@ class AgentHandler(BaseHTTPRequestHandler):
         if not isinstance(question, str) or not question.strip() or len(question) > MAX_QUERY_CHARS:
             self._send(400, {"error": "أدخل سؤالًا صالحًا لا يتجاوز 500 حرف."})
             return
-        if self.path == "/api/chat" and (
-            not os.getenv("SCOUT_LLM_API_KEY", "").strip()
-            or not os.getenv("SCOUT_LLM_MODEL", "").strip()
-        ):
-            self._send(503, {"error": "إعداد النموذج ناقص: اضبط SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL في الخادم."})
+        requested_provider = data.get("provider") if isinstance(data, dict) else None
+        try:
+            requested_provider = normalize_provider(requested_provider)
+        except ValueError as exc:
+            self._send(400, {"error": str(exc)})
             return
+        if self.path == "/api/chat":
+            try:
+                config = provider_config(requested_provider)
+            except (ValueError, RuntimeError) as exc:
+                self._send(400, {"error": str(exc)})
+                return
+            if not config["configured"]:
+                self._send(503, {"error": "المزود المختار غير مهيأ: " + config["label"] + ". أضف مفتاحه واسم النموذج في إعدادات الخادم."})
+                return
         try:
             # User queries search the public web. GitHub is reserved for the separate
             # SKILL.md discovery pipeline; repository metadata is never used as user-answer evidence.
@@ -412,16 +424,17 @@ class AgentHandler(BaseHTTPRequestHandler):
             if self.path == "/api/chat" and maybe_discover_skill_for_task(question, selected_skills, candidate_skills):
                 proposed_skills = load_proposed_skills()
                 candidate_skills = select_skills(question, proposed_skills, limit=2)
-            search_query = plan_search_query(question, selected_skills) if self.path == "/api/chat" else question
+            search_query = plan_search_query(question, selected_skills, requested_provider) if self.path == "/api/chat" else question
             found = search_web(search_query)
             if self.path == "/api/search":
                 self._send(200, found)
                 return
-            answer = generate_answer(question, found, skills=selected_skills, candidate_skills=candidate_skills)
+            answer = generate_answer(question, found, skills=selected_skills, candidate_skills=candidate_skills, provider=requested_provider)
             response_payload = {
                 "answer": answer,
                 "sources": found["results"],
                 "search_provider": found.get("provider", "غير محدد"),
+                "model_provider": requested_provider,
                 "source_count": len(found.get("results", [])),
                 "coverage_note": found.get("coverage_note", "لا تتوفر ملاحظة تغطية من مزود البحث."),
             }
