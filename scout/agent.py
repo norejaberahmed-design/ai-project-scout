@@ -119,12 +119,16 @@ def select_skills(query: str, skills: list[dict] | None = None, limit: int = 4) 
     return [x[1] for x in scored[:max(1, min(limit, 4))]]
 
 
+GENERIC_SKILL_NAMES = {"software-builder", "evidence-first-research", "structured-debugging"}
+
+
 def _skills_for_task(query: str) -> list[dict]:
-    """Prefer approved skills; harvest one licensed proposal when no existing skill fits."""
+    """Use specialized skills first; discover a candidate when only generic guidance fits."""
     global _last_auto_discovery
     active = select_skills(query, _active_skills())
-    if active:
-        return active
+    specialized = [skill for skill in active if skill.get("name") not in GENERIC_SKILL_NAMES]
+    if specialized:
+        return specialized
 
     proposed = _proposed_skills()
     matching = select_skills(query, proposed)
