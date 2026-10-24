@@ -95,6 +95,10 @@ def discover():
 
 @app.post("/api/skills/<name>/approve")
 def approve(name):
+    admin_token = config.setting("SCOUT_ADMIN_TOKEN")
+    supplied = request.headers.get("Authorization", "")
+    if not admin_token or supplied != "Bearer " + admin_token:
+        return jsonify({"error":"UNAUTHORIZED","message":"Admin approval token is missing or invalid."}), 401
     try: return jsonify(approve_skill(name))
     except FileNotFoundError as exc: return jsonify({"error":"PROPOSAL_NOT_FOUND","message":str(exc)}),404
     except FileExistsError as exc: return jsonify({"error":"ALREADY_ACTIVE","message":str(exc)}),409
