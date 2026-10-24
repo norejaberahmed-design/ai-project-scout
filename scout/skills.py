@@ -140,7 +140,10 @@ def discover_skills(max_proposals: int = 2) -> dict:
                     "html_url": metadata.get("html_url") or f"https://github.com/{full}",
                 })
 
-    for query in queries:
+    for query_index, query in enumerate(queries):
+        # Unauthenticated GitHub search has a much lower per-minute quota.
+        if query_index and not setting("GITHUB_TOKEN"):
+            time.sleep(1.1)
         url = "https://api.github.com/search/repositories?q=" + quote(query) + "&sort=updated&order=desc&per_page=15"
         try:
             payload = _github_get(url)
