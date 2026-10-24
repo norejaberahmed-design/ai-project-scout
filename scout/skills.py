@@ -96,7 +96,7 @@ def task_search_terms(task_query: str) -> list[str]:
     text = str(task_query or "").lower()
     words = re.findall(r"[a-z][a-z0-9+#.-]{1,30}", text)
     stop = {"please", "help", "want", "need", "make", "build", "create", "write", "with",
-            "from", "that", "this", "into", "using", "for", "and", "the", "you", "can"}
+            "from", "that", "this", "into", "using", "for", "and", "the", "you", "can", "github", "skill", "skills", "search", "discover", "find"}
     words = [word.strip(".-") for word in words if word not in stop and len(word.strip(".-")) > 1]
     arabic_map = {
         "تطبيق": ["web", "app", "application"], "موقع": ["website", "web"],
