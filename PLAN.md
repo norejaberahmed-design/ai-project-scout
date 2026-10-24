@@ -46,3 +46,24 @@ Require valid metadata, allowlisted license, license text, immutable revision, p
 5. Offline tests and CI.
 6. Deployment instructions and real live verification.
 A gate is complete only after its checks actually run.
+
+## Focused implementation plan: GitHub skill acquisition only
+
+The product's primary loop is:
+
+1. **Understand the task**: preserve the user's original request and derive a short GitHub search query from its technical keywords.
+2. **Search GitHub**: search public repository metadata and READMEs for task-relevant agent skills; use authenticated code search only when a server-side token is configured. Never search video platforms.
+3. **Inspect and reverse-engineer**: pin each repository to an immutable commit; inspect its tree, SKILL.md, README, license, dependency manifests, scripts, tests, and documented entry points. Produce a capability summary and identify what is reusable. Do not claim static inspection proves runtime behavior.
+4. **Acquire legally**: require a known allowlisted license and matching upstream license text; preserve source URL, commit, file paths, license text, and SHA-256.
+5. **Integrate as a proposal**: store the skill procedure and its reverse-engineering report in quarantine. For code-bearing tools, retain source as a separate quarantined package; do not import it into the live Python process, install dependencies, or execute it during discovery.
+6. **Use the acquired skill**: select the best matching active skill or reviewed proposal for the user's task, while keeping imported text untrusted and subordinate to system policy.
+7. **Verify**: offline unit tests and CI must cover query construction, repository filtering, revision pinning, license verification, provenance, duplicate prevention, and failure reporting.
+
+### Non-negotiable laws
+- GitHub is the discovery source for this product. No YouTube/video search.
+- Never fabricate a repository, skill, license, test result, or source.
+- Unknown or incompatible licenses are skipped.
+- Search and inspection failures are reported, not silently described as success.
+- Skill documents can guide the model; imported scripts/packages are not runnable skills until they have a separate sandbox, dependency review, tests, and explicit activation.
+- The first release focuses on finding and integrating procedural SKILL.md skills. A separate quarantined code-package lane is required before downloading and executing general-purpose libraries.
+- Do not activate new skills automatically; preserve rollback and source attribution.
