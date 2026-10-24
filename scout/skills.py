@@ -187,7 +187,6 @@ def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
     queries = []
     if task_terms:
         queries.append(" ".join(task_terms) + " skills in:readme stars:>=1")
-        queries.append(" ".join(task_terms) + " agent skill in:name,description stars:>=1")
     queries.extend([
         "agent-skills in:name stars:>=5",
         "SKILL.md in:readme stars:>=5",
