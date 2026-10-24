@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "PROVENANCE.json",
+      "source_path": "absorbed/harness/agent-harness-construction/PROVENANCE.json",
+      "source_url": "https://github.com/frankxai/claude-skills-library/blob/cc3ca001d42148215167c7177a8c966067c9b657/absorbed/harness/agent-harness-construction/PROVENANCE.json",
+      "bytes": 608,
+      "sha256": "dcc0e2f0a198de7d7bb0da4ad52f77a84c6c0a712358b8b5448d5440c1f6ba07",
+      "executed": false
+    }
+  ],
+  "total_bytes": 608,
+  "policy": "review-only; no dependency install or execution"
+}

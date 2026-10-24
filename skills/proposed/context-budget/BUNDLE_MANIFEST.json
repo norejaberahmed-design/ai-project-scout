@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "PROVENANCE.json",
+      "source_path": "absorbed/harness/context-budget/PROVENANCE.json",
+      "source_url": "https://github.com/frankxai/claude-skills-library/blob/cc3ca001d42148215167c7177a8c966067c9b657/absorbed/harness/context-budget/PROVENANCE.json",
+      "bytes": 583,
+      "sha256": "587c4d8d79e0870fd4ef3b446b372b8aa14501a4ebe050182ca464771e3f28b0",
+      "executed": false
+    }
+  ],
+  "total_bytes": 583,
+  "policy": "review-only; no dependency install or execution"
+}
