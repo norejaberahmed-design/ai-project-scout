@@ -27,6 +27,8 @@ from skill_harvester import run_harvest
 
 MAX_BODY_BYTES = 12_000
 MAX_QUERY_CHARS = 500
+MAX_HISTORY_MESSAGES = 8
+MAX_HISTORY_MESSAGE_CHARS = 1_200
 RATE_LIMIT_REQUESTS = 30
 RATE_LIMIT_WINDOW = 60
 MAX_RATE_LIMIT_CLIENTS = 10_000
@@ -90,7 +92,24 @@ def maybe_discover_skill_for_task(question: str, selected_skills: list[dict], ca
         return False
 
 
-def make_chat_messages(question: str, search_result: dict, skills: list[dict], candidate_skills: list[dict] | None = None) -> list[dict]:
+def sanitize_history(value) -> list[dict]:
+    """Accept bounded user/assistant turns; reject client-supplied system/tool roles."""
+    if not isinstance(value, list):
+        return []
+    cleaned = []
+    for item in value[-MAX_HISTORY_MESSAGES:]:
+        if not isinstance(item, dict) or item.get("role") not in {"user", "assistant"}:
+            continue
+        content = item.get("content")
+        if not isinstance(content, str):
+            continue
+        content = content.strip()[:MAX_HISTORY_MESSAGE_CHARS]
+        if content:
+            cleaned.append({"role": item["role"], "content": content})
+    return cleaned
+
+
+def make_chat_messages(question: str, search_result: dict, skills: list[dict], candidate_skills: list[dict] | None = None, history: list[dict] | None = None) -> list[dict]:
     sources = [{
         "title": item["title"], "url": item["url"], "snippet": item["snippet"], "source": item.get("source", "Web search")
     } for item in search_result.get("results", [])[:8]]
@@ -112,8 +131,10 @@ def make_chat_messages(question: str, search_result: dict, skills: list[dict], c
         "approved_internal_skills": skill_notes,
         "untrusted_external_skill_proposals": candidate_notes,
     }
+    safe_history = sanitize_history(history or [])
     return [
         {"role": "system", "content": system},
+        *safe_history,
         {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
     ]
 
@@ -209,7 +230,8 @@ def plan_search_query(question: str, skills: list[dict], provider: str | None = 
 
 
 def generate_answer(question: str, search_result: dict, skills: list[dict] | None = None,
-                    candidate_skills: list[dict] | None = None, provider: str | None = None) -> str:
+                    candidate_skills: list[dict] | None = None, provider: str | None = None,
+                    history: list[dict] | None = None) -> str:
     try:
         config = provider_config(provider)
     except ValueError as exc:
@@ -222,7 +244,7 @@ def generate_answer(question: str, search_result: dict, skills: list[dict] | Non
         skills = select_skills(question, load_active_skills(), limit=4)
     payload = json.dumps({
         "model": config["model"],
-        "messages": make_chat_messages(question, search_result, skills, candidate_skills),
+        "messages": make_chat_messages(question, search_result, skills, candidate_skills, history),
         "temperature": 0.2,
     }).encode("utf-8")
     request = urllib.request.Request(config["endpoint"], data=payload, method="POST", headers={
@@ -433,7 +455,8 @@ class AgentHandler(BaseHTTPRequestHandler):
             if self.path == "/api/search":
                 self._send(200, found)
                 return
-            answer = generate_answer(question, found, skills=selected_skills, candidate_skills=candidate_skills, provider=requested_provider)
+            history = sanitize_history(data.get("history", [])) if self.path == "/api/chat" else []
+            answer = generate_answer(question, found, skills=selected_skills, candidate_skills=candidate_skills, provider=requested_provider, history=history)
             response_payload = {
                 "answer": answer,
                 "sources": found["results"],
