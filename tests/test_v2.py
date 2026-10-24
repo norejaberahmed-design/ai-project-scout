@@ -84,3 +84,11 @@ def test_skill_approval_requires_admin_token(monkeypatch):
     monkeypatch.delenv("SCOUT_ADMIN_TOKEN", raising=False)
     response = webapp.app.test_client().post("/api/skills/not-a-skill/approve", json={})
     assert response.status_code == 401
+
+def test_arabic_task_selects_software_builder_skill():
+    skills = [
+        {"name":"software-builder","description":"Build software applications and implement code.", "content":"build"},
+        {"name":"evidence-first-research","description":"Research sources and verify evidence.", "content":"research"},
+    ]
+    selected = select_skills("أريد بناء تطبيق برمجي", skills)
+    assert selected[0]["name"] == "software-builder"
