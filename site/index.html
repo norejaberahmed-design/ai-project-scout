@@ -63,7 +63,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   <div class="examples"><button class="chipbtn" data-prompt="ابحث عن أحدث أدوات الوكلاء مفتوحة المصدر وقارن وظائفها ومصادرها">اكتشاف أدوات الذكاء الاصطناعي</button><button class="chipbtn" data-prompt="حلل هذا المشروع هندسيًا، وحدد ما يمكن اختباره بأمان وما لا يزال غير مثبت: https://github.com/">تحليل مستودع GitHub</button><button class="chipbtn" data-prompt="اقترح مهارة داخلية جديدة لتحسين البحث والتحقق، مع اختبار قبول ومخاطر واضحة">تحسين البحث والتحقق</button></div>
  </section>
  <section class="chat-shell" aria-label="منطقة المحادثة">
-  <div class="chat-head"><div><div class="chat-title">المحادثة</div><div class="chat-subtitle">إجابات واضحة ومصادر قابلة للفتح</div></div><span class="muted">● جلسة محادثة</span></div>
+  <div class="chat-head"><div><div class="chat-title">المحادثة</div><div class="chat-subtitle">إجابات واضحة ومصادر قابلة للفتح</div></div><button id="newchat" class="btn" type="button" aria-label="بدء محادثة جديدة">محادثة جديدة ↺</button></div>
   <section id="chat" class="chat" role="log" aria-live="polite" aria-label="رسائل المحادثة"><div class="bubble assistant">مرحبًا! اكتب سؤالك وسأبحث في المصادر المتاحة. إذا لم يكن خادم الذكاء الاصطناعي متصلًا، سأوضح ذلك ولن أقدّم نتائج محدودة على أنها بحث شامل. لا تضع مفاتيح API هنا.</div></section>
   <form id="form" class="composer"><div class="provider-row"><label for="modelprovider">نموذج الإجابة:</label><select id="modelprovider" aria-label="اختر مزود الذكاء الاصطناعي"><option value="legacy">الإعداد الحالي للخادم</option><option value="openai">ChatGPT / OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option></select><span id="providerhelp" class="provider-help">تظهر حالة الإعداد بعد اتصال الخادم.</span></div><div class="composebox"><textarea id="question" dir="auto" lang="ar" maxlength="500" placeholder="اكتب سؤالك هنا… (Enter للإرسال، Shift + Enter لسطر جديد)" aria-label="اكتب سؤالك" required></textarea><button id="send" class="send" type="submit">إرسال ↑</button></div><div class="composer-note"><span>المصادر العامة فقط · لا تُشغّل شيفرات خارجية تلقائيًا</span><span id="charcount">0 / 500</span></div></form>
  </section>
@@ -102,6 +102,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 const $=id=>document.getElementById(id);
 const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$("question"),send=$("send"),apiurl=$("apiurl"),apihelp=$("apihelp"),connectionBanner=$("connection-banner"),connectionTitle=$("connection-title"),connectionMessage=$("connection-message");
 const modelProvider=$("modelprovider"),providerHelp=$("providerhelp");
+let conversationHistory=[];
 let providerStatuses=[];
 modelProvider.value=(localStorage.getItem("scoutModelProvider")||"legacy");
 let apiBase=(localStorage.getItem("scoutApiBase")||"").trim().replace(/\/+$/,"");
@@ -109,6 +110,12 @@ let inspectedComponent=null;
 apiurl.value=apiBase;
 if(!apiBase){statusText.textContent="بحث ويب احتياطي — دون خادم";statusDot.className="dot";}
 function setStatus(message,state="neutral"){statusText.textContent=message;statusDot.className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");}
+function rememberTurn(userText,assistantText){
+ const user=String(userText||"").trim().slice(0,1200),assistant=String(assistantText||"").trim().slice(0,1200);
+ if(!user||!assistant)return;
+ conversationHistory.push({role:"user",content:user},{role:"assistant",content:assistant});
+ conversationHistory=conversationHistory.slice(-8);
+}
 function bubble(text,who="assistant",error=false){const el=document.createElement("div");el.className="bubble "+who+(error?" error":"");el.dir="auto";el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;return el;}
 function safeUrl(raw){try{const u=new URL(raw);return ["http:","https:"].includes(u.protocol)?u.href:null;}catch{return null;}}
 function renderSources(parent,sources){if(!Array.isArray(sources)||!sources.length)return;const wrap=document.createElement("div");wrap.className="sources";for(const s of sources.slice(0,8)){const url=safeUrl(s.url);if(!url)continue;const item=document.createElement("article");item.className="source";const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener noreferrer";a.textContent=s.title||url;item.appendChild(a);if(s.snippet){const p=document.createElement("p");p.textContent=s.snippet;item.appendChild(p);}wrap.appendChild(item);}if(wrap.childNodes.length)parent.appendChild(wrap);}
@@ -305,11 +312,13 @@ async function searchBrowserSources(q){
 
 async function submit(text){
  const q=(text||question.value).trim();if(!q||send.disabled)return;
+ let turnRemembered=false;
  bubble(q,"user");question.value="";send.disabled=true;setStatus("جارٍ البحث في الويب…");
  const pending=bubble("أبحث في الويب ثم أتحقق من المصادر…","assistant");
  pending.setAttribute("aria-busy","true");
  const showData=(data,status,message,state="ok")=>{
   pending.textContent=data.answer||message||"اكتمل البحث.";
+  if(!turnRemembered&&(data.answer||message)){rememberTurn(q,data.answer||message);turnRemembered=true;}
   pending.removeAttribute("aria-busy");
   renderSources(pending,data.sources);
   renderCoverage(pending,data);
@@ -329,7 +338,7 @@ async function submit(text){
   const timeout=setTimeout(()=>controller.abort(),45000);
   let response,data={};
   try{
-   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q,provider:modelProvider.value}),signal:controller.signal});
+   response=await fetch(apiBase+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({question:q,provider:modelProvider.value,history:conversationHistory.slice(-8)}),signal:controller.signal});
    try{data=await response.json();}catch{data={};}
   }finally{clearTimeout(timeout);}
   if(response.ok&&typeof data.answer==="string"&&data.answer.trim()){
@@ -372,6 +381,13 @@ async function submit(text){
  }finally{send.disabled=false;question.focus();}
 }
 $("form").addEventListener("submit",e=>{e.preventDefault();submit();});
+$("newchat").addEventListener("click",()=>{
+ conversationHistory=[];
+ chat.replaceChildren();
+ bubble("بدأت محادثة جديدة. اكتب سؤالك وسأبحث في المصادر المتاحة، ويمكنك متابعة الموضوع في الرسائل التالية.","assistant");
+ setStatus(apiBase?"محادثة جديدة":"بحث ويب احتياطي — دون خادم",apiBase?"ok":"neutral");
+ question.value="";question.focus();
+});
 $("saveapi").addEventListener("click",()=>{if(saveApi()){setStatus("تم حفظ عنوان الخادم","ok");connectionBanner.hidden=false;connectionTitle.textContent="تم حفظ العنوان؛ يلزم اختبار الاتصال";connectionMessage.textContent="اضغط «اختبار الاتصال» للتأكد من أن خادم البحث يعمل قبل الاعتماد عليه.";}});
 $("configure-api").addEventListener("click",()=>{const panel=document.querySelector(".settings");panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"});$("apiurl").focus();});
 $("checkapi").addEventListener("click",()=>{if(saveApi())checkApi();});
