@@ -41,10 +41,19 @@ def test_skill_selection_uses_relevant_skills():
     selected = select_skills("Help debug a Python traceback", skills)
     assert [s["name"] for s in selected] == ["python-debugging"]
 
-def test_search_fails_clearly_without_key(monkeypatch):
+def test_free_search_fallback_works_without_tavily_key(monkeypatch):
+    import scout.search as module
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    with pytest.raises(SearchError, match="SEARCH_NOT_CONFIGURED"):
-        web_search("latest AI agent framework")
+    class FakeDDGS:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def text(self, query, **kwargs):
+            return [{"title":"Search result","href":"https://example.com","body":"Evidence"}]
+    monkeypatch.setattr(module, "DDGS", FakeDDGS)
+    result = web_search("latest AI agent framework")
+    assert result[0]["url"] == "https://example.com"
+    assert result[0]["snippet"] == "Evidence"
 
 def test_health_never_returns_secret_values(monkeypatch):
     monkeypatch.setenv("SCOUT_LLM_API_KEY","super-secret-test-value")
