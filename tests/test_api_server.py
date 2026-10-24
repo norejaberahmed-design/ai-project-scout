@@ -160,12 +160,16 @@ class ApiServerTests(unittest.TestCase):
         }, clear=True), patch("api_server.urllib.request.urlopen", return_value=response) as opener, \
              patch("api_server.select_skills") as rerank:
             answer = api_server.generate_answer(
-                "Research this claim", {"results": [], "coverage_note": "test"}, skills=selected
+                "Research this claim", {"results": [], "coverage_note": "test"}, skills=selected,
+                history=[{"role": "user", "content": "Earlier question"},
+                         {"role": "assistant", "content": "Earlier answer"}],
             )
         self.assertEqual(answer, "Evidence-backed answer")
         rerank.assert_not_called()
         payload = json.loads(opener.call_args[0][0].data.decode("utf-8"))
-        user = json.loads(payload["messages"][1]["content"])
+        self.assertEqual(payload["messages"][1], {"role": "user", "content": "Earlier question"})
+        self.assertEqual(payload["messages"][2], {"role": "assistant", "content": "Earlier answer"})
+        user = json.loads(payload["messages"][3]["content"])
         self.assertEqual(user["approved_internal_skills"][0]["name"], "careful-research")
 
     def test_only_https_model_endpoint_is_allowed(self):
