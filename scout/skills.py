@@ -128,7 +128,8 @@ def task_search_terms(task_query: str) -> list[str]:
 
 def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
                                 tree_paths: list[str], license_spdx: str,
-                                skill_content: str = "") -> str:
+                                skill_content: str = "",
+                                repository_evidence: list[str] | None = None) -> str:
     """Create a reproducible static map of a skill repository without running its code."""
     names = [Path(path).name.lower() for path in tree_paths]
     readmes = [path for path in tree_paths if Path(path).name.lower().startswith("readme")][:3]
@@ -169,6 +170,10 @@ def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
         "- Likely entry points: " + (", ".join(entrypoints) if entrypoints else "not identified"),
         "- Source/script files (first 30): " + (", ".join(scripts) if scripts else "not identified"),
         "",
+        "## Source inspection evidence",
+        *(["### " + item.splitlines()[0] + "\\n" + "\\n".join(item.splitlines()[1:]) for item in (repository_evidence or [])]
+          if repository_evidence else ["No README, manifest, entry-point or test file could be inspected from the selected bounded set."]),
+        "",
         "## Reuse decision",
         "- The SKILL.md procedure may be supplied to the language model as guidance after selection.",
         "- Source scripts and dependencies are not imported, installed, or executed by discovery.",
@@ -176,6 +181,59 @@ def _reverse_engineering_report(repository: str, revision: str, skill_path: str,
         "- File-tree names are evidence of repository structure, not proof that a feature works.",
     ]
     return "\n".join(lines) + "\n"
+
+
+def _inspect_repository_files(owner: str, repo: str, revision: str,
+                              tree_paths: list[str]) -> list[str]:
+    """Read a tiny allowlisted set of public text files for static analysis only."""
+    readmes = [p for p in tree_paths if Path(p).name.lower() in {"readme.md", "readme.rst", "readme.txt"}][:1]
+    manifests = [p for p in tree_paths if Path(p).name.lower() in {
+        "pyproject.toml", "requirements.txt", "package.json", "setup.cfg", "go.mod", "cargo.toml"
+    }][:2]
+    entrypoints = [p for p in tree_paths if Path(p).name.lower() in {
+        "main.py", "app.py", "cli.py", "__main__.py", "index.js", "index.ts", "server.py"
+    }][:2]
+    tests = [p for p in tree_paths if re.search(r"(^|/)(tests?|specs?)(/|$)", p.lower()) and
+             Path(p).suffix.lower() in {".py", ".js", ".ts"}][:1]
+    selected = list(dict.fromkeys(readmes + manifests + entrypoints + tests))[:6]
+    evidence, total = [], 0
+    for path in selected:
+        if len(path) > 240 or path.startswith(".") or any(part in {"", ".", ".."} for part in Path(path).parts):
+            continue
+        try:
+            response = requests.get(
+                f"https://raw.githubusercontent.com/{owner}/{repo}/{revision}/{quote(path, safe='/')}",
+                timeout=10)
+        except requests.RequestException:
+            continue
+        if response.status_code != 200:
+            continue
+        raw = response.content
+        if not raw or len(raw) > 12000 or b"\\x00" in raw or total + len(raw) > 30000:
+            continue
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        if Path(path).name.lower().startswith("readme"):
+            lines = text.splitlines()[:35]
+            excerpt = "\\n".join(lines)[:3000]
+            evidence.append("README excerpt from " + path + ":\\n" + excerpt)
+        elif Path(path).suffix.lower() in {".toml", ".txt", ".json", ".cfg"}:
+            excerpt = "\\n".join(text.splitlines()[:50])[:3000]
+            evidence.append("Dependency/build manifest excerpt from " + path + ":\\n" + excerpt)
+        elif re.search(r"(^|/)(tests?|specs?)(/|$)", path.lower()):
+            test_names = [line.strip() for line in text.splitlines()
+                          if re.search(r"def test_|it\\(|describe\\(|test\\(", line)][:25]
+            evidence.append("Test declarations from " + path + ":\\n" +
+                            ("\\n".join(test_names) if test_names else "No conventional test names detected."))
+        else:
+            signatures = [line.strip() for line in text.splitlines()
+                          if re.match(r"^\\s*(?:import |from |def |class |async def |export |function |app\\.(?:get|post|route)|if __name__)", line)][:35]
+            evidence.append("Entry-point/source signatures from " + path + ":\\n" +
+                            ("\\n".join(signatures) if signatures else "No common entry-point signatures detected."))
+        total += len(raw)
+    return evidence
 
 
 def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
@@ -270,6 +328,8 @@ def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
                 in {"license", "license.md", "license.txt", "license-mit"}]
             if not license_paths:
                 skipped.append({"repository": full, "reason": "license text file not found"}); continue
+            repository_evidence = _inspect_repository_files(
+                owner, name, revision, [node.get("path", "") for node in nodes])
             lr = requests.get(f"https://raw.githubusercontent.com/{owner}/{name}/{revision}/{quote(license_paths[0], safe='/')}", timeout=15)
             if lr.status_code != 200 or not lr.text.strip() or not license_text_matches(repo["license"], lr.text):
                 skipped.append({"repository": full, "reason": "license text does not match declared SPDX license"}); continue
@@ -347,7 +407,7 @@ def discover_skills(max_proposals: int = 2, task_query: str = "") -> dict:
                 (dest / "REVERSE_ENGINEERING.md").write_text(
                     _reverse_engineering_report(repo["html_url"], revision, path,
                                                 [node.get("path", "") for node in nodes],
-                                                repo["license"], content),
+                                                repo["license"], content, repository_evidence),
                     encoding="utf-8")
                 manifest = {"name": slug, "description": meta["description"], "source_url": source_url,
                     "repository": full, "revision": revision, "path": path, "license": repo["license"],
