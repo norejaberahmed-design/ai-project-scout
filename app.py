@@ -12,7 +12,7 @@ from scout.skills import SkillError, approve_skill, discover_skills, list_skills
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
-_PUBLIC_DISCOVERY_COOLDOWN_SECONDS = 300
+_PUBLIC_DISCOVERY_COOLDOWN_SECONDS = 900
 _last_public_discovery_at = 0.0
 
 @app.after_request
