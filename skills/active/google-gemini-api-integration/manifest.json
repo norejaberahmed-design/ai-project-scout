@@ -1,0 +1,11 @@
+{
+  "name": "google-gemini-api-integration",
+  "description": "Build features with Google's public Gemini API and official SDK documentation, with secure keys and bounded tool use.",
+  "source_url": "https://ai.google.dev/gemini-api/docs",
+  "source_type": "official_public_documentation",
+  "license": "Original procedural guide; not copied from proprietary model internals",
+  "license_text_verified": false,
+  "sha256": "authored-in-repository",
+  "status": "active",
+  "note": "Authored guidance based on publicly documented API behavior; not a proprietary internal skill."
+}
