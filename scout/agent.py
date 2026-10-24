@@ -5,7 +5,7 @@ import time
 import yaml
 
 from .config import ACTIVE_DIR
-from .providers import chat_completion
+from .providers import ProviderError, chat_completion
 from .search import web_search
 from .skills import PROPOSED_DIR, SkillError, discover_skills
 
