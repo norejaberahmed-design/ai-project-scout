@@ -464,7 +464,7 @@ async function loadSkillRegistry(){
   const review=candidates.filter(s=>s.status==="candidate_requires_review"||s.status==="blocked_until_license_or_security_review").slice(0,5);
   if(review.length){
    candidateEl.replaceChildren();
-   review.forEach(skill=>addSkillCard(candidateEl,{name:skill.name,description:skill.description,meta:"الحالة: "+(skill.status==="candidate_requires_review"?"تحتاج مراجعة واختبار":"محجوبة حتى مراجعة الترخيص والأمان")+" · الترخيص: "+(skill.license_spdx||"غير معروف")+" · التقييم الاستدلالي: "+Number(skill.quality_score||0)+"/100",url:skill.source_url,label:"فتح المصدر"}));
+   review.forEach(skill=>addSkillCard(candidateEl,{name:skill.name,description:skill.description,meta:"الحالة: "+(skill.status==="candidate_requires_review"?"تحتاج مراجعة واختبار":"محجوبة حتى مراجعة الترخيص والأمان")+" · الترخيص: "+(skill.license_spdx||"غير معروف")+(Number.isFinite(Number(skill.quality_score))&&skill.quality_score!==undefined?" · التقييم الاستدلالي: "+Number(skill.quality_score)+"/100":""),url:skill.source_url,label:"فتح المصدر"}));
   }else{
    candidateEl.textContent="لا توجد مهارات خارجية مرشحة مسجلة. لم تُعلن أي مهارة خارجية مكتسبة.";
   }
