@@ -164,7 +164,7 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         upstream_document = _get_skill_text(canonical, info["revision"], upstream_path, fetcher)
         unsupported = [pattern.pattern for pattern in PLATFORM_DEPENDENCY_PATTERNS
                        if pattern.search(upstream_document)]
-        declares_runtime_tools = bool(re.search(r"(?im)^allowed-tools\\s*:", upstream_document))
+        declares_runtime_tools = bool(re.search(r"(?im)^allowed-tools\s*:", upstream_document))
         if unsupported or declares_runtime_tools:
             proposals.append({
                 "source_path": upstream_path,
