@@ -59,6 +59,7 @@ class ApiHttpIntegrationTests(unittest.TestCase):
             "SCOUT_LLM_API_KEY": "test-only-key",
             "SCOUT_LLM_MODEL": "test-model",
         }, clear=True), patch("api_server.search_web", return_value=search), \
+             patch("api_server.maybe_discover_skill_for_task", return_value=False), \
              patch("api_server.generate_answer", return_value="هذه إجابة اختبارية مدعومة بمصدر.") as generate:
             status, body, headers = self.request(
                 "/api/chat", method="POST", payload={"question": "اختبر البحث"},
