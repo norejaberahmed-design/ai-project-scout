@@ -46,7 +46,7 @@ def health():
     skills = list_skills()
     return jsonify({"status":"ok",
         "model_configured":bool(config.setting("SCOUT_LLM_API_KEY") and config.setting("SCOUT_LLM_MODEL")),
-        "web_search_configured":bool(config.setting("TAVILY_API_KEY")),
+        "web_search_configured":True, "web_search_provider":"tavily" if config.setting("TAVILY_API_KEY") else "duckduckgo-fallback",
         "github_token_configured":bool(config.setting("GITHUB_TOKEN")),
         "active_skills":len(skills["active"]), "proposed_skills":len(skills["proposed"])})
 
