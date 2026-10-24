@@ -466,3 +466,26 @@ def test_explicit_github_skill_request_triggers_discovery_even_with_matching_ski
     selected = module._skills_for_task("Search GitHub for skills to build a Flask app")
     assert calls == [(1, "Search GitHub for skills to build a Flask app")]
     assert selected and selected[0]["name"] == "github-skill-discovery"
+
+def test_agent_uses_hash_verified_supporting_skill_files_as_context(monkeypatch, tmp_path):
+    import hashlib
+    import json
+    import scout.agent as module
+    skill_dir = tmp_path / "active" / "api-helper"
+    skill_dir.mkdir(parents=True)
+    skill = "---\\nname: api-helper\\ndescription: Help integrate APIs safely.\\n---\\nUse the reference helper when writing integration code.\\n"
+    support = "def normalize_response(value):\\n    return str(value).strip()\\n"
+    (skill_dir / "SKILL.md").write_text(skill, encoding="utf-8")
+    support_path = skill_dir / "supporting_files" / "helper.py"
+    support_path.parent.mkdir()
+    support_path.write_text(support, encoding="utf-8")
+    (skill_dir / "manifest.json").write_text(json.dumps({
+        "source_url": "https://github.com/example/repo/blob/abc/skills/api/SKILL.md",
+        "supporting_files": [{"path": "supporting_files/helper.py",
+                              "sha256": hashlib.sha256(support.encode()).hexdigest()}]
+    }), encoding="utf-8")
+    monkeypatch.setattr(module, "ACTIVE_DIR", tmp_path / "active")
+    skills = module._active_skills()
+    assert len(skills) == 1
+    assert "normalize_response" in skills[0]["content"]
+    assert "never execute" in skills[0]["content"]
