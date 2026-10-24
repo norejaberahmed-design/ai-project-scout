@@ -119,6 +119,9 @@ class SkillRuntimeTests(unittest.TestCase):
             root = Path(tmp)
             db = root / "skills.sqlite"
             proposal = save_proposal(SAFE_SKILL, root)
+            bundle = Path(proposal["saved_path"]).parent / "bundle"
+            bundle.mkdir()
+            (bundle / "helper.py").write_text("# reviewed helper; never executed automatically\\n", encoding="utf-8")
             record = register_discovery(
                 "careful-research",
                 "https://github.com/example/careful-research",
@@ -154,6 +157,9 @@ class SkillRuntimeTests(unittest.TestCase):
             self.assertEqual([item["name"] for item in loaded], ["careful-research"])
             self.assertEqual(selected[0]["name"], "careful-research")
             self.assertEqual(activated["content_sha256"], record["content_sha256"])
+            active_bundle = root / "skills" / "active" / "careful-research" / "bundle" / "helper.py"
+            self.assertTrue(active_bundle.is_file())
+            self.assertIn("never executed automatically", active_bundle.read_text(encoding="utf-8"))
 
     def test_activation_refuses_changed_proposal_content(self):
         with tempfile.TemporaryDirectory() as tmp:
