@@ -26,7 +26,9 @@ assert.ok(submitHandler.includes("searchBrowserSources(q)"), "disconnected UI mu
 assert.ok(!submitHandler.includes("searchGitHubSkills(q)"), "general user queries must not be routed to GitHub skill discovery");
 assert.ok(!submitHandler.includes("searchGitHubRepositories"), "user answers must never search GitHub repositories");
 assert.ok(!submitHandler.includes("api.github.com/search/repositories"), "GitHub repository metadata must not be answer evidence");
-assert.ok(submitHandler.includes('fetch(apiBase+"/api/chat"'), "chat must call the answer backend");
+assert.ok(submitHandler.includes('fetch(apiBase+(compareModels.checked?"/api/compare":"/api/chat")'), "chat must call the answer backend or the optional multi-model comparison endpoint");
+assert.ok(html.includes('id="comparemodels"'), "chat UI must expose opt-in multi-model comparison");
+assert.ok(script.includes('"/api/compare"'), "UI must call the multi-model comparison endpoint when selected");
 assert.ok(submitHandler.includes('fetch(apiBase+"/api/search"'), "chat must show public-web results if model chat fails");
 assert.ok(script.includes("async function searchWikipedia(q)"), "no-backend fallback must fetch real Wikipedia results");
 assert.ok(script.includes("async function searchHackerNews(q)"), "no-backend fallback must search Hacker News");
