@@ -66,6 +66,28 @@ def check_rate_limit(client: str, now: float | None = None) -> bool:
         return True
 
 
+def maybe_discover_skill_for_task(question: str, selected_skills: list[dict], candidate_skills: list[dict], now: float | None = None) -> bool:
+    """Run one bounded skill search when a chat task has no relevant known skill.
+
+    The new result remains a proposal. The caller may use it as untrusted procedural
+    reference for this answer; it is never executed or silently activated.
+    """
+    global LAST_SKILL_DISCOVERY
+    if selected_skills or candidate_skills or not (question or "").strip():
+        return False
+    now = time.monotonic() if now is None else now
+    with SKILL_DISCOVERY_LOCK:
+        if LAST_SKILL_DISCOVERY is not None and now - LAST_SKILL_DISCOVERY < SKILL_DISCOVERY_COOLDOWN_SECONDS:
+            return False
+        # Reserve the cooldown before network I/O so concurrent chats cannot fan out.
+        LAST_SKILL_DISCOVERY = now
+    try:
+        run_harvest(limit=1)
+        return True
+    except (RuntimeError, ValueError, OSError):
+        return False
+
+
 def make_chat_messages(question: str, search_result: dict, skills: list[dict], candidate_skills: list[dict] | None = None) -> list[dict]:
     sources = [{
         "title": item["title"], "url": item["url"], "snippet": item["snippet"], "source": item.get("source", "Web search")
@@ -377,11 +399,17 @@ class AgentHandler(BaseHTTPRequestHandler):
             # User queries search the public web. GitHub is reserved for the separate
             # SKILL.md discovery pipeline; repository metadata is never used as user-answer evidence.
             # Active internal skills guide query planning and answer generation.
-            selected_skills = select_skills(question, load_active_skills(), limit=4)
+            active_skills = load_active_skills()
+            selected_skills = select_skills(question, active_skills, limit=4)
             # Proposals can contribute useful procedures to the answer, but are explicitly
             # labeled untrusted data and are never used to rewrite the search query.
             proposed_skills = load_proposed_skills() if self.path == "/api/chat" else []
             candidate_skills = select_skills(question, proposed_skills, limit=2) if self.path == "/api/chat" else []
+            # If this task matches no known skill, discover at most one candidate per cooldown
+            # window and make it available as untrusted reference in the same chat turn.
+            if self.path == "/api/chat" and maybe_discover_skill_for_task(question, selected_skills, candidate_skills):
+                proposed_skills = load_proposed_skills()
+                candidate_skills = select_skills(question, proposed_skills, limit=2)
             search_query = plan_search_query(question, selected_skills) if self.path == "/api/chat" else question
             found = search_web(search_query)
             if self.path == "/api/search":
