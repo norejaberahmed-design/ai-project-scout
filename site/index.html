@@ -94,7 +94,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   <div class="skill-group" style="margin-top:20px"><h3>المكتبات المستوردة إلى مساحة المراجعة</h3><div id="component-list"><div class="skill-empty">جارٍ التحقق من قائمة المكتبات…</div></div><button id="refresh-components" class="btn" type="button" style="margin-top:12px">تحديث القائمة ↻</button></div>
  </section>
 </section>
-<details class="settings"><summary>إعداد اتصال الخادم</summary><label for="apiurl">عنوان خادم الإيجنت (API base URL)</label><input id="apiurl" inputmode="url" autocomplete="url" placeholder="https://your-api-host.example" spellcheck="false"><div class="settingrow"><button class="btn" id="saveapi" type="button">حفظ العنوان</button><button class="btn" id="checkapi" type="button">اختبار الاتصال</button></div><div id="apihelp" class="notice">هذا العنوان ليس سرًا. تُضبط مفاتيح البحث والنموذج داخل بيئة الخادم فقط، ويُسمح بأصل GitHub Pages ضمن SCOUT_ALLOWED_ORIGINS.</div></details>
+<details class="settings"><summary>إعداد اتصال الخادم</summary><label for="apiurl">عنوان خادم الإيجنت (API base URL)</label><input id="apiurl" inputmode="url" autocomplete="url" placeholder="https://your-api-host.example" spellcheck="false"><div class="settingrow"><button class="btn" id="saveapi" type="button">حفظ العنوان</button><button class="btn" id="checkapi" type="button">اختبار الاتصال</button></div><div id="apihelp" class="notice">هذا العنوان ليس سرًا. من دون خادم API يعمل البحث الاحتياطي المحدود في بعض واجهات البيانات العامة فقط، ولا يعادل بحثًا عامًا شاملًا أو إجابة ذكاء اصطناعي. اضبط مفاتيح البحث والنموذج في الخادم فقط.</div></details>
 <footer class="foot">المفاتيح السرية لا تُحفظ في الواجهة. اكتشاف المصدر لا يعني أنه آمن أو يعمل؛ التفعيل والدمج يتطلبان تحققًا ومراجعة.</footer>
 </main>
 <script>
@@ -104,7 +104,7 @@ const statusText=$("status"),statusDot=$("statusdot"),chat=$("chat"),question=$(
 let apiBase=(localStorage.getItem("scoutApiBase")||"").trim().replace(/\/+$/,"");
 let inspectedComponent=null;
 apiurl.value=apiBase;
-if(!apiBase){statusText.textContent="وضع المتصفح — بحث GitHub";statusDot.className="dot";}
+if(!apiBase){statusText.textContent="بحث ويب احتياطي — دون خادم";statusDot.className="dot";}
 function setStatus(message,state="neutral"){statusText.textContent=message;statusDot.className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");}
 function bubble(text,who="assistant",error=false){const el=document.createElement("div");el.className="bubble "+who+(error?" error":"");el.dir="auto";el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;return el;}
 function safeUrl(raw){try{const u=new URL(raw);return ["http:","https:"].includes(u.protocol)?u.href:null;}catch{return null;}}
@@ -265,7 +265,7 @@ async function searchBrowserSources(q){
  const counts={};for(const item of unique)counts[item.source]=(counts[item.source]||0)+1;
  const notes=Object.entries(counts).map(([name,count])=>name+": "+count);
  const answer=unique.length?"اكتملت عملية البحث المباشر في مصادر عامة متعددة: "+notes.join("، ")+". هذه نتائج مسترجعة فعليًا وليست إجابة مولّدة بنموذج لغوي. افتح المصادر وتحقق من المعلومات؛ البحث الأوسع والإجابة المركبة يحتاجان خادم API.":"لم تُسترجع نتائج من واجهات البحث العامة المتاحة في هذه المحاولة. قد تحجب الشبكة بعض الواجهات أو تفرض قيودًا؛ لم تُستخدم مستودعات GitHub كمصادر للإجابة.";
- return {answer,sources:unique.slice(0,12),provider:"Public web APIs (browser fallback)",result_count:unique.length,source_counts:counts,failed_sources:failed.slice(0,5),coverage_note:"بحث احتياطي مباشر عبر Wikipedia وHacker News، ويضيف Stack Exchange وnpm للأسئلة البرمجية وCrossref/OpenAlex للبحث العلمي. هذا ليس فهرس ويب شاملًا. اكتشاف المهارات منفصل ويستخدم GitHub فقط."};
+ return {answer,sources:unique.slice(0,12),provider:"Public web APIs (browser fallback)",result_count:unique.length,source_counts:counts,failed_sources:failed.slice(0,5),coverage_note:"بحث احتياطي محدود عبر Wikipedia وHacker News، ويضيف Stack Exchange وnpm للأسئلة البرمجية وCrossref/OpenAlex للبحث العلمي. هذا ليس بحث ويب شاملًا مثل محركات البحث المتخصصة، وقد تمنع سياسة المتصفح بعض المصادر. للبحث العام والإجابة الذكية استخدم خادم API المنشور. اكتشاف المهارات منفصل ويستخدم GitHub فقط."};
 }
 
 async function submit(text){
