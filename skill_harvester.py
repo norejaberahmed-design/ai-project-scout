@@ -12,7 +12,7 @@ import os
 import re
 import urllib.parse
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from component_acquisition import (
     ALLOWED_LICENSES,
@@ -20,6 +20,7 @@ from component_acquisition import (
     inspect_repository,
     parse_repository_url,
     request_json,
+    _safe_relative_path,
 )
 from skill_registry import register_discovery, transition_skill
 from skill_runtime import inspect_candidate, save_proposal
@@ -29,6 +30,8 @@ API = "https://api.github.com"
 MAX_REPOSITORIES = 10
 MAX_PROPOSALS = 3
 MAX_SKILL_BYTES = 20_000
+MAX_SUPPORT_FILES = 12
+MAX_SUPPORT_BYTES = 100_000
 DENIED_NAMES = {"", "skill", "skills", "default", "template", "example"}
 # Seed a high-value, MIT-licensed general agent-skills repository before broad discovery.
 SEED_REPOSITORIES = ("https://github.com/obra/superpowers",)
@@ -169,15 +172,45 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
             })
             continue
         referenced_docs = set(LOCAL_MARKDOWN_REFERENCE.findall(upstream_document))
-        if referenced_docs:
-            # The runtime currently loads one SKILL.md, not arbitrary upstream reference trees.
-            # Refuse incomplete copies rather than pretending referenced docs were imported.
+        skill_parent = PurePosixPath(upstream_path).parent
+        support_candidates = []
+        for tree_item in tree_data.get("tree", []):
+            if not isinstance(tree_item, dict) or tree_item.get("type") != "blob" or tree_item.get("mode") == "120000":
+                continue
+            support_path = str(tree_item.get("path", ""))
+            if not support_path or support_path == upstream_path:
+                continue
+            safe_path = _safe_relative_path(support_path)
+            if safe_path is None:
+                continue
+            parent = PurePosixPath(support_path).parent
+            in_skill_folder = str(skill_parent) != "." and (parent == skill_parent or str(parent).startswith(str(skill_parent) + "/"))
+            explicitly_referenced = PurePosixPath(support_path).name in referenced_docs
+            if in_skill_folder or (str(skill_parent) == "." and explicitly_referenced):
+                size = tree_item.get("size")
+                if isinstance(size, int) and 0 <= size <= MAX_SKILL_BYTES:
+                    support_candidates.append({"path": support_path, "size": size})
+        support_candidates.sort(key=lambda item: item["path"].lower())
+        support_candidates = support_candidates[:MAX_SUPPORT_FILES]
+        support_candidates = [item for item in support_candidates if item["size"] > 0]
+        available_basenames = {PurePosixPath(item["path"]).name for item in support_candidates}
+        missing_references = sorted(name for name in referenced_docs if name not in available_basenames)
+        if missing_references:
             proposals.append({
                 "source_path": upstream_path,
                 "status": "SKIPPED_SUPPORT_FILES_NOT_BUNDLED",
-                "referenced_files": sorted(referenced_docs)[:12],
+                "referenced_files": missing_references[:12],
             })
             continue
+        if sum(item["size"] for item in support_candidates) > MAX_SUPPORT_BYTES:
+            bounded_support = []
+            support_total = 0
+            for support_item in support_candidates:
+                if support_total + support_item["size"] > MAX_SUPPORT_BYTES:
+                    continue
+                bounded_support.append(support_item)
+                support_total += support_item["size"]
+            support_candidates = bounded_support
         checked = inspect_candidate(upstream_document)
         if not checked.get("valid"):
             proposals.append({
@@ -210,6 +243,8 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
             f"- Declared SPDX license: {info['license_spdx']}\n"
             "- Import status: untrusted proposal; not executed, installed, or activated.\n"
             "- The original license text is preserved in UPSTREAM_LICENSE.txt.\n"
+            + ("- Related source/document files are bundled under bundle/ for review only.\n"
+               if support_candidates else "- No additional eligible support files were bundled.\n")
         )
         if len(document.encode("utf-8")) > MAX_SKILL_BYTES:
             proposals.append({"source_path": upstream_path, "name": name, "status": "REJECTED_SIZE_LIMIT"})
@@ -244,6 +279,41 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
         )
         (proposal_dir / "ATTRIBUTION.md").write_text(attribution, encoding="utf-8")
         (proposal_dir / "UPSTREAM_LICENSE.txt").write_text(upstream_license, encoding="utf-8")
+        bundle_manifest = []
+        bundle_total = 0
+        for support_item in support_candidates:
+            try:
+                support_text = _get_skill_text(canonical, info["revision"], support_item["path"], fetcher)
+            except (RuntimeError, ValueError):
+                continue
+            support_bytes = support_text.encode("utf-8")
+            if len(support_bytes) != support_item["size"] or len(support_bytes) > MAX_SKILL_BYTES:
+                continue
+            if bundle_total + len(support_bytes) > MAX_SUPPORT_BYTES:
+                continue
+            source_path_obj = PurePosixPath(support_item["path"])
+            relative = source_path_obj.relative_to(skill_parent) if str(skill_parent) != "." else source_path_obj
+            if not relative.parts or any(part in {"", ".", ".."} for part in relative.parts):
+                continue
+            target = proposal_dir / "bundle" / Path(*relative.parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if (proposal_dir / "bundle").resolve() not in target.resolve().parents:
+                raise RuntimeError("Unsafe bundled skill path.")
+            target.write_text(support_text, encoding="utf-8")
+            bundle_total += len(support_bytes)
+            bundle_manifest.append({
+                "path": relative.as_posix(),
+                "source_path": support_item["path"],
+                "source_url": f"{info['repository_url']}/blob/{info['revision']}/{urllib.parse.quote(support_item['path'], safe='/')}",
+                "bytes": len(support_bytes),
+                "sha256": hashlib.sha256(support_bytes).hexdigest(),
+                "executed": False,
+            })
+        (proposal_dir / "BUNDLE_MANIFEST.json").write_text(
+            json.dumps({"files": bundle_manifest, "total_bytes": bundle_total,
+                        "policy": "review-only; no dependency install or execution"},
+                       ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
         source_url = (
             f"{info['repository_url']}/blob/{info['revision']}/"
             f"{urllib.parse.quote(upstream_path, safe='/')}"
@@ -257,14 +327,14 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
                     f"GitHub repository metadata and LICENSE text checked at revision {info['revision']}; "
                     "license is on the explicit acquisition allowlist."
                 ),
-                inspected_files=[upstream_path, *info.get("license_file_paths", [])],
+                inspected_files=[upstream_path, *info.get("license_file_paths", []), *[item["source_path"] for item in bundle_manifest]],
                 evidence={
                     "capability": checked_final["metadata"].get("description", ""),
                     "repository": info["repository"],
                     "source_path": upstream_path,
                     "source_revision": info["revision"],
                     "license_text_verified": True,
-                    "static_skill_validation": checked_final,
+                    "static_skill_validation": checked_final,\n                    "bundled_support_files": bundle_manifest,
                     "policy": "proposal only; human review required",
                 },
                 risk_flags=[],
