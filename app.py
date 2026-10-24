@@ -118,10 +118,12 @@ def discover():
                     "error":"DISCOVERY_COOLDOWN",
                     "message":f"Public skill discovery is rate-limited. Try again in about {int(remaining)+1} seconds."
                 }),429
+        if not is_admin:
+            # Start the cooldown before network work so repeated failures cannot
+            # hammer GitHub's unauthenticated API quota.
+            _last_public_discovery_at = time.monotonic()
         result = discover_skills(limit)
         result["access_mode"] = "admin" if is_admin else "public_limited"
-        if not is_admin:
-            _last_public_discovery_at = time.monotonic()
         return jsonify(result)
     except SkillError as exc:
         return jsonify({"error":"SKILL_DISCOVERY_FAILED","message":str(exc)}),502
