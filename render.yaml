@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ai-project-scout-api
+    name: ai-project-scout-v2
     runtime: docker
     plan: free
     healthCheckPath: /api/health
@@ -8,11 +8,15 @@ services:
     envVars:
       - key: SCOUT_API_HOST
         value: 0.0.0.0
+      - key: SCOUT_API_PORT
+        value: "8080"
       - key: SCOUT_ALLOWED_ORIGINS
-        value: https://norejaberahmed-design.github.io
+        value: "*"
+      - key: SCOUT_LLM_API_KEY
+        sync: false
+      - key: SCOUT_LLM_MODEL
+        sync: false
       - key: SCOUT_LLM_API_URL
         value: https://openrouter.ai/api/v1/chat/completions
-      - key: SCOUT_AUTO_ACQUIRE_COMPONENTS
-        value: "false"
-      - key: SCOUT_SKILL_DB_PATH
-        value: data/skills.sqlite
+      - key: TAVILY_API_KEY
+        sync: false
