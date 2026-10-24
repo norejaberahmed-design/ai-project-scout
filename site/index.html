@@ -218,42 +218,54 @@ async function searchWikipedia(q){
  }
  return results.slice(0,5);
 }
-async function searchGitHubRepositories(q){
- const params=new URLSearchParams({q:String(q||"").trim().slice(0,120)+" in:name,description,readme",sort:"updated",order:"desc",per_page:"5"});
- const response=await fetch("https://api.github.com/search/repositories?"+params.toString(),{
-  headers:{Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},
-  signal:AbortSignal.timeout(9000)
- });
- const data=await response.json().catch(()=>({}));
- if(!response.ok)throw new Error("GitHub API HTTP "+response.status+": "+String(data.message||"تعذر البحث"));
- return (Array.isArray(data.items)?data.items:[]).filter(item=>!item.archived&&!item.fork).map(item=>({
-  title:"GitHub: "+String(item.full_name||"مستودع"),
-  url:String(item.html_url||""),
-  snippet:cleanSnippet(String(item.description||"لا يوجد وصف.")+" · النجوم: "+Number(item.stargazers_count||0)+" · الترخيص: "+String(item.license?.spdx_id||"غير معروف")),
-  source:"GitHub repository"
- })).filter(item=>safeUrl(item.url)).slice(0,5);
+async function searchHackerNews(q){
+ const url="https://hn.algolia.com/api/v1/search?"+new URLSearchParams({query:q,tags:"story",hitsPerPage:"5"}).toString();
+ const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
+ if(!response.ok)throw new Error("Hacker News HTTP "+response.status);
+ const data=await response.json();
+ return (Array.isArray(data.hits)?data.hits:[]).filter(x=>x.objectID&&x.title).map(x=>({title:"Hacker News: "+cleanSnippet(x.title,240),url:safeUrl(x.url)||("https://news.ycombinator.com/item?id="+encodeURIComponent(x.objectID)),snippet:cleanSnippet(x.story_text||x.comment_text||x.title,650),source:"Hacker News",date:x.created_at||""})).slice(0,5);
+}
+async function searchStackExchange(q){
+ const params=new URLSearchParams({order:"desc",sort:"relevance",q:q,site:"stackoverflow",pagesize:"5",filter:"default"});
+ const response=await fetch("https://api.stackexchange.com/2.3/search/advanced?"+params.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
+ if(!response.ok)throw new Error("Stack Exchange HTTP "+response.status);
+ const data=await response.json();
+ return (Array.isArray(data.items)?data.items:[]).map(x=>({title:"Stack Overflow: "+cleanSnippet(x.title,240),url:safeUrl(x.link),snippet:cleanSnippet("التصويت: "+Number(x.score||0)+" · الإجابات: "+Number(x.answer_count||0)+" · "+(x.is_answered?"تمت الإجابة":"لم تُقبل إجابة"),650),source:"Stack Exchange",date:x.last_activity_date?new Date(x.last_activity_date*1000).toISOString().slice(0,10):""})).filter(x=>x.url).slice(0,5);
+}
+async function searchCrossref(q){
+ const params=new URLSearchParams({query:q,rows:"5",select:"title,URL,author,published,container-title"});
+ const response=await fetch("https://api.crossref.org/works?"+params.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
+ if(!response.ok)throw new Error("Crossref HTTP "+response.status);
+ const data=await response.json();
+ return (Array.isArray(data?.message?.items)?data.message.items:[]).map(x=>{const title=Array.isArray(x.title)?x.title[0]:"";const author=Array.isArray(x.author)?x.author.slice(0,3).map(a=>[a.given,a.family].filter(Boolean).join(" ")).join(", "):"";const parts=x.published?.["date-parts"]?.[0]||[];return {title:"بحث علمي: "+cleanSnippet(title,240),url:safeUrl(x.URL),snippet:cleanSnippet((author?"المؤلفون: "+author+" · ":"")+(parts.length?"تاريخ النشر: "+parts.join("-")+" · ":"")+(Array.isArray(x["container-title"])?x["container-title"][0]:""),650),source:"Crossref",date:parts.join("-")};}).filter(x=>x.title.length>10&&x.url).slice(0,5);
+}
+async function searchOpenAlex(q){
+ const params=new URLSearchParams({search:q,"per-page":"5","select":"id,doi,title,publication_year,authorships,primary_location"});
+ const response=await fetch("https://api.openalex.org/works?"+params.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
+ if(!response.ok)throw new Error("OpenAlex HTTP "+response.status);
+ const data=await response.json();
+ return (Array.isArray(data.results)?data.results:[]).map(x=>{const authors=Array.isArray(x.authorships)?x.authorships.slice(0,3).map(a=>a.author?.display_name).filter(Boolean).join(", "):"";return {title:"OpenAlex: "+cleanSnippet(x.title,240),url:safeUrl(x.doi)||safeUrl(x.primary_location?.landing_page_url)||safeUrl(x.id),snippet:cleanSnippet((authors?"المؤلفون: "+authors+" · ":"")+(x.publication_year?"سنة النشر: "+x.publication_year:""),650),source:"OpenAlex",date:x.publication_year?String(x.publication_year):""};}).filter(x=>x.title.length>10&&x.url).slice(0,5);
+}
+async function searchNpm(q){
+ const response=await fetch("https://registry.npmjs.org/-/v1/search?"+new URLSearchParams({text:q,size:"5"}).toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
+ if(!response.ok)throw new Error("npm Registry HTTP "+response.status);
+ const data=await response.json();
+ return (Array.isArray(data.objects)?data.objects:[]).map(x=>({title:"npm package: "+cleanSnippet(x.package?.name,180),url:safeUrl(x.package?.links?.npm),snippet:cleanSnippet(x.package?.description||"لا يوجد وصف.",650),source:"npm Registry",date:x.package?.date||""})).filter(x=>x.title.length>12&&x.url).slice(0,5);
 }
 async function searchBrowserSources(q){
- const isSoftware=/\b(ai|agent|skill|skills|github|repo|repository|python|javascript|typescript|library|framework|api|code|coding|programming|open.?source|llm|rag|model)\b|ذكاء اصطناعي|مهار|برمج|كود|مستودع|مكتبة|وكيل|ايجنت/i.test(q);
- const tasks=[searchWikipedia(q)];
- if(isSoftware)tasks.push(searchGitHubRepositories(q));
- const settled=await Promise.allSettled(tasks);
- const sources=[];
- for(const result of settled){
-  if(result.status==="fulfilled"&&Array.isArray(result.value))sources.push(...result.value);
- }
- const unique=[];const seen=new Set();
- for(const source of sources){if(!seen.has(source.url)){seen.add(source.url);unique.push(source);}}
- const githubCount=unique.filter(item=>item.source==="GitHub repository").length;
- const wikiCount=unique.filter(item=>item.source.startsWith("Wikipedia")).length;
- const notes=[];
- if(wikiCount)notes.push("Wikipedia: "+wikiCount);
- if(githubCount)notes.push("GitHub: "+githubCount);
- const answer=unique.length
-  ?"استُرجعت نتائج فعلية من المصادر العامة التالية: "+notes.join("، ")+". هذه نسخة بحث احتياطية داخل المتصفح وليست إجابة مولّدة بنموذج لغوي. افتح المصادر وتحقق من المعلومات؛ للبحث العام الأوسع والإجابة الذكية، اربط خادم API."
-  :"لم تُسترجع نتائج من Wikipedia أو GitHub لهذه المحاولة. قد تكون واجهة المصدر محجوبة أو وصل البحث إلى حد الطلبات؛ لا أعرض روابط بحث مباشرة على أنها نتائج مسترجعة.";
- return {answer,sources:unique.slice(0,10),provider:"Wikipedia"+(isSoftware?" + GitHub":""),result_count:unique.length,
-  coverage_note:"نطاق هذا الوضع الاحتياطي محدود إلى Wikipedia وGitHub عند ملاءمة السؤال. لا يمثّل تغطية شاملة للويب ولا يستخدم نموذجًا لغويًا."};
+ const software=/\b(ai|agent|skill|skills|python|javascript|typescript|library|framework|api|code|coding|programming|open.?source|llm|rag|model|package|npm|debug|error|software|developer)\b|ذكاء اصطناعي|مهار|برمج|كود|مكتبة|وكيل|ايجنت|تطبيق|خطأ برمجي|مشكلة تقنية/i.test(q);
+ const research=/\b(research|paper|study|scientific|academic|evidence|clinical|journal|publication)\b|بحث علمي|دراسة|دراسات|علمي|أبحاث|ابحاث|دليل علمي/i.test(q);
+ const tasks=[searchWikipedia(q),searchHackerNews(q)];
+ if(software)tasks.push(searchStackExchange(q),searchNpm(q));
+ if(research||!software)tasks.push(searchCrossref(q),searchOpenAlex(q));
+ const settled=await Promise.allSettled(tasks),sources=[],failed=[];
+ for(const result of settled){if(result.status==="fulfilled"&&Array.isArray(result.value))sources.push(...result.value);else if(result.status==="rejected")failed.push(String(result.reason?.message||"مصدر غير متاح"));}
+ const unique=[],seen=new Set();
+ for(const source of sources){const url=safeUrl(source.url);if(!url||seen.has(url))continue;seen.add(url);source.url=url;unique.push(source);}
+ const counts={};for(const item of unique)counts[item.source]=(counts[item.source]||0)+1;
+ const notes=Object.entries(counts).map(([name,count])=>name+": "+count);
+ const answer=unique.length?"اكتملت عملية البحث المباشر في مصادر عامة متعددة: "+notes.join("، ")+". هذه نتائج مسترجعة فعليًا وليست إجابة مولّدة بنموذج لغوي. افتح المصادر وتحقق من المعلومات؛ البحث الأوسع والإجابة المركبة يحتاجان خادم API.":"لم تُسترجع نتائج من واجهات البحث العامة المتاحة في هذه المحاولة. قد تحجب الشبكة بعض الواجهات أو تفرض قيودًا؛ لم تُستخدم مستودعات GitHub كمصادر للإجابة.";
+ return {answer,sources:unique.slice(0,12),provider:"Public web APIs (browser fallback)",result_count:unique.length,source_counts:counts,failed_sources:failed.slice(0,5),coverage_note:"بحث احتياطي مباشر عبر Wikipedia وHacker News، ويضيف Stack Exchange وnpm للأسئلة البرمجية وCrossref/OpenAlex للبحث العلمي. هذا ليس فهرس ويب شاملًا. اكتشاف المهارات منفصل ويستخدم GitHub فقط."};
 }
 
 async function submit(text){
