@@ -24,16 +24,16 @@ class ApiServerTests(unittest.TestCase):
             self.assertFalse(api_server.maybe_discover_skill_for_task("Build another tool", [], [], now=101))
             harvest.assert_called_once_with(limit=1)
 
-    def test_task_skill_discovery_skips_when_a_relevant_skill_exists(self):
+    def test_task_skill_discovery_runs_when_only_baseline_skill_exists(self):
         api_server.LAST_SKILL_DISCOVERY = None
-        with patch("api_server.run_harvest") as harvest:
-            self.assertFalse(api_server.maybe_discover_skill_for_task(
+        with patch("api_server.run_harvest", return_value={"proposals_created": 1}) as harvest:
+            self.assertTrue(api_server.maybe_discover_skill_for_task(
                 "Write tests", [{"name": "testing"}], [], now=100
             ))
             self.assertFalse(api_server.maybe_discover_skill_for_task(
-                "Write tests", [], [{"name": "test-skill"}], now=101
+                "Write tests", [], [{"name": "task-specific-test-skill"}], now=101
             ))
-            harvest.assert_not_called()
+            harvest.assert_called_once_with(limit=1)
 
     def test_task_skill_discovery_fails_closed_and_respects_cooldown(self):
         api_server.LAST_SKILL_DISCOVERY = None
@@ -202,7 +202,8 @@ class ApiServerTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     body = json.loads(response.read().decode("utf-8"))
 
-                self.assertEqual(select.call_count, 2, "a relevant internal skill avoids unnecessary GitHub discovery")
+                self.assertEqual(select.call_count, 3, "chat reselects skills after bounded GitHub discovery")
+                harvest.assert_called_once_with(limit=1)
                 plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
                 search.assert_called_once_with("planned search query")
                 answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected, candidate_skills=[])
