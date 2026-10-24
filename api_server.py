@@ -407,7 +407,11 @@ class AgentHandler(BaseHTTPRequestHandler):
                 self._send(400, {"error": str(exc)})
                 return
             if not config["configured"]:
-                self._send(503, {"error": "المزود المختار غير مهيأ: " + config["label"] + ". أضف مفتاحه واسم النموذج في إعدادات الخادم."})
+                if requested_provider == "legacy":
+                    message = "إعداد النموذج ناقص: اضبط SCOUT_LLM_API_KEY وSCOUT_LLM_MODEL أو اختر مزودًا مهيأ."
+                else:
+                    message = "المزود المختار غير مهيأ: " + config["label"] + ". أضف مفتاحه واسم النموذج في إعدادات الخادم."
+                self._send(503, {"error": message})
                 return
         try:
             # User queries search the public web. GitHub is reserved for the separate
