@@ -221,3 +221,116 @@ def search_web(query: str, api_key: str | None = None, timeout: int = 20) -> dic
     result["results"] = result["results"][:MAX_RESULTS]
     result["result_count"] = len(result["results"])
     return result
+
+# Multi-query research mode is opt-in so ordinary requests do not multiply search
+# provider calls or costs. All variants stay anchored to the user's actual question.
+MAX_RESEARCH_QUERIES = 3
+MAX_RESEARCH_RESULTS = 12
+
+
+def build_research_queries(query: str) -> list[str]:
+    """Create a small, deterministic set of intent-preserving public-web queries."""
+    original = " ".join((query or "").split()).strip()[:MAX_QUERY_CHARS]
+    if not original:
+        raise ValueError("أدخل سؤالًا أو عبارة للبحث.")
+    queries = [original]
+    lower = original.lower()
+    software_terms = (
+        "github", "python", "javascript", "typescript", "api", "code", "coding",
+        "software", "library", "framework", "agent", "llm", "open source",
+        "برمجة", "كود", "مكتبة", "إطار عمل", "وكيل", "مهارة", "مهارات",
+        "تطبيق", "ذكاء اصطناعي",
+    )
+    recency_terms = (
+        "latest", "recent", "today", "current", "2026", "أحدث", "آخر", "حالي",
+        "اليوم", "الجديد", "مستجدات",
+    )
+    if any(term in lower for term in software_terms):
+        suffix = "official documentation repository"
+    elif any(term in lower for term in recency_terms):
+        suffix = "latest updates official sources"
+    else:
+        suffix = "reliable primary sources"
+    second = (original + " " + suffix)[:MAX_QUERY_CHARS].strip()
+    if second.casefold() != original.casefold():
+        queries.append(second)
+    # Third pass looks for corroboration, but remains optional/bounded and
+    # never changes the subject of the user's original request.
+    third_suffix = "independent evidence comparison"
+    third = (original + " " + third_suffix)[:MAX_QUERY_CHARS].strip()
+    if third.casefold() not in {item.casefold() for item in queries}:
+        queries.append(third)
+    return queries[:MAX_RESEARCH_QUERIES]
+
+
+def search_web_research(query: str, api_key: str | None = None,
+                        timeout: int = 12, max_queries: int = MAX_RESEARCH_QUERIES) -> dict:
+    """Run a bounded multi-query research pass and deduplicate its real search results."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    queries = build_research_queries(query)
+    max_queries = max(1, min(int(max_queries), MAX_RESEARCH_QUERIES))
+    queries = queries[:max_queries]
+    failures = []
+    collected = []
+    providers = []
+    # At most three independent search requests run concurrently; no page content
+    # is executed, and every displayed result comes from a search provider response.
+    with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+        futures = {
+            pool.submit(search_web, item, api_key=api_key, timeout=timeout): item
+            for item in queries
+        }
+        for future in as_completed(futures):
+            search_query = futures[future]
+            try:
+                result = future.result()
+                provider = str(result.get("provider") or "Public web search")
+                if provider not in providers:
+                    providers.append(provider)
+                for item in result.get("results", []):
+                    if not isinstance(item, dict):
+                        continue
+                    url = str(item.get("url") or "").strip()
+                    title = _clean(str(item.get("title") or ""), 300)
+                    parsed = urllib.parse.urlparse(url)
+                    if parsed.scheme not in {"http", "https"} or not parsed.netloc or not title:
+                        continue
+                    collected.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": _clean(str(item.get("snippet") or ""), 1500),
+                        "score": item.get("score"),
+                        "source": str(item.get("source") or provider),
+                        "matched_query": search_query,
+                    })
+            except (RuntimeError, ValueError, OSError) as exc:
+                failures.append({"query": search_query, "error": str(exc)[:180]})
+
+    unique = []
+    seen = set()
+    for item in collected:
+        key = item["url"].split("#", 1)[0].rstrip("/").casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    if not unique:
+        detail = " | ".join(item["error"] for item in failures[:3])
+        raise RuntimeError("لم تُسترجع نتائج بحث قابلة للاستخدام في وضع البحث المعمق." +
+                           ((" " + detail) if detail else ""))
+    return {
+        "query": query,
+        "queries": queries,
+        "provider": " + ".join(providers),
+        "results": unique[:MAX_RESEARCH_RESULTS],
+        "result_count": min(len(unique), MAX_RESEARCH_RESULTS),
+        "coverage_note": (
+            "بحث معمق محدود: نُفذت حتى " + str(len(queries)) +
+            " استعلامات ويب مترابطة، ثم أزيلت الروابط المكررة. النتائج من الويب العام المفهرس "
+            "وليست تغطية شاملة للإنترنت؛ تحقق من المصادر الأصلية."
+        ),
+        "research_mode": True,
+        "failed_queries": failures,
+    }
+
