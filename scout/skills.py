@@ -21,6 +21,19 @@ def slugify(value: str) -> str:
         return ""
     return value[:64].rstrip("-")
 
+def license_text_matches(spdx: str, text: str) -> bool:
+    sample = text[:100000].lower()
+    markers = {
+        "MIT": ("permission is hereby granted", "the software is provided"),
+        "Apache-2.0": ("apache license", "version 2.0"),
+        "BSD-2-Clause": ("redistribution and use in source and binary forms", "neither the name"),
+        "BSD-3-Clause": ("redistribution and use in source and binary forms", "neither the name"),
+        "ISC": ("permission to use, copy, modify, and/or distribute", "the software is provided"),
+        "0BSD": ("permission to use, copy, modify, and/or distribute",),
+    }
+    required = markers.get(spdx)
+    return bool(required and all(marker in sample for marker in required))
+
 def parse_skill(content: str) -> tuple[dict, str]:
     if not isinstance(content, str) or len(content.encode("utf-8")) > MAX_SKILL_BYTES:
         raise ValueError("skill document is too large or invalid")
@@ -118,8 +131,8 @@ def discover_skills(max_proposals: int = 2) -> dict:
             if not license_paths:
                 skipped.append({"repository": full, "reason": "license text file not found"}); continue
             lr = requests.get(f"https://raw.githubusercontent.com/{owner}/{name}/{revision}/{quote(license_paths[0], safe='/')}", timeout=15)
-            if lr.status_code != 200 or not lr.text.strip():
-                skipped.append({"repository": full, "reason": "license text could not be verified"}); continue
+            if lr.status_code != 200 or not lr.text.strip() or not license_text_matches(repo["license"], lr.text):
+                skipped.append({"repository": full, "reason": "license text does not match declared SPDX license"}); continue
             for path in paths[:5]:
                 if len(created) >= max_proposals: break
                 if len(path) > 240 or path.startswith("."): continue
