@@ -254,24 +254,20 @@ def test_chat_infers_arabic_and_english_search_intent():
     assert should_search_web("What is the capital of Yemen") is False
 
 
-def test_agent_reports_search_failure_and_still_answers(monkeypatch):
+def test_agent_uses_github_skill_discovery_not_general_web_search(monkeypatch):
     import scout.agent as module
-
-    def fail_search(_query, *_args, **_kwargs):
-        raise SearchError("SEARCH_UNAVAILABLE: test outage")
-
-    monkeypatch.setattr(module, "web_search", fail_search)
+    calls = []
+    monkeypatch.setattr(module, "web_search", lambda *args, **kwargs: calls.append(args) or [])
     monkeypatch.setattr(module, "_skills_for_task", lambda _query: [])
-    monkeypatch.setattr(module, "chat_completion", lambda _messages: "إجابة عامة مع تنبيه.")
-    result = module.answer_task("ابحث عن أحدث أدوات الذكاء الاصطناعي")
-    assert result["answer"].startswith("إجابة عامة")
-    assert result["search_requested"] is True
-    assert result["search_warning"] == "SEARCH_UNAVAILABLE: test outage"
+    monkeypatch.setattr(module, "chat_completion", lambda _messages: "Task completed.")
+    result = module.answer_task("ابحث عن مهارة لبناء وكيل برمجي", search=False)
+    assert result["answer"] == "Task completed."
+    assert result["search_requested"] is False
     assert result["sources"] == []
-    assert "لم أتحقق من المعلومات عبر الويب" in result["answer"]
+    assert calls == []
 
 
-def test_agent_searches_when_requested_even_if_chat_toggle_is_false(monkeypatch):
+def test_agent_uses_web_search_only_when_explicitly_requested(monkeypatch):
     import scout.agent as module
     calls = []
     monkeypatch.setattr(module, "web_search", lambda query: calls.append(query) or [
@@ -279,10 +275,11 @@ def test_agent_searches_when_requested_even_if_chat_toggle_is_false(monkeypatch)
     ])
     monkeypatch.setattr(module, "_skills_for_task", lambda _query: [])
     monkeypatch.setattr(module, "chat_completion", lambda _messages: "Answer [1]")
-    result = module.answer_task("Please search for the latest AI agent framework", search=False)
-    assert calls == ["Please search for the latest AI agent framework"]
+    result = module.answer_task("Please find sources for this task", search=True)
+    assert calls == ["Please find sources for this task"]
     assert result["search_requested"] is True
     assert result["sources"][0]["url"] == "https://example.com"
+
 
 def test_agent_returns_real_sources_when_model_is_unconfigured(monkeypatch):
     import scout.agent as module
