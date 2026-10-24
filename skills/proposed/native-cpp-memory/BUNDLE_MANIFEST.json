@@ -1,0 +1,102 @@
+{
+  "files": [
+    {
+      "path": "continuation-bad-trace.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/continuation-bad-trace.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/continuation-bad-trace.json",
+      "bytes": 445,
+      "sha256": "8f39794420de126ac52073bbb1dacbc1ee39f938e2501a03709c1f88f21b51ce",
+      "executed": false
+    },
+    {
+      "path": "continuation-reused-eval.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/continuation-reused-eval.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/continuation-reused-eval.json",
+      "bytes": 401,
+      "sha256": "261367f96972908133b953216fdde18d65af224e1b8118367a684169f354809d",
+      "executed": false
+    },
+    {
+      "path": "continuation.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/continuation.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/continuation.json",
+      "bytes": 445,
+      "sha256": "b1df31896aa399d2a1942b92e781ae60580de62e9dbce3c113afb849c392af0f",
+      "executed": false
+    },
+    {
+      "path": "eval-missing-trace.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval-missing-trace.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval-missing-trace.json",
+      "bytes": 625,
+      "sha256": "b786e1dffe24288fa38ab0139138fc547a0ece91faeb5505f626627abab2c413",
+      "executed": false
+    },
+    {
+      "path": "eval-not-better.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval-not-better.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval-not-better.json",
+      "bytes": 640,
+      "sha256": "9792d4c6f53c242c3bb1c7240beff8d0f64e2e9846841c06d3402707e8b5fc53",
+      "executed": false
+    },
+    {
+      "path": "eval-prose-trace.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval-prose-trace.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval-prose-trace.json",
+      "bytes": 622,
+      "sha256": "5fb9e19a30cb9c8518e58c5b412480ce62c97960ede2e605a2ed48a120306b66",
+      "executed": false
+    },
+    {
+      "path": "eval-trace-not-better.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval-trace-not-better.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval-trace-not-better.json",
+      "bytes": 1926,
+      "sha256": "1135c3d54815d88b53b6b37649179cd56866fcba774cd9342aaa66e994aebea1",
+      "executed": false
+    },
+    {
+      "path": "eval-trace.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval-trace.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval-trace.json",
+      "bytes": 1916,
+      "sha256": "591adb1e3063ca35b49e243067eb3177c14c531dc2c7eacd1608d6d4de211086",
+      "executed": false
+    },
+    {
+      "path": "eval-trace.txt",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval-trace.txt",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval-trace.txt",
+      "bytes": 273,
+      "sha256": "c677f3d7be045f8c4f69a79e28d01dfd3a42d80b528af517f28fbf9358caea8e",
+      "executed": false
+    },
+    {
+      "path": "eval.json",
+      "source_path": "evals/hooks/fixtures/research-built-skill/eval.json",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/eval.json",
+      "bytes": 737,
+      "sha256": "11cb85fada02233f8c9dcc8f912d5671f76c4bcb216b25980d9bdbcfd395a665",
+      "executed": false
+    },
+    {
+      "path": "local-evidence.txt",
+      "source_path": "evals/hooks/fixtures/research-built-skill/local-evidence.txt",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/local-evidence.txt",
+      "bytes": 164,
+      "sha256": "ab5367958e6e02d6a5821436df18d391fe4ef218e614142ddbf30a21a0b610fb",
+      "executed": false
+    },
+    {
+      "path": "maintenance.md",
+      "source_path": "evals/hooks/fixtures/research-built-skill/maintenance.md",
+      "source_url": "https://github.com/AnastasiyaW/codex-claude-code-config/blob/e1e74e1b0c0e1c2ea733b00ec6f731b3853dacbe/evals/hooks/fixtures/research-built-skill/maintenance.md",
+      "bytes": 359,
+      "sha256": "ee32854ad74817e5afc35e7ed3a5382ad91285c5c3336decd0e1c6a08d224d17",
+      "executed": false
+    }
+  ],
+  "total_bytes": 8553,
+  "policy": "review-only; no dependency install or execution"
+}
