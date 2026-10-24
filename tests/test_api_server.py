@@ -17,6 +17,31 @@ class ApiServerTests(unittest.TestCase):
     def setUp(self):
         api_server.REQUEST_TIMES.clear()
 
+    def test_missing_task_skill_triggers_one_bounded_discovery(self):
+        api_server.LAST_SKILL_DISCOVERY = None
+        with patch("api_server.run_harvest", return_value={"proposals_created": 1}) as harvest:
+            self.assertTrue(api_server.maybe_discover_skill_for_task("Build a data dashboard", [], [], now=100))
+            self.assertFalse(api_server.maybe_discover_skill_for_task("Build another tool", [], [], now=101))
+            harvest.assert_called_once_with(limit=1)
+
+    def test_task_skill_discovery_skips_when_a_relevant_skill_exists(self):
+        api_server.LAST_SKILL_DISCOVERY = None
+        with patch("api_server.run_harvest") as harvest:
+            self.assertFalse(api_server.maybe_discover_skill_for_task(
+                "Write tests", [{"name": "testing"}], [], now=100
+            ))
+            self.assertFalse(api_server.maybe_discover_skill_for_task(
+                "Write tests", [], [{"name": "test-skill"}], now=101
+            ))
+            harvest.assert_not_called()
+
+    def test_task_skill_discovery_fails_closed_and_respects_cooldown(self):
+        api_server.LAST_SKILL_DISCOVERY = None
+        with patch("api_server.run_harvest", side_effect=RuntimeError("rate limited")) as harvest:
+            self.assertFalse(api_server.maybe_discover_skill_for_task("Create an app", [], [], now=100))
+            self.assertFalse(api_server.maybe_discover_skill_for_task("Create an app", [], [], now=101))
+            harvest.assert_called_once_with(limit=1)
+
     def test_rate_limit_is_enforced_and_window_expires(self):
         self.assertTrue(api_server.check_rate_limit("client", now=100))
         api_server.REQUEST_TIMES["client"] = __import__("collections").deque(
