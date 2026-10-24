@@ -182,7 +182,7 @@ def test_agent_uses_relevant_proposed_skill_without_manual_activation(monkeypatc
     }
     monkeypatch.setattr(module, "_active_skills", lambda: [])
     monkeypatch.setattr(module, "_proposed_skills", lambda: [proposal])
-    monkeypatch.setattr(module, "discover_skills", lambda limit: (_ for _ in ()).throw(AssertionError("should reuse existing proposal")))
+    monkeypatch.setattr(module, "discover_skills", lambda limit, task_query="": (_ for _ in ()).throw(AssertionError("should reuse existing proposal")))
     selected = module._skills_for_task("Optimize my SQL database query")
     assert selected and selected[0]["name"] == "sql-query-optimization"
     assert selected[0]["status"] == "proposed"
@@ -201,7 +201,7 @@ def test_agent_auto_discovers_one_skill_when_no_skill_matches(monkeypatch):
     monkeypatch.setattr(module, "_proposed_skills", lambda: [proposal] if calls else [])
     monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
     monkeypatch.setattr(module.time, "time", lambda: 10_000.0)
-    monkeypatch.setattr(module, "discover_skills", lambda limit: calls.append(limit) or {"created": []})
+    monkeypatch.setattr(module, "discover_skills", lambda limit, task_query="": calls.append(limit) or {"created": []})
     selected = module._skills_for_task("Help me integrate an HTTP API connection")
     assert calls == [1]
     assert selected and selected[0]["name"] == "api-integration"
@@ -236,7 +236,7 @@ def test_provider_names_select_the_matching_builtin_skill():
 def test_discovery_endpoint_accepts_ten_proposals_with_admin_token(monkeypatch):
     monkeypatch.setenv("SCOUT_ADMIN_TOKEN", "test-admin-token")
     calls = []
-    monkeypatch.setattr(webapp, "discover_skills", lambda limit: calls.append(limit) or {
+    monkeypatch.setattr(webapp, "discover_skills", lambda limit, task_query="": calls.append(limit) or {
         "repositories_considered": 0, "documents_inspected": 0, "created": [], "skipped": []
     })
     response = webapp.app.test_client().post(
