@@ -146,15 +146,15 @@ def discover_skills(max_proposals: int = 2) -> dict:
                 if (PROPOSED_DIR / slug).exists() or (ACTIVE_DIR / slug).exists():
                     skipped.append({"repository": full, "path": path, "reason": "skill name already exists"}); continue
                 source_digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-                stored_content = content.rstrip() + "\\n"
+                stored_content = content.rstrip() + "\n"
                 digest = hashlib.sha256(stored_content.encode("utf-8")).hexdigest()
                 dest = PROPOSED_DIR / slug
                 dest.mkdir(parents=True, exist_ok=False)
-                (dest / "SKILL.md").write_text(content.rstrip() + "\n", encoding="utf-8")
+                (dest / "SKILL.md").write_text(stored_content, encoding="utf-8")
                 (dest / "UPSTREAM_LICENSE.txt").write_text(lr.text[:100000], encoding="utf-8")
                 source_url = f"{repo['html_url']}/blob/{revision}/{quote(path, safe='/')}"
                 (dest / "ATTRIBUTION.md").write_text(
-                    f"# Attribution\n\n- Repository: {repo['html_url']}\n- File: {source_url}\n- Revision: {revision}\n- SPDX: {repo['license']}\n- SHA-256: {digest}\n- Status: proposal only; not executed or activated.\n", encoding="utf-8")
+                    f"# Attribution\n\n- Repository: {repo['html_url']}\n- File: {source_url}\n- Revision: {revision}\n- SPDX: {repo['license']}\n- Source SHA-256: {source_digest}\n- Stored SHA-256: {digest}\n- Status: proposal only; not executed or activated.\n", encoding="utf-8")
                 manifest = {"name": slug, "description": meta["description"], "source_url": source_url,
                     "repository": full, "revision": revision, "path": path, "license": repo["license"],
                     "license_text_verified": True, "sha256": digest, "source_sha256": source_digest, "created_at": int(time.time()), "status": "proposed"}
