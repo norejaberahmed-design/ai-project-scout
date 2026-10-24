@@ -26,7 +26,9 @@ answer + citations + selected skill names
 ## Storage
 - `skills/active/<slug>/SKILL.md`: approved instruction-only skill.
 - `skills/proposed/<slug>/SKILL.md`: quarantined candidate.
-- `ATTRIBUTION.md`, `UPSTREAM_LICENSE.txt`, `manifest.json`: provenance and license record.
+- `supporting_files/`: up to eight bounded text/source files adjacent to the skill or in its `scripts`, `references`, `assets`, or `examples` folders, stored with SHA-256 records and never executed.
+- `REVERSE_ENGINEERING.md`: static skill-step analysis plus bounded README, dependency-manifest, entry-point, and test-signature evidence. It explicitly distinguishes file-tree evidence from proof of runtime behavior.
+- `ATTRIBUTION.md`, `UPSTREAM_LICENSE.txt`, `manifest.json`: provenance, immutable revision, license record, and hashes.
 - Filesystem storage is the initial portable version. Persistent volume/database is required for durable hosted use.
 
 ## Trust boundaries
