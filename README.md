@@ -23,6 +23,6 @@ Search results are real backend calls, not simulated. General web search and Git
 
 See [PLAN.md](PLAN.md), [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), and [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Built-in provider skill list: [SKILLS_CATALOG.md](SKILLS_CATALOG.md). The four initial public-API integration skills cover OpenAI/ChatGPT, DeepSeek, Google Gemini, and Anthropic Claude. External skill discovery supports up to 10 proposals per run.
+Built-in provider skill list: [SKILLS_CATALOG.md](SKILLS_CATALOG.md). The four initial public-API integration skills cover OpenAI/ChatGPT, DeepSeek, Google Gemini, and Anthropic Claude. External skill discovery supports up to 10 proposals per run. The main search interface is conversational: it sends questions to the model with web search enabled and shows the answer with source links.
 
-GitHub Pages cannot run the Python API. Deploy to a Python-capable host. A successful build does not prove live provider connectivity; verify health, search and chat after deployment. Free-host filesystems may be ephemeral.
+GitHub Pages cannot run the Python API. Deploy to Render or another Python-capable host, then enter its HTTPS API URL in the interface under «إعداد اتصال خادم الذكاء الاصطناعي». A successful build does not prove live provider connectivity; verify health, search and chat after deployment. Free-host filesystems may be ephemeral.
