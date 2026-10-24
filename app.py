@@ -104,10 +104,12 @@ def discover():
     global _last_public_discovery_at
     is_admin = admin_authorized()
     try:
-        body=json_body(); limit=body.get("max_proposals",2)
+        body=json_body(); limit=body.get("max_proposals",2); task_query=body.get("query","")
         max_allowed = 10 if is_admin else 2
         if not isinstance(limit,int) or isinstance(limit,bool) or limit not in range(1,max_allowed+1):
             return jsonify({"error":"INVALID_LIMIT","message":f"max_proposals must be an integer from 1 to {max_allowed}"}),400
+        if not isinstance(task_query, str) or len(task_query) > 500:
+            return jsonify({"error":"INVALID_QUERY","message":"query must be text up to 500 characters"}),400
         # Public users can trigger small, bounded GitHub-only discovery runs without
         # an admin token. A process-wide cooldown protects API quota and storage.
         if not is_admin and _last_public_discovery_at > 0:
@@ -122,7 +124,7 @@ def discover():
             # Start the cooldown before network work so repeated failures cannot
             # hammer GitHub's unauthenticated API quota.
             _last_public_discovery_at = time.monotonic()
-        result = discover_skills(limit)
+        result = discover_skills(limit, task_query=task_query)
         result["access_mode"] = "admin" if is_admin else "public_limited"
         return jsonify(result)
     except SkillError as exc:
