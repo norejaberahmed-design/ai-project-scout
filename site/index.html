@@ -111,7 +111,7 @@ apiurl.value=apiBase;
 if(!apiBase){statusText.textContent="بحث ويب احتياطي — دون خادم";statusDot.className="dot";}
 function setStatus(message,state="neutral"){statusText.textContent=message;statusDot.className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");}
 function rememberTurn(userText,assistantText){
- const user=String(userText||"").trim().slice(0,1200),assistant=String(assistantText||"").trim().slice(0,1200);
+ const user=String(userText||"").trim().slice(0,700),assistant=String(assistantText||"").trim().slice(0,700);
  if(!user||!assistant)return;
  conversationHistory.push({role:"user",content:user},{role:"assistant",content:assistant});
  conversationHistory=conversationHistory.slice(-8);
