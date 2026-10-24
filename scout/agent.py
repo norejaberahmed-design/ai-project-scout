@@ -91,11 +91,30 @@ def select_skills(query: str, skills: list[dict] | None = None, limit: int = 4) 
         if arabic in lowered:
             words.update(expansions)
     scored = []
+    provider_aliases = {
+        "chatgpt": {"chatgpt", "openai"},
+        "openai": {"chatgpt", "openai"},
+        "deepseek": {"deepseek"},
+        "gemini": {"gemini", "google"},
+        "google": {"gemini", "google"},
+        "claude": {"claude", "anthropic"},
+        "anthropic": {"claude", "anthropic"},
+    }
+    requested_providers = {
+        alias for alias in provider_aliases
+        if re.search(r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])", lowered)
+    }
     for skill in skills:
-        terms = set(re.findall(r"[\w-]{2,}", f"{skill.get('name','')} {skill.get('description','')}".lower()))
+        skill_name = str(skill.get("name", "")).lower()
+        terms = set(re.findall(r"[\w-]{2,}", f"{skill_name} {skill.get('description','')}".lower()))
         overlap = len(words & terms)
-        if overlap:
-            scored.append((overlap / max(1, len(terms) ** 0.5), skill))
+        score = overlap / max(1, len(terms) ** 0.5)
+        for provider in requested_providers:
+            aliases = provider_aliases[provider]
+            if any(alias in skill_name.split("-") for alias in aliases):
+                score += 10.0
+        if score > 0:
+            scored.append((score, skill))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [x[1] for x in scored[:max(1, min(limit, 4))]]
 
