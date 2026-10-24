@@ -185,8 +185,9 @@ class ApiServerTests(unittest.TestCase):
                 "SCOUT_LLM_MODEL": "test-model",
                 "TAVILY_API_KEY": "test-search-key",
             }, clear=True), \
-                 patch("api_server.select_skills", side_effect=[selected, []]) as select, \
+                 patch("api_server.select_skills", side_effect=[selected, [], []]) as select, \
                  patch("api_server.load_proposed_skills", return_value=[]), \
+                 patch("api_server.run_harvest", return_value={"proposals_created": 0, "repositories_searched": 2}) as harvest, \
                  patch("api_server.plan_search_query", return_value="planned search query") as plan, \
                  patch("api_server.search_web", return_value=search_result) as search, \
                  patch("api_server.generate_answer", return_value="إجابة مبنية على المصدر.",) as answer:
@@ -201,7 +202,8 @@ class ApiServerTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     body = json.loads(response.read().decode("utf-8"))
 
-                self.assertEqual(select.call_count, 2, "chat should select trusted active skills and separately consider untrusted proposals")
+                self.assertEqual(select.call_count, 3, "chat should retry skill selection after a bounded GitHub discovery")
+                harvest.assert_called_once_with(limit=1)
                 plan.assert_called_once_with("ابحث عن الوثائق الرسمية", selected)
                 search.assert_called_once_with("planned search query")
                 answer.assert_called_once_with("ابحث عن الوثائق الرسمية", search_result, skills=selected, candidate_skills=[])
