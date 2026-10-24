@@ -144,7 +144,7 @@ def _skills_for_task(query: str) -> list[dict]:
 
 
 SEARCH_INTENT_PATTERNS = (
-    r"\\b(search|research|look up|find sources|latest|current|today|news|verify|fact check)\\b",
+    r"\b(search|research|look up|find sources|latest|current|today|news|verify|fact check)\b",
     r"(ابحث|بحث|ابحث لي|مصادر|المصادر|آخر الأخبار|اخر الاخبار|أحدث|احدث|حاليًا|حالياً|اليوم|تحقق من|تأكد من|دور لي)",
 )
 
