@@ -291,7 +291,7 @@ def test_agent_returns_real_sources_when_model_is_unconfigured(monkeypatch):
         from scout.providers import ProviderError
         raise ProviderError("MODEL_NOT_CONFIGURED: test")
     monkeypatch.setattr(module, "chat_completion", missing_model)
-    result = module.answer_task("ابحث عن توثيق API")
+    result = module.answer_task("ابحث عن توثيق API", search=True)
     assert "Official documentation" in result["answer"]
     assert result["sources"][0]["url"] == "https://example.com/docs"
     assert result["model_warning"] == "MODEL_NOT_CONFIGURED: test"
