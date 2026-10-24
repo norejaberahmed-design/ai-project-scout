@@ -299,3 +299,27 @@ def test_agent_returns_real_sources_when_model_is_unconfigured(monkeypatch):
     assert result["sources"][0]["url"] == "https://example.com/docs"
     assert result["model_warning"] == "MODEL_NOT_CONFIGURED: test"
 
+def test_generic_builder_skill_does_not_block_specialized_skill_discovery(monkeypatch):
+    import scout.agent as module
+    generic = {
+        "name": "software-builder",
+        "description": "Build software applications and implement code.",
+        "content": "General software development steps.",
+        "status": "active",
+    }
+    specialized = {
+        "name": "vector-database-retrieval",
+        "description": "Build semantic search with vector databases and retrieval augmented generation.",
+        "content": "Compare embedding models, chunking and retrieval quality.",
+        "status": "proposed",
+    }
+    calls = []
+    monkeypatch.setattr(module, "_active_skills", lambda: [generic])
+    monkeypatch.setattr(module, "_proposed_skills", lambda: [specialized] if calls else [])
+    monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
+    monkeypatch.setattr(module.time, "time", lambda: 100_000.0)
+    monkeypatch.setattr(module, "discover_skills", lambda limit: calls.append(limit) or {"created": []})
+    selected = module._skills_for_task("Build semantic search with vector database retrieval")
+    assert calls == [1]
+    assert selected and selected[0]["name"] == "vector-database-retrieval"
+
