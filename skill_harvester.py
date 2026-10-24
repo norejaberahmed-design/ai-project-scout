@@ -386,41 +386,25 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
 
 def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
                 db_path: str | Path | None = None, fetcher=request_json) -> dict:
-    """Search, inspect, and stage at most three eligible skill documents."""
+    """Search public GitHub efficiently; inspect the seeded skill source before broad search."""
     max_proposals = max(1, min(int(limit), MAX_PROPOSALS))
+    max_inspections = 18
     report = {
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "policy": "Public sources only; verified permissive license; immutable revision; quarantined proposals; no code execution.",
+        "policy": "GitHub public sources only; verified permissive license; immutable revision; quarantined proposals; no code execution.",
         "repositories_searched": 0,
         "proposals_created": 0,
         "results": [],
     }
-    seen_repositories = set()
-    seen_names = set()
-    discovered = [
-        {
-            "url": url,
-            "repository": url.rstrip("/").split("/")[-2] + "/" + url.rstrip("/").split("/")[-1],
-            "license_spdx": "MIT",
-            "description": "Seeded general-purpose agent skill repository",
-        }
-        for url in SEED_REPOSITORIES
-    ]
-    for query in SEARCH_QUERIES:
-        try:
-            discovered.extend(search_skill_repositories(query, fetcher=fetcher))
-        except (RuntimeError, ValueError) as exc:
-            report["results"].append({
-                "query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]
-            })
+    seen_repositories: set[str] = set()
+    seen_names: set[str] = set()
 
-    for candidate in discovered:
-        remaining = max_proposals - report["proposals_created"]
-        if remaining <= 0:
-            break
-        url = candidate.get("url", "")
+    def inspect_candidate(candidate: dict) -> None:
+        if report["proposals_created"] >= max_proposals or report["repositories_searched"] >= max_inspections:
+            return
+        url = str(candidate.get("url") or "")
         if not url or url.lower() in seen_repositories:
-            continue
+            return
         seen_repositories.add(url.lower())
         report["repositories_searched"] += 1
         if candidate.get("license_spdx") not in ALLOWED_LICENSES:
@@ -429,10 +413,11 @@ def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
                 "status": "SKIPPED_LICENSE_METADATA",
                 "license_spdx": candidate.get("license_spdx", "UNKNOWN"),
             })
-            continue
+            return
         try:
             result = harvest_repository(
-                url, root=root, db_path=db_path, fetcher=fetcher, max_skills=remaining
+                url, root=root, db_path=db_path, fetcher=fetcher,
+                max_skills=max_proposals - report["proposals_created"],
             )
         except (RuntimeError, ValueError, OSError) as exc:
             report["results"].append({
@@ -440,7 +425,7 @@ def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
                 "status": "SKIPPED",
                 "reason": str(exc)[:300],
             })
-            continue
+            return
         for proposal in result.get("proposals", []):
             if proposal.get("status") != "PROPOSED_REVIEW_REQUIRED":
                 continue
@@ -451,6 +436,34 @@ def run_harvest(*, limit: int = MAX_PROPOSALS, root: Path | None = None,
             seen_names.add(name)
             report["proposals_created"] += 1
         report["results"].append(result)
+
+    # Check the known general-purpose skill source first. Do not spend search quota
+    # on broad queries if this source already provides enough eligible skill documents.
+    for url in SEED_REPOSITORIES:
+        inspect_candidate({
+            "url": url,
+            "repository": "/".join(url.rstrip("/").split("/")[-2:]),
+            "license_spdx": "MIT",
+        })
+        if report["proposals_created"] >= max_proposals:
+            return report
+
+    # Search queries sequentially and stop as soon as enough eligible skills are found.
+    # A hard inspection cap bounds API calls even if results contain no usable skills.
+    for query in SEARCH_QUERIES:
+        if report["proposals_created"] >= max_proposals or report["repositories_searched"] >= max_inspections:
+            break
+        try:
+            candidates = search_skill_repositories(query, fetcher=fetcher)
+        except (RuntimeError, ValueError) as exc:
+            report["results"].append({
+                "query": query, "status": "SEARCH_ERROR", "error": str(exc)[:250]
+            })
+            continue
+        for candidate in candidates:
+            inspect_candidate(candidate)
+            if report["proposals_created"] >= max_proposals or report["repositories_searched"] >= max_inspections:
+                break
     return report
 
 
