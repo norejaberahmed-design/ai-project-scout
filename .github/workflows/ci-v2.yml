@@ -1,7 +1,7 @@
 name: V2 CI
 on:
   push:
-    branches: ["rebuild/v2", "main"]
+    branches: ["rebuild/v2.1", "rebuild/v2", "main"]
   pull_request:
     branches: ["main", "rebuild/v2"]
   workflow_dispatch:
