@@ -109,6 +109,31 @@ def _slug(value: str) -> str:
     return value[:64].rstrip("-")
 
 
+def _quality_gate(content: str) -> tuple[bool, list[str]]:
+    """Reject placeholder skills that merely restate a task without reusable procedure."""
+    errors = []
+    normalized = " ".join((content or "").lower().split())
+    placeholder_phrases = (
+        "do the task described above",
+        "perform the task described above",
+        "complete the task as requested",
+        "follow the instructions above",
+        "insert skill instructions here",
+        "todo: add skill instructions",
+        "replace this with the actual skill",
+    )
+    for phrase in placeholder_phrases:
+        if phrase in normalized:
+            errors.append("Placeholder instruction detected: " + phrase)
+    body = normalized.split("## source provenance", 1)[0]
+    steps = re.findall(r"(?:^|\s)(?:step\s+)?(?:[1-9]|1[0-9])[.)]\s+[^.]{18,}", body)
+    if len(steps) < 3:
+        errors.append("Skill needs at least three concrete, non-trivial procedural steps.")
+    if len(body) < 350:
+        errors.append("Skill body is too short to provide a reusable procedure.")
+    return not errors, errors
+
+
 def _get_skill_text(repository_url: str, revision: str, path: str, fetcher=request_json) -> str:
     owner, repo = parse_repository_url(repository_url)
     encoded_path = urllib.parse.quote(path, safe="/")
@@ -215,6 +240,14 @@ def harvest_repository(repository_url: str, *, root: Path | None = None,
                 bounded_support.append(support_item)
                 support_total += support_item["size"]
             support_candidates = bounded_support
+        quality_ok, quality_errors = _quality_gate(upstream_document)
+        if not quality_ok:
+            proposals.append({
+                "source_path": upstream_path,
+                "status": "REJECTED_LOW_QUALITY_OR_TEMPLATE",
+                "errors": quality_errors,
+            })
+            continue
         checked = inspect_candidate(upstream_document)
         if not checked.get("valid"):
             proposals.append({
