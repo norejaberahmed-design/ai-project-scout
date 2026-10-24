@@ -60,6 +60,15 @@ description: A placeholder skill.
         valid, errors = skill_harvester._quality_gate(SKILL)
         self.assertTrue(valid, errors)
 
+    def test_quality_gate_accepts_bullet_based_procedure(self):
+        bullet_skill = SKILL.replace("1. Identify", "- Identify").replace(
+            "2. Search", "- Search"
+        ).replace("3. Separate", "- Separate").replace(
+            "4. Verify", "- Verify"
+        ).replace("5. State", "- State")
+        valid, errors = skill_harvester._quality_gate(bullet_skill)
+        self.assertTrue(valid, errors)
+
     def test_slug_rejects_generic_and_normalizes_names(self):
         self.assertEqual(skill_harvester._slug("Evidence Checking!"), "evidence-checking")
         self.assertEqual(skill_harvester._slug("SKILL"), "")
