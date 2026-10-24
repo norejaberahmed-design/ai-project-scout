@@ -73,7 +73,8 @@ def maybe_discover_skill_for_task(question: str, selected_skills: list[dict], ca
     reference for this answer; it is never executed or silently activated.
     """
     global LAST_SKILL_DISCOVERY
-    if selected_skills or candidate_skills or not (question or "").strip():
+    # Internal baseline skills do not prevent discovery of a task-specific external skill.
+    if candidate_skills or not (question or "").strip():
         return False
     now = time.monotonic() if now is None else now
     with SKILL_DISCOVERY_LOCK:
