@@ -88,7 +88,8 @@ jobs:
           python -m compileall -q .
           python -m unittest discover -s tests -v
           git add skills/proposed/
-          git diff --cached --check
+          # Preserve upstream reference files verbatim; run whitespace checks on generated skill and attribution metadata.
+          git diff --cached --check -- 'skills/proposed/**/SKILL.md' 'skills/proposed/**/ATTRIBUTION.md'
           python - <<'PY'
           import subprocess
           from pathlib import Path
