@@ -1,0 +1,11 @@
+{
+  "name": "deepseek-api-integration",
+  "description": "Integrate the public DeepSeek API using its documented OpenAI-compatible interface and safe request handling.",
+  "source_url": "https://api-docs.deepseek.com/",
+  "source_type": "official_public_documentation",
+  "license": "Original procedural guide; not copied from proprietary model internals",
+  "license_text_verified": false,
+  "sha256": "authored-in-repository",
+  "status": "active",
+  "note": "Authored guidance based on publicly documented API behavior; not a proprietary internal skill."
+}
