@@ -247,3 +247,40 @@ def test_discovery_endpoint_accepts_ten_proposals_with_admin_token(monkeypatch):
     assert response.status_code == 200
     assert calls == [10]
 
+def test_chat_infers_arabic_and_english_search_intent():
+    from scout.agent import should_search_web
+    assert should_search_web("ابحث عن أحدث أدوات الوكلاء الذكية")
+    assert should_search_web("Please research current AI agent frameworks")
+    assert should_search_web("What is the capital of Yemen") is False
+
+
+def test_agent_reports_search_failure_and_still_answers(monkeypatch):
+    import scout.agent as module
+
+    def fail_search(_query, *_args, **_kwargs):
+        raise SearchError("SEARCH_UNAVAILABLE: test outage")
+
+    monkeypatch.setattr(module, "web_search", fail_search)
+    monkeypatch.setattr(module, "_skills_for_task", lambda _query: [])
+    monkeypatch.setattr(module, "chat_completion", lambda _messages: "إجابة عامة مع تنبيه.")
+    result = module.answer_task("ابحث عن أحدث أدوات الذكاء الاصطناعي")
+    assert result["answer"].startswith("إجابة عامة")
+    assert result["search_requested"] is True
+    assert result["search_warning"] == "SEARCH_UNAVAILABLE: test outage"
+    assert result["sources"] == []
+    assert "لم أتحقق من المعلومات عبر الويب" in result["answer"]
+
+
+def test_agent_searches_when_requested_even_if_chat_toggle_is_false(monkeypatch):
+    import scout.agent as module
+    calls = []
+    monkeypatch.setattr(module, "web_search", lambda query: calls.append(query) or [
+        {"title": "Source", "url": "https://example.com", "snippet": "Evidence"}
+    ])
+    monkeypatch.setattr(module, "_skills_for_task", lambda _query: [])
+    monkeypatch.setattr(module, "chat_completion", lambda _messages: "Answer [1]")
+    result = module.answer_task("Please search for the latest AI agent framework", search=False)
+    assert calls == ["Please search for the latest AI agent framework"]
+    assert result["search_requested"] is True
+    assert result["sources"][0]["url"] == "https://example.com"
+
