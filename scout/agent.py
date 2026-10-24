@@ -140,7 +140,7 @@ def _skills_for_task(query: str) -> list[dict]:
     if now - _last_auto_discovery >= _AUTO_DISCOVERY_COOLDOWN_SECONDS:
         _last_auto_discovery = now
         try:
-            discover_skills(1)
+            discover_skills(1, task_query=query)
         except (SkillError, OSError, ValueError):
             # Skill harvesting is optional; the user request must still proceed.
             pass
