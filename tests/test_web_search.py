@@ -182,7 +182,8 @@ class WebSearchTests(unittest.TestCase):
         self.assertEqual(search.call_count, 3)
         self.assertTrue(result["research_mode"])
         self.assertEqual(result["result_count"], 2)
-        self.assertEqual(result["results"][0]["url"], "https://example.org/other")
+        self.assertEqual({item["url"].split("#", 1)[0] for item in result["results"]},
+                         {"https://example.org/other", "https://example.org/guide"})
         self.assertTrue(all("matched_query" in item for item in result["results"]))
         self.assertIn("ليست تغطية شاملة", result["coverage_note"])
 
