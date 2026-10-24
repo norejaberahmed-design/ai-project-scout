@@ -197,6 +197,7 @@ class ApiServerTests(unittest.TestCase):
 
 
     def test_live_http_chat_pipeline_uses_planned_search_and_hides_skill_metadata(self):
+        api_server.LAST_SKILL_DISCOVERY = None
         selected = [{"name": "internal-test-skill", "description": "Verify source evidence",
                      "content": "Search official sources first.", "relevance_score": 3}]
         search_result = {
