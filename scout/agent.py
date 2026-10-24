@@ -9,7 +9,7 @@ from .providers import ProviderError, chat_completion
 from .search import web_search
 from .skills import PROPOSED_DIR, SkillError, discover_skills
 
-_AUTO_DISCOVERY_COOLDOWN_SECONDS = 1800
+_AUTO_DISCOVERY_COOLDOWN_SECONDS = 3600
 _last_auto_discovery = 0.0
 
 SYSTEM_POLICY = """You are AI Project Scout, an honest assistant. Answer the actual request in the user's language.
