@@ -289,6 +289,41 @@ class ApiServerTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=2)
 
+    def test_search_endpoint_can_request_multi_query_research(self):
+        web = {
+            "query": "compare AI agents",
+            "provider": "DuckDuckGo + Bing RSS",
+            "coverage_note": "bounded multi-query search",
+            "result_count": 2,
+            "research_mode": True,
+            "results": [
+                {"title": "Evidence A", "url": "https://example.org/a", "snippet": "A"},
+                {"title": "Evidence B", "url": "https://example.org/b", "snippet": "B"},
+            ],
+        }
+        server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch("api_server.search_web_research", return_value=web) as search:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/search",
+                    data=json.dumps({"query": "compare AI agents", "research_mode": True}).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    body = json.loads(response.read().decode("utf-8"))
+            search.assert_called_once_with("compare AI agents")
+            self.assertTrue(body["research_mode"])
+            self.assertEqual(body["result_count"], 2)
+            self.assertEqual(body["results"][1]["url"], "https://example.org/b")
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
     def test_skill_discovery_endpoint_is_rate_limited_and_returns_harvest_report(self):
         api_server.LAST_SKILL_DISCOVERY = None
         api_server.REQUEST_TIMES.clear()
