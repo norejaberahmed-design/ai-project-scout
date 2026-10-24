@@ -485,6 +485,8 @@ class AgentHandler(BaseHTTPRequestHandler):
                     self._send(502, {"error": "تعذرت مقارنة نموذجين على الأقل. تحقق من مفاتيح المزودات وحدودها.", "failures": failures})
                     return
                 combined = "\n\n".join("=== " + item["label"] + " ===\n" + item["answer"] for item in answers)
+                if failures:
+                    combined += "\n\nتعذرت إجابة بعض المزودات: " + "، ".join(item["provider"] for item in failures)
                 response_payload = {
                     "answer": combined,
                     "model_answers": answers,
