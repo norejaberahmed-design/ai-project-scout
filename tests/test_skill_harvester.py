@@ -42,6 +42,24 @@ def fake_tree_fetcher(url):
 
 
 class SkillHarvesterTests(unittest.TestCase):
+    def test_quality_gate_rejects_generic_placeholder_skill(self):
+        placeholder = """---
+name: placeholder-skill
+description: A placeholder skill.
+---
+# Placeholder
+1. Read the input the user points to.
+2. Do the task described above, step by step, and keep the user's own wording where it matters.
+3. Show the result, then a short list of what you changed or found, so the user can check it.
+"""
+        valid, errors = skill_harvester._quality_gate(placeholder)
+        self.assertFalse(valid)
+        self.assertTrue(any("Placeholder instruction" in error for error in errors))
+
+    def test_quality_gate_accepts_actionable_procedure(self):
+        valid, errors = skill_harvester._quality_gate(SKILL)
+        self.assertTrue(valid, errors)
+
     def test_slug_rejects_generic_and_normalizes_names(self):
         self.assertEqual(skill_harvester._slug("Evidence Checking!"), "evidence-checking")
         self.assertEqual(skill_harvester._slug("SKILL"), "")
