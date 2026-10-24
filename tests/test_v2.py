@@ -143,3 +143,31 @@ def test_search_reports_error_if_all_providers_fail(monkeypatch):
     monkeypatch.setattr(module, "DDGS", FailedDDGS)
     with pytest.raises(SearchError, match="SEARCH_UNAVAILABLE"):
         module.web_search("general web search")
+
+def test_search_endpoint_returns_ai_summary_and_real_source_links(monkeypatch):
+    monkeypatch.setenv("SCOUT_LLM_API_KEY", "test-key")
+    monkeypatch.setenv("SCOUT_LLM_MODEL", "test-model")
+    monkeypatch.setattr(webapp, "web_search", lambda query, count=None: [
+        {"title": "Primary source", "url": "https://example.com/report", "snippet": "Evidence text"}
+    ])
+    monkeypatch.setattr(webapp, "summarize_search_results", lambda query, sources: "Summary [1]")
+    response = webapp.app.test_client().post("/api/search", json={"query": "research topic"})
+    assert response.status_code == 200
+    assert response.json["answer"] == "Summary [1]"
+    assert response.json["results"][0]["url"] == "https://example.com/report"
+    assert response.json["count"] == 1
+
+
+def test_search_summary_uses_source_evidence_and_returns_model_answer(monkeypatch):
+    import scout.agent as module
+    captured = {}
+    def fake_completion(messages):
+        captured["messages"] = messages
+        return "Evidence-backed answer [1]"
+    monkeypatch.setattr(module, "chat_completion", fake_completion)
+    answer = module.summarize_search_results("What changed?", [
+        {"title": "Source A", "url": "https://example.com/a", "snippet": "Published findings"}
+    ])
+    assert answer == "Evidence-backed answer [1]"
+    assert "https://example.com/a" in captured["messages"][1]["content"]
+    assert "[1]" in captured["messages"][1]["content"]
