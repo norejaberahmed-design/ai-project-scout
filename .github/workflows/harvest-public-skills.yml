@@ -93,18 +93,26 @@ jobs:
           import subprocess
           from pathlib import Path
           paths = subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines()
-          allowed = ("/SKILL.md", "/ATTRIBUTION.md", "/UPSTREAM_LICENSE.txt")
-          if not paths or any(
-              not p.startswith("skills/proposed/") or not p.endswith(allowed)
-              for p in paths
-          ):
-              raise SystemExit("Refusing to publish unexpected files: " + repr(paths))
-          proposal_dirs = {str(Path(p).parent) for p in paths}
+          root_files = {"SKILL.md", "ATTRIBUTION.md", "UPSTREAM_LICENSE.txt", "BUNDLE_MANIFEST.json"}
+          bundle_suffixes = {".md", ".rst", ".txt", ".json", ".toml", ".yaml", ".yml", ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".css", ".html", ".go", ".rs"}
+          if not paths:
+              raise SystemExit("No quarantined proposal files were staged.")
+          for p in paths:
+              path = Path(p)
+              if not p.startswith("skills/proposed/"):
+                  raise SystemExit("Refusing to publish unexpected file: " + p)
+              parts = path.parts
+              if "bundle" in parts:
+                  if path.suffix.lower() not in bundle_suffixes or path.parts[parts.index("bundle") - 1] == "":
+                      raise SystemExit("Refusing unsupported bundle file: " + p)
+              elif path.name not in root_files or len(parts) != 4:
+                  raise SystemExit("Refusing unexpected proposal file: " + p)
+          proposal_dirs = {str(Path(p).parent) for p in paths if Path(p).name == "SKILL.md"}
           for directory in proposal_dirs:
-              expected = {directory + suffix for suffix in allowed}
+              expected = {directory + "/" + name for name in root_files}
               if not expected.issubset(set(paths)):
-                  raise SystemExit("Proposal is missing source attribution or license text: " + directory)
-          print("Only quarantined skills with attribution and upstream license text will be published.")
+                  raise SystemExit("Proposal is missing its skill, attribution, license, or bundle manifest: " + directory)
+          print("Only quarantined skills with attribution, license, manifest, and safe text bundle files will be published.")
           PY
       - name: Open draft pull request for human review
         if: steps.harvest.outputs.created != '0'
