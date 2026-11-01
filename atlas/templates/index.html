@@ -15,7 +15,7 @@
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
   <header class="topbar">
     <a class="brand" href="/"><span class="brand-mark">A</span><span>أطلس<span class="brand-ai">.AI</span><small>خريطة عالم الذكاء الاصطناعي</small></span></a>
-    <nav><a class="nav-active" href="#discover">اكتشف</a><a href="#categories">التصنيفات</a><a href="#about">عن أطلس</a></nav>
+    <nav><a class="nav-active" href="#discover">اكتشف</a><a href="#categories">التصنيفات</a><a href="#decision-lab">مختبر القرار</a><a href="#about">عن أطلس</a></nav>
     <div class="top-actions"><span class="live-dot"></span><span class="live-label">بيانات من GitHub</span><button id="savedBtn" class="saved-btn">المحفوظات <b id="savedCount">0</b></button></div>
   </header>
 
@@ -64,6 +64,27 @@
       <div id="status" class="status-line"><span class="spinner"></span> جارٍ الاتصال بمصدر البيانات...</div>
       <div id="results" class="results-grid"></div>
       <div class="results-bottom"><span id="resultCount">—</span><span>المعلومات مأخوذة من GitHub؛ راجع المستودع قبل الاستخدام.</span></div>
+    </section>
+
+
+    <section class="decision-lab" id="decision-lab">
+      <div class="section-heading">
+        <div><span class="section-kicker">مختبر القرار التجاري</span><h2>هل تستحق الأتمتة الاستثمار؟</h2><p>احسب سيناريو أولياً من أرقامك، دون وعود بتوفير غير مثبت.</p></div>
+        <span class="decision-label">حساب شفاف · بلا اشتراك AI</span>
+      </div>
+      <form id="decisionForm" class="decision-form">
+        <label>عدد المعاملات شهرياً<input id="monthlyVolume" type="number" min="1" step="1" value="1000" required></label>
+        <label>دقائق العمل لكل معاملة<input id="minutesPerItem" type="number" min="0.01" step="0.1" value="6" required></label>
+        <label>تكلفة ساعة العمل<input id="hourlyCost" type="number" min="0" step="0.01" value="35" required></label>
+        <label>نسبة الأتمتة المتوقعة %<input id="automationRate" type="number" min="0" max="100" step="1" value="50" required></label>
+        <label>تكلفة الحل شهرياً<input id="softwareCost" type="number" min="0" step="0.01" value="299"></label>
+        <label>العملة<select id="decisionCurrency"><option value="SAR">ريال سعودي</option><option value="USD">دولار أمريكي</option><option value="AED">درهم إماراتي</option></select></label>
+        <button type="submit" id="decisionButton">احسب العائد المتوقع <span>←</span></button>
+      </form>
+      <div id="decisionOutput" class="decision-output" aria-live="polite">
+        <span class="decision-placeholder">أدخل بياناتك ثم احسب السيناريو لعرض الوقت والتوفير والتكلفة المتوقعة.</span>
+      </div>
+      <p class="decision-disclaimer">تنبيه: هذه محاكاة حسابية تعتمد على مدخلاتك، وليست قياساً فعلياً لأداء مورد أو ضماناً للعائد. لا تدخل بيانات سرية أو معلومات شخصية هنا.</p>
     </section>
 
     <section class="trust-strip" id="about"><div class="trust-symbol">✦</div><div><b>المعرفة تبدأ من المصدر</b><p>أطلس يعرض بيانات المستودعات العامة كما هي، ولا يدّعي اختبار أداة أو اعتمادها دون دليل.</p></div><div class="trust-stats"><span>OPEN SOURCE</span><strong>LIVE DATA</strong><span>NO HYPE</span></div></section>

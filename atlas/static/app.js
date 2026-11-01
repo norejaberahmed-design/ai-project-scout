@@ -104,3 +104,50 @@ $("#modalBackdrop").addEventListener("click",()=>$("#modal").classList.remove("o
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#modal").classList.remove("open");});
 updateSavedCount();
 discover();
+
+const decisionForm = $("#decisionForm");
+if (decisionForm) {
+  decisionForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = $("#decisionButton");
+    const output = $("#decisionOutput");
+    const numberValue = (id) => Number($(id).value);
+    button.disabled = true;
+    output.textContent = "جارٍ حساب السيناريو...";
+    try {
+      const payload = {
+        monthly_volume: numberValue("#monthlyVolume"),
+        minutes_per_item: numberValue("#minutesPerItem"),
+        hourly_cost: numberValue("#hourlyCost"),
+        automation_rate: numberValue("#automationRate") / 100,
+        software_monthly_cost: numberValue("#softwareCost"),
+        currency: $("#decisionCurrency").value
+      };
+      const response = await fetch("/api/decision/analyze", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "تعذر حساب السيناريو");
+      const money = (value) => new Intl.NumberFormat("ar-SA", {
+        maximumFractionDigits: 2
+      }).format(value) + " " + safe(data.currency);
+      output.innerHTML = `
+        <div class="decision-metric"><small>وقت العمل الحالي شهرياً</small><strong>${number(data.baseline_monthly_hours)} ساعة</strong></div>
+        <div class="decision-metric"><small>الوقت المتوقع توفيره</small><strong>${number(data.estimated_hours_saved_monthly)} ساعة</strong></div>
+        <div class="decision-metric"><small>قيمة الوقت المتوقع</small><strong>${money(data.estimated_gross_savings_monthly)}</strong></div>
+        <div class="decision-metric decision-net"><small>الصافي بعد اشتراك الحل</small><strong>${money(data.estimated_net_benefit_monthly)}</strong></div>
+      `;
+      const note = document.createElement("p");
+      note.className = "decision-result-note";
+      note.textContent = "سيناريو غير متحقق ميدانياً. لا يشمل جميع تكاليف التنفيذ والتغيير والتكامل.";
+      output.appendChild(note);
+      toast("اكتمل حساب السيناريو الأولي");
+    } catch (error) {
+      output.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
