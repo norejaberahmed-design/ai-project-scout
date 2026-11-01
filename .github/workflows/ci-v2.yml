@@ -3,7 +3,7 @@ on:
   push:
     branches: ["rebuild/v2.1", "rebuild/v2", "main", "feature/agent-discovery-catalog", "feature/ai-tools-discovery-expansion", "atlas-phase1-hardening", "atlas-fullstack-foundation"]
   pull_request:
-    branches: ["main", "rebuild/v2"]
+    branches: ["main", "rebuild/v2", "atlas-phase1-hardening"]
   workflow_dispatch:
 permissions:
   contents: read
