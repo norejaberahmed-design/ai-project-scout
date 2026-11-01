@@ -10,7 +10,6 @@ services:
         value: 0.0.0.0
       - key: SCOUT_API_PORT
         value: "8080"
-    healthCheckPath: /api/health
       - key: SCOUT_ALLOWED_ORIGINS
         value: https://norejaberahmed-design.github.io,http://127.0.0.1:8080,http://localhost:8080
       - key: SCOUT_LLM_API_KEY
