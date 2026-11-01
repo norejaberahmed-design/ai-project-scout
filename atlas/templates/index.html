@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b19">
+  <meta name="description" content="منصة أطلس لاكتشاف أدوات الذكاء الاصطناعي والوكلاء والمكتبات مفتوحة المصدر.">
+  <title>أطلس AI — اكتشف ما يبني المستقبل</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">A</span><span>أطلس<span class="brand-ai">.AI</span><small>خريطة عالم الذكاء الاصطناعي</small></span></a>
+    <nav><a class="nav-active" href="#discover">اكتشف</a><a href="#categories">التصنيفات</a><a href="#about">عن أطلس</a></nav>
+    <div class="top-actions"><span class="live-dot"></span><span class="live-label">بيانات من GitHub</span><button id="savedBtn" class="saved-btn">المحفوظات <b id="savedCount">0</b></button></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span></span> بوابتك إلى منظومة الذكاء الاصطناعي</div>
+        <h1>لا تبحث عن أداة.<br><em>اكتشف الإمكانات.</em></h1>
+        <p>استكشف الوكلاء الذكيين، وأدوات MCP، والنماذج، والأطر البرمجية، ومشاريع الذكاء الاصطناعي من مصدرها الحقيقي.</p>
+        <div class="hero-points"><span>✦ اكتشاف مباشر</span><span>✦ تفاصيل موثقة</span><span>✦ مجاني ومفتوح</span></div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="core"><div class="core-inner">A<span>✦</span></div></div>
+        <div class="node node-one">AI</div><div class="node node-two">MCP</div><div class="node node-three">LLM</div><div class="node node-four">RAG</div>
+        <div class="art-caption">THE INTELLIGENCE MAP <span>01 / 09</span></div>
+      </div>
+    </section>
+
+    <section class="search-panel" id="discover">
+      <div class="search-head"><div><span class="section-kicker">محرك الاستكشاف</span><h2>ما الذي تريد اكتشافه؟</h2></div><div class="source-pill"><span></span> مصدر حي: GitHub</div></div>
+      <form id="searchForm" class="search-form">
+        <span class="search-icon">⌕</span><input id="query" type="search" placeholder="ابحث باسم أداة، تقنية، أو مشكلة تريد حلها..." autocomplete="off">
+        <button type="submit" id="searchButton">ابدأ الاكتشاف <span>←</span></button>
+      </form>
+      <div class="search-foot"><span>جرّب:</span><button class="suggestion" data-query="AI agent">AI agents</button><button class="suggestion" data-query="MCP server">MCP servers</button><button class="suggestion" data-query="RAG">RAG</button><button class="suggestion" data-query="local LLM">Local LLM</button></div>
+    </section>
+
+    <section class="category-section" id="categories">
+      <div class="section-heading"><div><span class="section-kicker">استكشف حسب المجال</span><h2>عوالم الذكاء الاصطناعي</h2></div><span class="heading-note">اختر مجالاً لتصفية النتائج</span></div>
+      <div class="category-grid">
+        <button class="category-card selected" data-category="all"><span class="cat-icon icon-all">✳</span><b>كل المجالات</b><small>اكتشف المنظومة كاملة</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="agents"><span class="cat-icon icon-agent">◈</span><b>الوكلاء الذكيون</b><small>Agents & Automation</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="mcp"><span class="cat-icon icon-mcp">⌘</span><b>أدوات MCP</b><small>Servers & Connectors</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="frameworks"><span class="cat-icon icon-framework">⌬</span><b>الأطر والمكتبات</b><small>Frameworks & SDKs</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="rag"><span class="cat-icon icon-rag">⌕</span><b>البحث والمعرفة</b><small>RAG & Vector Search</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="models"><span class="cat-icon icon-model">◉</span><b>النماذج المحلية</b><small>LLMs & Inference</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="voice"><span class="cat-icon icon-voice">≋</span><b>الصوت والرؤية</b><small>Voice & Vision</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="evaluation"><span class="cat-icon icon-eval">⌁</span><b>التقييم والمراقبة</b><small>Evaluation & Observability</small><span class="cat-arrow">↗</span></button>
+        <button class="category-card" data-category="apps"><span class="cat-icon icon-apps">✧</span><b>تطبيقات AI</b><small>Real-world Products</small><span class="cat-arrow">↗</span></button>
+      </div>
+    </section>
+
+    <section class="results-section">
+      <div class="results-head"><div><span class="section-kicker">مكتبة المشاريع</span><h2 id="resultsTitle">مشاريع تستحق الاكتشاف</h2><p id="resultsSubtitle">نتائج حقيقية من مستودعات مفتوحة المصدر</p></div><div class="result-tools"><label for="sortSelect">ترتيب حسب</label><select id="sortSelect"><option value="stars">الأكثر نجومًا</option><option value="updated">الأحدث تحديثًا</option></select></div></div>
+      <div id="status" class="status-line"><span class="spinner"></span> جارٍ الاتصال بمصدر البيانات...</div>
+      <div id="results" class="results-grid"></div>
+      <div class="results-bottom"><span id="resultCount">—</span><span>المعلومات مأخوذة من GitHub؛ راجع المستودع قبل الاستخدام.</span></div>
+    </section>
+
+    <section class="trust-strip" id="about"><div class="trust-symbol">✦</div><div><b>المعرفة تبدأ من المصدر</b><p>أطلس يعرض بيانات المستودعات العامة كما هي، ولا يدّعي اختبار أداة أو اعتمادها دون دليل.</p></div><div class="trust-stats"><span>OPEN SOURCE</span><strong>LIVE DATA</strong><span>NO HYPE</span></div></section>
+  </main>
+  <footer><a class="brand footer-brand" href="/"><span class="brand-mark">A</span><span>أطلس<span class="brand-ai">.AI</span><small>استكشف بذكاء.</small></span></a><span>منصة مستقلة لاكتشاف منظومة الذكاء الاصطناعي</span><span>© 2026 ATLAS AI</span></footer>
+
+  <div id="toast" class="toast" role="status"></div>
+  <div id="modal" class="modal" aria-hidden="true"><div class="modal-backdrop" id="modalBackdrop"></div><div class="modal-box"><button class="modal-close" id="modalClose">×</button><div id="modalContent"></div></div></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
