@@ -49,7 +49,7 @@ def test_catalog_api_routes_are_registered_and_catalog_only(tmp_path, monkeypatc
     client = webapp.app.test_client()
     page = client.get("/agents")
     assert page.status_code == 200
-    assert b"دليل وكلاء الذكاء الاصطناعي" in page.data
+    assert "دليل وكلاء الذكاء الاصطناعي".encode("utf-8") in page.data
     status = client.get("/api/agents/status")
     assert status.status_code == 200
     assert status.json["mode"] == "catalog_only"
