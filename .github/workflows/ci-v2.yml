@@ -1,7 +1,7 @@
 name: V2 CI
 on:
   push:
-    branches: ["rebuild/v2.1", "rebuild/v2", "main", "feature/agent-discovery-catalog"]
+    branches: ["rebuild/v2.1", "rebuild/v2", "main", "feature/agent-discovery-catalog", "feature/ai-tools-discovery-expansion"]
   pull_request:
     branches: ["main", "rebuild/v2"]
   workflow_dispatch:
@@ -25,11 +25,15 @@ jobs:
           python - <<'PY'
           import re
           from pathlib import Path
-          html = Path("site/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
-          if not scripts:
-              raise SystemExit("No browser script found.")
-          Path("/tmp/scout-ui.js").write_text("\n".join(scripts), encoding="utf-8")
+          for filename in ("site/index.html", "site/agents.html"):
+              html = Path(filename).read_text(encoding="utf-8")
+              scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+              if not scripts:
+                  raise SystemExit(f"No browser script found in {filename}.")
+              output = Path("/tmp") / (Path(filename).stem + ".js")
+              output.write_text("\n".join(scripts), encoding="utf-8")
+              print(output)
           PY
-          node --check /tmp/scout-ui.js
+          node --check /tmp/index.js
+          node --check /tmp/agents.js
       - run: PYTHONPATH=. pytest
