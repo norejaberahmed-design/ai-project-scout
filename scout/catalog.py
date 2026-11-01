@@ -381,4 +381,4 @@ def discovery_status():
         kinds = {row[0]: row[1] for row in db.execute("SELECT kind, COUNT(*) FROM agents GROUP BY kind")}
         last = db.execute("SELECT id,started_at,completed_at,found,inspected,errors_json FROM discovery_runs ORDER BY id DESC LIMIT 1").fetchone()
         return {"total": total, "by_kind": kinds, "last_run": dict(last) if last else None,
-                "database": "SQLite", "mode": "ai_ecosystem_catalog_only"}
+                "database": "SQLite", "mode": "catalog_only", "scope": "github_open_source_ai_ecosystem"}
