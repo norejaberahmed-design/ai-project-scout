@@ -187,7 +187,7 @@ def _save(repo, readme, readme_url):
     if readme_url:
         evidence.append({"claim": "Description and capability signals", "source": readme_url,
                          "basis": "Static README text inspection; not runtime verification"})
-    if repo.get("license", {}).get("spdx_id"):
+    if (repo.get("license") or {}).get("spdx_id"):
         evidence.append({"claim": "Declared license", "source": repo.get("html_url", "") + "/blob/" + str(repo.get("default_branch") or "main") + "/LICENSE",
                          "basis": "GitHub metadata SPDX identifier; license text not independently certified"})
     now = int(time.time())
