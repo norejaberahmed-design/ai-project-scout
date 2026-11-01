@@ -38,6 +38,10 @@ def too_large(_error):
 def index():
     return send_from_directory(config.SITE_DIR, "index.html")
 
+@app.get("/agents")
+def agent_catalog_page():
+    return send_from_directory(config.SITE_DIR, "agents.html")
+
 def json_body():
     if not request.is_json:
         raise ValueError("Content-Type must be application/json")
