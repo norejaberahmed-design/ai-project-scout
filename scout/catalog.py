@@ -203,7 +203,7 @@ def _save(repo, readme, readme_url):
     )
     with _connect() as db:
         db.execute("""
-        INSERT INTO agents VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO agents VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(github_id) DO UPDATE SET
           full_name=excluded.full_name, html_url=excluded.html_url, name=excluded.name,
           description=excluded.description, kind=excluded.kind, categories_json=excluded.categories_json,
