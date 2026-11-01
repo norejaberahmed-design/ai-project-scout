@@ -151,34 +151,8 @@ GENERIC_SKILL_NAMES = {"software-builder", "evidence-first-research", "structure
 
 
 def _skills_for_task(query: str) -> list[dict]:
-    """Use specialized skills first; discover a candidate when only generic guidance fits."""
-    global _last_auto_discovery
-    active = select_skills(query, _active_skills())
-    specialized = [skill for skill in active if skill.get("name") not in GENERIC_SKILL_NAMES]
-    explicit_discovery = bool(re.search(
-        r"(?:\bgithub\b|\bskill(?:s)?\b|\bdiscover\b|\bharvest\b|"
-        r"مهار(?:ة|ات)|اكتشف|استكشف|مستودع(?:ات)?|اجمع المهارات)",
-        query, re.IGNORECASE))
-    if specialized and not explicit_discovery:
-        generic = [skill for skill in active if skill.get("name") in GENERIC_SKILL_NAMES]
-        return (specialized + generic)[:4]
-
-    proposed = _proposed_skills()
-    matching = select_skills(query, proposed)
-    if matching:
-        return matching
-
-    now = time.time()
-    if now - _last_auto_discovery >= _AUTO_DISCOVERY_COOLDOWN_SECONDS:
-        _last_auto_discovery = now
-        try:
-            discover_skills(1, task_query=query)
-        except (SkillError, OSError, ValueError):
-            # Skill harvesting is optional; the user request must still proceed.
-            pass
-        proposed = _proposed_skills()
-    return select_skills(query, proposed) or select_skills(query, active)
-
+    """Select only already-active skills; catalog mode never discovers or stages skills."""
+    return select_skills(query, _active_skills())
 
 SEARCH_INTENT_PATTERNS = (
     r"\b(search|research|look up|find sources|latest|current|today|news|verify|fact check)\b",

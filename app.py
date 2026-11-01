@@ -5,12 +5,14 @@ load_dotenv()
 from flask import Flask, jsonify, request, send_from_directory
 import time
 from scout import config
+from scout.catalog_api import agents_api
 from scout.agent import answer_task, summarize_search_results
 from scout.providers import ProviderError
 from scout.search import SearchError, web_search
 from scout.skills import SkillError, approve_skill, discover_skills, list_skills
 
 app = Flask(__name__, static_folder=None)
+app.register_blueprint(agents_api)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 _PUBLIC_DISCOVERY_COOLDOWN_SECONDS = 900
 _last_public_discovery_at = 0.0
@@ -35,6 +37,10 @@ def too_large(_error):
 @app.get("/")
 def index():
     return send_from_directory(config.SITE_DIR, "index.html")
+
+@app.get("/agents")
+def agent_catalog_page():
+    return send_from_directory(config.SITE_DIR, "agents.html")
 
 def json_body():
     if not request.is_json:
