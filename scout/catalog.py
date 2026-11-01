@@ -326,7 +326,7 @@ def discover_agents(query="", max_results=60):
         raise DiscoveryError(errors[0]["error"])
     return {"run_id": run_id, "queries_run": len(queries), "repositories_found": len(found),
             "repositories_inspected": inspected, "readmes_inspected": readmes,
-            "errors": errors, "mode": "ai_ecosystem_catalog_only"}
+            "errors": errors, "mode": "catalog_only", "scope": "github_open_source_ai_ecosystem"}
 
 
 def list_agents(query="", category="", kind="", sort="relevance", limit=50, offset=0):
