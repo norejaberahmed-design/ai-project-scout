@@ -41,3 +41,19 @@ def test_catalog_is_read_only_about_upstream_code():
     source = open("scout/catalog.py", encoding="utf-8").read()
     assert "git clone" not in source.lower()
     assert "subprocess" not in source
+
+
+def test_catalog_api_routes_are_registered_and_catalog_only(tmp_path, monkeypatch):
+    import app as webapp
+    monkeypatch.setattr(catalog, "DB_PATH", tmp_path / "api-catalog.sqlite3")
+    client = webapp.app.test_client()
+    page = client.get("/agents")
+    assert page.status_code == 200
+    assert b"دليل وكلاء الذكاء الاصطناعي" in page.data
+    status = client.get("/api/agents/status")
+    assert status.status_code == 200
+    assert status.json["mode"] == "catalog_only"
+    assert status.json["database"] == "SQLite"
+    listing = client.get("/api/agents")
+    assert listing.status_code == 200
+    assert listing.json["total"] == 0
