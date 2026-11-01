@@ -172,40 +172,22 @@ def test_search_summary_uses_source_evidence_and_returns_model_answer(monkeypatc
     assert "https://example.com/a" in captured["messages"][1]["content"]
     assert "[1]" in captured["messages"][1]["content"]
 
-def test_agent_uses_relevant_proposed_skill_without_manual_activation(monkeypatch):
+def test_catalog_only_does_not_use_unapproved_proposed_skills(monkeypatch):
     import scout.agent as module
-    proposal = {
-        "name": "sql-query-optimization",
-        "description": "Optimize SQL database queries and indexes.",
-        "content": "---\\nname: sql-query-optimization\\ndescription: Optimize SQL database queries and indexes.\\n---\\nReview query plans and indexes.",
-        "status": "proposed",
-    }
+    proposal = {"name": "sql-query-optimization",
+                "description": "Optimize SQL database queries and indexes.",
+                "content": "Review query plans and indexes.", "status": "proposed"}
     monkeypatch.setattr(module, "_active_skills", lambda: [])
     monkeypatch.setattr(module, "_proposed_skills", lambda: [proposal])
-    monkeypatch.setattr(module, "discover_skills", lambda limit, task_query="": (_ for _ in ()).throw(AssertionError("should reuse existing proposal")))
-    selected = module._skills_for_task("Optimize my SQL database query")
-    assert selected and selected[0]["name"] == "sql-query-optimization"
-    assert selected[0]["status"] == "proposed"
+    monkeypatch.setattr(module, "discover_skills", lambda *a, **k: (_ for _ in ()).throw(AssertionError("catalog mode must not harvest skills")))
+    assert module._skills_for_task("Optimize my SQL database query") == []
 
-
-def test_agent_auto_discovers_one_skill_when_no_skill_matches(monkeypatch):
+def test_catalog_only_does_not_auto_discover_skills(monkeypatch):
     import scout.agent as module
-    proposal = {
-        "name": "api-integration",
-        "description": "Integrate APIs and troubleshoot HTTP API connections.",
-        "content": "---\\nname: api-integration\\ndescription: Integrate APIs and troubleshoot HTTP API connections.\\n---\\nVerify URLs and status codes.",
-        "status": "proposed",
-    }
-    calls = []
     monkeypatch.setattr(module, "_active_skills", lambda: [])
-    monkeypatch.setattr(module, "_proposed_skills", lambda: [proposal] if calls else [])
-    monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
-    monkeypatch.setattr(module.time, "time", lambda: 10_000.0)
-    monkeypatch.setattr(module, "discover_skills", lambda limit, task_query="": calls.append(limit) or {"created": []})
-    selected = module._skills_for_task("Help me integrate an HTTP API connection")
-    assert calls == [1]
-    assert selected and selected[0]["name"] == "api-integration"
-    assert selected[0]["status"] == "proposed"
+    monkeypatch.setattr(module, "_proposed_skills", lambda: [])
+    monkeypatch.setattr(module, "discover_skills", lambda *a, **k: (_ for _ in ()).throw(AssertionError("unexpected discovery")))
+    assert module._skills_for_task("Help me integrate an HTTP API connection") == []
 
 def test_four_provider_integration_skills_are_available_in_catalogue():
     from scout.skills import list_skills
@@ -296,29 +278,19 @@ def test_agent_returns_real_sources_when_model_is_unconfigured(monkeypatch):
     assert result["sources"][0]["url"] == "https://example.com/docs"
     assert result["model_warning"] == "MODEL_NOT_CONFIGURED: test"
 
-def test_generic_builder_skill_does_not_block_specialized_skill_discovery(monkeypatch):
+def test_catalog_only_uses_active_skills_but_ignores_proposals(monkeypatch):
     import scout.agent as module
-    generic = {
-        "name": "software-builder",
-        "description": "Build software applications and implement code.",
-        "content": "General software development steps.",
-        "status": "active",
-    }
-    specialized = {
-        "name": "vector-database-retrieval",
-        "description": "Build semantic search with vector databases and retrieval augmented generation.",
-        "content": "Compare embedding models, chunking and retrieval quality.",
-        "status": "proposed",
-    }
-    calls = []
-    monkeypatch.setattr(module, "_active_skills", lambda: [generic])
-    monkeypatch.setattr(module, "_proposed_skills", lambda: [specialized] if calls else [])
-    monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
-    monkeypatch.setattr(module.time, "time", lambda: 100_000.0)
-    monkeypatch.setattr(module, "discover_skills", lambda limit, task_query="": calls.append(limit) or {"created": []})
-    selected = module._skills_for_task("Build semantic search with vector database retrieval")
-    assert calls == [1]
-    assert selected and selected[0]["name"] == "vector-database-retrieval"
+    active = {"name": "python-debugging", "description": "Debug Python errors and tracebacks.",
+              "content": "Inspect tracebacks.", "status": "active"}
+    proposed = {"name": "vector-database-retrieval",
+                "description": "Build semantic search with vector databases.",
+                "content": "Review retrieval quality.", "status": "proposed"}
+    monkeypatch.setattr(module, "_active_skills", lambda: [active])
+    monkeypatch.setattr(module, "_proposed_skills", lambda: [proposed])
+    monkeypatch.setattr(module, "discover_skills", lambda *a, **k: (_ for _ in ()).throw(AssertionError("unexpected discovery")))
+    selected = module._skills_for_task("Debug this Python traceback")
+    assert selected and selected[0]["name"] == "python-debugging"
+    assert all(item["status"] != "proposed" for item in selected)
 
 def test_skill_discovery_uses_github_code_search_when_token_is_configured(monkeypatch, tmp_path):
     import scout.skills as module
@@ -448,23 +420,16 @@ def test_discovery_endpoint_forwards_task_query(monkeypatch):
     assert response.status_code == 200
     assert calls == [(1, "Build Flask database app")]
 
-def test_explicit_github_skill_request_triggers_discovery_even_with_matching_skill(monkeypatch):
+def test_explicit_github_skill_request_does_not_trigger_skill_harvesting_in_catalog_mode(monkeypatch):
     import scout.agent as module
-    existing = {
-        "name": "github-skill-discovery",
-        "description": "Discover and inspect agent skills from GitHub repositories.",
-        "content": "Search repository metadata and inspect skill manifests.",
-        "status": "active",
-    }
-    calls = []
+    existing = {"name": "github-skill-discovery",
+                "description": "Discover and inspect agent skills from GitHub repositories.",
+                "content": "Search repository metadata and inspect skill manifests.",
+                "status": "active"}
     monkeypatch.setattr(module, "_active_skills", lambda: [existing])
     monkeypatch.setattr(module, "_proposed_skills", lambda: [])
-    monkeypatch.setattr(module, "_last_auto_discovery", 0.0)
-    monkeypatch.setattr(module.time, "time", lambda: 100_000.0)
-    monkeypatch.setattr(module, "discover_skills",
-                        lambda limit, task_query="": calls.append((limit, task_query)) or {"created": []})
+    monkeypatch.setattr(module, "discover_skills", lambda *a, **k: (_ for _ in ()).throw(AssertionError("catalog mode must not harvest")))
     selected = module._skills_for_task("Search GitHub for skills to build a Flask app")
-    assert calls == [(1, "Search GitHub for skills to build a Flask app")]
     assert selected and selected[0]["name"] == "github-skill-discovery"
 
 def test_agent_uses_hash_verified_supporting_skill_files_as_context(monkeypatch, tmp_path):
