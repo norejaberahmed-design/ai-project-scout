@@ -44,3 +44,17 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) and [render.yaml](render.yaml). GitHub Pages 
 
 ## Architecture and testing
 See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), [PLAN.md](PLAN.md), and [SKILLS_CATALOG.md](SKILLS_CATALOG.md). Tests run in GitHub Actions via `pytest`.
+
+
+## GitHub AI Agent Catalog (catalog-only mode)
+
+The `/agents` page provides a separate catalog for AI-agent-related GitHub repositories. It searches repository metadata and README text, classifies likely agents separately from frameworks/libraries and tutorials/collections, and stores findings in a local SQLite database at `data/agents.sqlite3` (override with `SCOUT_AGENT_DB_PATH`).
+
+- `POST /api/agents/discover` — bounded public GitHub discovery; request JSON: `{"query":"","max_results":60}`.
+- `GET /api/agents` — search/filter catalog with `q`, `category`, `kind`, `sort`, `limit`, and `offset`.
+- `GET /api/agents/<github_id>` — one catalog record and its evidence.
+- `GET /api/agents/status` — local catalog and latest discovery-run status.
+
+Discovery is metadata and README inspection only. It does not clone repositories, install dependencies, execute upstream code, contact maintainers, or integrate agents. Categories and scores are heuristic signals, not proof of capability, safety, or runtime behavior. GitHub's declared SPDX license is recorded as metadata, not independently certified by this catalog.
+
+In catalog-only mode, normal chat requests no longer trigger background skill harvesting. Existing approved active skills remain available to the current assistant workflow.
