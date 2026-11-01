@@ -15,6 +15,8 @@ def test_health_creates_configured_cache_directory(tmp_path, monkeypatch):
         "status": "ok",
         "app": "Atlas AI",
         "database": "ok",
+        "decision_engine": "ready",
+        "decision_engine_mode": "deterministic_no_llm",
     }
     assert db_path.exists()
 
