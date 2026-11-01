@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080b10"><title>AI Agent Discovery Catalog</title>
+<style>
+:root{color-scheme:dark;--bg:#080b10;--panel:#10151d;--line:#283242;--text:#eef2f8;--muted:#9aa8ba;--gold:#d8b477;--green:#93e2b0;--red:#ff9b9b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top right,#182033 0,transparent 45%),var(--bg);color:var(--text);font:15px/1.7 system-ui,sans-serif}
+main{max-width:1100px;margin:auto;padding:22px 14px 60px}.top,.tools,.meta,.tags{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.top{justify-content:space-between}.panel,.item{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;margin:14px 0}
+h1{font-size:22px;margin:0}h2{font-size:18px;margin:0 0 8px}.muted{color:var(--muted)}.status{font-size:12px;color:var(--green)}
+input,select,button{font:inherit;border-radius:10px;border:1px solid var(--line);background:#090e15;color:var(--text);padding:10px}input{flex:1;min-width:190px}button{cursor:pointer;background:#202a38}button.primary{background:var(--gold);color:#17130c;font-weight:800}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}@media(min-width:720px){.grid{grid-template-columns:1fr 1fr}}
+.item h3{margin:0;font-size:17px}.item a{color:var(--gold);text-decoration:none}.meta{font-size:12px;color:var(--muted);margin:8px 0}.tag{border:1px solid var(--line);border-radius:99px;padding:2px 8px;font-size:11px;color:#d8c69f}
+.desc{color:#d5dbe4;font-size:14px}.evidence{font-size:12px;color:var(--muted);margin-top:10px}.error{color:var(--red)}.empty{text-align:center;padding:30px;color:var(--muted)}.pagination{display:flex;justify-content:center;gap:10px;margin:20px}
+</style></head>
+<body><main>
+<header class="top"><div><h1>دليل وكلاء الذكاء الاصطناعي</h1><div class="muted">اكتشاف وتصنيف مستودعات GitHub — عرض فقط، دون تشغيل أو تثبيت أو دمج</div></div><a href="/" style="color:var(--gold)">العودة إلى SkillForge</a></header>
+<section class="panel">
+<h2>اكتشاف مستودعات جديدة</h2><p class="muted">يبحث المحرك في بيانات GitHub وملفات README العامة، ويخزن النتائج محلياً في SQLite.</p>
+<div class="tools"><input id="query" placeholder="مثال: finance agents أو browser automation"><button class="primary" id="discover">ابدأ الاكتشاف</button><button id="refresh">تحديث القائمة</button></div>
+<div id="status" class="status" aria-live="polite">جاهز</div>
+</section>
+<section class="panel">
+<div class="tools"><input id="search" placeholder="ابحث بالاسم أو الوصف أو المستودع"><select id="category"><option value="">كل التخصصات</option><option value="coding">البرمجة</option><option value="research">البحث</option><option value="browser">المتصفح</option><option value="business">الأعمال</option><option value="sales">المبيعات</option><option value="finance">المالية</option><option value="cybersecurity">الأمن السيبراني</option><option value="database">قواعد البيانات</option><option value="devops">DevOps</option><option value="data">البيانات</option><option value="multi_agent">متعدد الوكلاء</option><option value="workflow">سير العمل</option></select><select id="kind"><option value="">كل الأنواع</option><option value="agent">وكيل مرجح</option><option value="agent_project_unverified">مشروع وكيل غير مؤكد</option><option value="framework_or_library">إطار أو مكتبة</option><option value="tutorial_or_collection">تعليمي أو تجميعي</option></select><select id="sort"><option value="relevance">الأكثر صلة</option><option value="stars">الأكثر نجومًا</option><option value="updated">الأحدث تحديثاً</option><option value="name">الاسم</option></select><button id="apply">بحث</button></div>
+<div class="meta" id="summary"></div><div id="results" class="grid"><div class="empty">لا توجد نتائج بعد. ابدأ الاكتشاف.</div></div>
+<div class="pagination"><button id="prev">السابق</button><span id="page" class="muted">1</span><button id="next">التالي</button></div>
+</section>
+<section class="panel"><h2>حدود الثقة</h2><p class="muted">التصنيف آلي أولي مستند إلى بيانات المستودع وREADME، وليس إثباتاً أن الوكيل يعمل أو آمن. الترخيص المعروض هو SPDX كما يعلنه GitHub. لا يتم استنساخ المستودعات أو تثبيت تبعياتها أو تنفيذ كودها.</p></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);let offset=0,total=0;const pageSize=30;
+function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function api(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});const d=await r.json().catch(()=>({message:'استجابة غير صالحة'}));if(!r.ok)throw new Error(d.message||d.error||('HTTP '+r.status));return d}
+function card(x){return '<article class="item"><h3><a href="'+esc(x.html_url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.full_name)+'</a></h3><p class="desc">'+esc(x.description||'لا يوجد وصف من GitHub')+'</p><div class="meta"><span>'+esc(x.kind)+'</span><span>★ '+Number(x.stars||0).toLocaleString('en-US')+'</span><span>'+esc(x.language||'لغة غير محددة')+'</span><span>'+esc(x.license_spdx||'ترخيص غير محدد')+'</span><span>Score '+Number(x.score||0)+'/100</span></div><div class="tags">'+(x.categories||[]).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div><div class="evidence">'+(x.evidence||[]).map(e=>'<div>دليل: '+esc(e.claim)+' — <a href="'+esc(e.source)+'" target="_blank" rel="noopener noreferrer">المصدر</a></div>').join('')+'</div></article>'}
+async function load(){try{const p=new URLSearchParams({q:$('search').value,category:$('category').value,kind:$('kind').value,sort:$('sort').value,limit:String(pageSize),offset:String(offset)});const d=await api('/api/agents?'+p);total=d.total;$('summary').textContent='النتائج: '+total.toLocaleString('en-US');$('results').innerHTML=d.items.length?d.items.map(card).join(''):'<div class="empty">لا توجد نتائج مطابقة. جرّب تغيير البحث أو ابدأ اكتشافاً جديداً.</div>';$('page').textContent=String(Math.floor(offset/pageSize)+1);$('prev').disabled=offset===0;$('next').disabled=offset+pageSize>=total}catch(e){$('results').innerHTML='<div class="empty error">'+esc(e.message)+'</div>'}}
+$('discover').onclick=async()=>{$('discover').disabled=true;$('status').textContent='يجري البحث في GitHub...';try{const d=await api('/api/agents/discover',{query:$('query').value.trim(),max_results:60});$('status').textContent='اكتمل الفحص: '+d.repositories_inspected+' مستودعاً؛ '+d.errors.length+' أخطاء';offset=0;await load()}catch(e){$('status').textContent=e.message;$('status').className='status error'}finally{$('discover').disabled=false}};
+$('refresh').onclick=load;$('apply').onclick=()=>{offset=0;load()};$('prev').onclick=()=>{offset=Math.max(0,offset-pageSize);load()};$('next').onclick=()=>{if(offset+pageSize<total){offset+=pageSize;load()}};$('search').addEventListener('keydown',e=>{if(e.key==='Enter'){$('apply').click()}});load();
+</script></body></html>
