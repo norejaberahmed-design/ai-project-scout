@@ -46,15 +46,15 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) and [render.yaml](render.yaml). GitHub Pages 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), [PLAN.md](PLAN.md), and [SKILLS_CATALOG.md](SKILLS_CATALOG.md). Tests run in GitHub Actions via `pytest`.
 
 
-## GitHub AI Agent Catalog (catalog-only mode)
+## GitHub AI Ecosystem Catalog (catalog-only mode)
 
-The `/agents` page provides a separate catalog for AI-agent-related GitHub repositories. It searches repository metadata and README text, classifies likely agents separately from frameworks/libraries and tutorials/collections, and stores findings in a local SQLite database at `data/agents.sqlite3` (override with `SCOUT_AGENT_DB_PATH`).
+The `/agents` page provides a broad catalog of public open-source AI projects. Discovery lanes include agents, MCP servers/tools, developer tools, frameworks/SDKs, RAG and knowledge systems, vector search, local models and inference servers, evaluation/observability, voice/audio, vision, and AI applications. It searches GitHub repository metadata and a bounded number of README files, classifies results by project type and category, and stores findings in SQLite at `data/agents.sqlite3` (override with `SCOUT_AGENT_DB_PATH`). The catalog works without an LLM key; a model is only needed for SkillForge chat/task execution.
 
-- `POST /api/agents/discover` — bounded public GitHub discovery; request JSON: `{"query":"","max_results":60}`.
+- `POST /api/agents/discover` — bounded public GitHub ecosystem discovery; request JSON: `{"query":"","max_results":100}`. Up to eight discovery lanes and 35 README inspections are used per run to stay within unauthenticated GitHub API quotas.
 - `GET /api/agents` — search/filter catalog with `q`, `category`, `kind`, `sort`, `limit`, and `offset`.
 - `GET /api/agents/<github_id>` — one catalog record and its evidence.
 - `GET /api/agents/status` — local catalog and latest discovery-run status.
 
-Discovery is metadata and README inspection only. It does not clone repositories, install dependencies, execute upstream code, contact maintainers, or integrate agents. Categories and scores are heuristic signals, not proof of capability, safety, or runtime behavior. GitHub's declared SPDX license is recorded as metadata, not independently certified by this catalog.
+Discovery is metadata and README inspection only. It does not clone repositories, install dependencies, execute upstream code, contact maintainers, or integrate agents. Categories and scores are heuristic signals, not proof of capability, safety, or runtime behavior. This GitHub-first catalog does not cover every proprietary SaaS product; a separate web-research source is needed for closed commercial services. GitHub's declared SPDX license is recorded as metadata, not independently certified by this catalog.
 
 In catalog-only mode, normal chat requests no longer trigger background skill harvesting. Existing approved active skills remain available to the current assistant workflow.

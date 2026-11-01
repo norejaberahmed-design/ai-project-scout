@@ -1,9 +1,8 @@
-"""GitHub-wide AI agent catalog. Discovery is metadata/static inspection only."""
+"""GitHub-wide AI ecosystem catalog. Metadata/static inspection only; never execute upstream code."""
 from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 import sqlite3
 import time
@@ -12,45 +11,69 @@ from urllib.parse import quote
 
 import requests
 
-from .config import ROOT, setting, int_setting
+from .config import ROOT, setting
 
 DB_PATH = Path(setting("SCOUT_AGENT_DB_PATH", str(ROOT / "data" / "agents.sqlite3")))
 API = "https://api.github.com"
 TIMEOUT = 15
-MAX_REPOS_PER_QUERY = 30
-MAX_QUERIES = 6
+MAX_QUERIES = 8
+MAX_READMES_PER_RUN = 35
 MAX_README_CHARS = 12000
 
+# Broad, overlapping discovery lanes. Search is intentionally GitHub-first:
+# it finds inspectable open-source projects, not every proprietary SaaS product.
 SEARCH_QUERIES = [
-    'agent in:name,description stars:>=1 archived:false',
-    '"AI agent" in:description,readme stars:>=1 archived:false',
-    '"autonomous agent" in:description,readme stars:>=1 archived:false',
-    '"multi-agent" in:description,readme stars:>=1 archived:false',
-    'LLM agent framework in:description,readme stars:>=1 archived:false',
+    '"AI agent" in:name,description,readme stars:>=1 archived:false',
+    '"LLM tool" in:name,description,readme stars:>=1 archived:false',
+    '"MCP server" in:name,description,readme stars:>=1 archived:false',
+    '"AI developer tool" in:name,description,readme stars:>=1 archived:false',
+    '"RAG" framework in:name,description,readme stars:>=1 archived:false',
+    '"AI automation" in:name,description,readme stars:>=1 archived:false',
+    '"local LLM" inference in:name,description,readme stars:>=1 archived:false',
+    '"vector database" OR embeddings in:name,description,readme stars:>=1 archived:false',
 ]
 
 CATEGORY_RULES = {
-    "coding": ("coding agent", "code agent", "software engineer", "programming agent", "coding", "code generation"),
+    "agents": ("ai agent", "llm agent", "autonomous agent", "agentic", "multi-agent"),
+    "coding": ("coding agent", "code agent", "software engineer", "code generation", "coding assistant", "code editor"),
     "research": ("research agent", "deep research", "web research", "research assistant"),
-    "browser": ("browser agent", "web agent", "browser automation", "web automation"),
+    "browser": ("browser agent", "browser automation", "web automation", "computer use"),
     "business": ("business agent", "business automation", "operations agent"),
     "sales": ("sales agent", "lead generation", "crm agent", "outbound sales"),
     "finance": ("financial agent", "finance agent", "trading agent", "investment agent"),
     "cybersecurity": ("security agent", "cybersecurity", "threat detection", "penetration testing"),
-    "database": ("database agent", "sql agent", "data query agent", "text-to-sql"),
-    "devops": ("devops agent", "sre agent", "incident response", "infrastructure agent"),
-    "data": ("data agent", "analytics agent", "data analysis", "data pipeline"),
-    "customer_support": ("customer support agent", "customer service agent", "support chatbot"),
+    "database": ("database agent", "sql agent", "database", "text-to-sql"),
+    "devops": ("devops", "sre", "incident response", "infrastructure automation"),
+    "data": ("data agent", "analytics", "data analysis", "data pipeline"),
+    "customer_support": ("customer support", "customer service agent", "support chatbot"),
     "workflow": ("workflow agent", "automation agent", "orchestration", "task automation"),
-    "voice": ("voice agent", "speech agent", "conversational voice"),
+    "voice_audio": ("voice agent", "speech", "text-to-speech", "speech-to-text", "audio generation"),
     "robotics": ("robotics agent", "robot agent", "embodied agent"),
     "personal": ("personal assistant agent", "personal agent", "desktop assistant"),
     "multi_agent": ("multi-agent", "multi agent", "agent teams", "multiple agents"),
+    "mcp": ("model context protocol", "mcp server", "mcp tool"),
+    "rag_knowledge": ("retrieval augmented generation", "rag", "knowledge base", "semantic search"),
+    "vector_search": ("vector database", "vector search", "embeddings", "embedding model"),
+    "model_inference": ("model inference", "inference server", "llm serving", "model serving"),
+    "local_models": ("local llm", "ollama", "llama.cpp", "on-device model"),
+    "evaluation": ("llm evaluation", "evals", "benchmark", "model testing"),
+    "observability": ("llm observability", "tracing", "prompt monitoring", "llm monitoring"),
+    "vision_images": ("computer vision", "image generation", "image understanding", "vision model"),
+    "education": ("ai tutor", "education", "learning assistant"),
 }
-AGENT_SIGNALS = ("agent", "agents", "autonomous", "multi-agent", "llm-powered", "tool-using")
-FRAMEWORK_SIGNALS = ("framework", "sdk", "library", "platform", "toolkit")
-TUTORIAL_SIGNALS = ("tutorial", "course", "examples", "cookbook", "awesome list", "awesome-")
-TOOL_SIGNALS = ("browser", "search", "terminal", "python", "shell", "sql", "api", "memory", "tools", "filesystem")
+AGENT_SIGNALS = ("agent", "agents", "autonomous", "multi-agent", "agentic", "tool-using")
+FRAMEWORK_SIGNALS = ("framework", "sdk", "library", "toolkit")
+TUTORIAL_SIGNALS = ("tutorial", "course", "awesome list", "awesome-", "curated list", "learning resources")
+MCP_SIGNALS = ("model context protocol", "mcp server", "mcp tool")
+INFERENCE_SIGNALS = ("inference server", "llm serving", "model serving", "inference engine")
+DATASET_SIGNALS = ("dataset", "benchmark suite", "evaluation dataset", "eval harness")
+DEV_TOOL_SIGNALS = ("cli tool", "developer tool", "developer platform", "ide extension", "code editor", "observability", "evaluation framework")
+APPLICATION_SIGNALS = ("web app", "desktop app", "chatbot", "assistant app", "ai application", "end-user application")
+CAPABILITY_SIGNALS = (
+    "browser", "search", "terminal", "python", "shell", "sql", "api", "memory",
+    "tools", "filesystem", "rag", "embeddings", "vector", "voice", "vision",
+    "workflow", "mcp", "evaluation", "tracing", "inference", "ocr",
+)
 
 
 class DiscoveryError(RuntimeError):
@@ -92,7 +115,11 @@ def init_db():
           readme_excerpt TEXT NOT NULL DEFAULT '',
           first_seen INTEGER NOT NULL,
           last_seen INTEGER NOT NULL,
-          last_scanned INTEGER NOT NULL
+          last_scanned INTEGER NOT NULL,
+          topics_json TEXT NOT NULL DEFAULT '[]',
+          homepage TEXT NOT NULL DEFAULT '',
+          license_name TEXT NOT NULL DEFAULT '',
+          readme_url TEXT NOT NULL DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_agents_kind ON agents(kind);
         CREATE INDEX IF NOT EXISTS idx_agents_stars ON agents(stars DESC);
@@ -107,6 +134,16 @@ def init_db():
           errors_json TEXT NOT NULL DEFAULT '[]'
         );
         """)
+        # Additive migrations preserve every existing catalog row.
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(agents)")}
+        for name, declaration in (
+            ("topics_json", "TEXT NOT NULL DEFAULT '[]'"),
+            ("homepage", "TEXT NOT NULL DEFAULT ''"),
+            ("license_name", "TEXT NOT NULL DEFAULT ''"),
+            ("readme_url", "TEXT NOT NULL DEFAULT ''"),
+        ):
+            if name not in columns:
+                db.execute(f"ALTER TABLE agents ADD COLUMN {name} {declaration}")
 
 
 def _headers():
@@ -136,37 +173,54 @@ def _get(url):
 
 
 def _classify(repo, readme):
+    topics = repo.get("topics") or []
     text = " ".join([
         str(repo.get("name") or ""), str(repo.get("description") or ""),
-        " ".join(repo.get("topics") or []), readme[:MAX_README_CHARS]
+        " ".join(str(x) for x in topics), readme[:MAX_README_CHARS]
     ]).lower()
     categories = [key for key, terms in CATEGORY_RULES.items() if any(term in text for term in terms)]
     signals = sum(1 for term in AGENT_SIGNALS if term in text)
     if any(term in text for term in TUTORIAL_SIGNALS):
         kind = "tutorial_or_collection"
+    elif any(term in text for term in MCP_SIGNALS):
+        kind = "mcp_server_or_tool"
+    elif any(term in text for term in DATASET_SIGNALS):
+        kind = "dataset_or_benchmark"
+    elif any(term in text for term in INFERENCE_SIGNALS):
+        kind = "model_or_inference_tool"
     elif any(term in text for term in FRAMEWORK_SIGNALS):
         kind = "framework_or_library"
-    elif signals >= 2 or ("agent" in text and any(x in text for x in ("autonomous", "tools", "memory", "llm"))):
+    elif signals >= 2 or ("agent" in text and any(x in text for x in ("autonomous", "tools", "memory", "llm", "agentic"))):
         kind = "agent"
+    elif any(term in text for term in DEV_TOOL_SIGNALS):
+        kind = "developer_tool"
+    elif any(term in text for term in APPLICATION_SIGNALS):
+        kind = "ai_application"
     elif "agent" in text or "agents" in text:
         kind = "agent_project_unverified"
     else:
         kind = "related_project_unverified"
-    capabilities = [term for term in TOOL_SIGNALS if re.search(r"\b" + re.escape(term) + r"\b", text)]
+    capabilities = [term for term in CAPABILITY_SIGNALS if re.search(r"\b" + re.escape(term) + r"\b", text)]
     return kind, sorted(set(categories)), sorted(set(capabilities)), text
 
 
 def _score(repo, kind, readme, evidence):
-    score = 0
-    if kind == "agent": score += 25
-    elif kind == "framework_or_library": score += 18
-    elif kind == "agent_project_unverified": score += 12
-    elif kind == "tutorial_or_collection": score += 5
-    if readme: score += 15
-    if repo.get("license") and repo["license"].get("spdx_id"): score += 10
-    if repo.get("pushed_at"): score += 10
+    weights = {
+        "agent": 25, "mcp_server_or_tool": 23, "model_or_inference_tool": 22,
+        "framework_or_library": 20, "developer_tool": 18, "ai_application": 15,
+        "agent_project_unverified": 12, "dataset_or_benchmark": 12,
+        "tutorial_or_collection": 5,
+    }
+    score = weights.get(kind, 8)
+    if readme:
+        score += 15
+    if repo.get("license") and repo["license"].get("spdx_id"):
+        score += 10
+    if repo.get("pushed_at"):
+        score += 10
     score += min(20, int((repo.get("stargazers_count") or 0) ** 0.5))
-    if evidence: score += 10
+    if evidence:
+        score += 10
     return min(100, score)
 
 
@@ -182,29 +236,37 @@ def _readme(full_name):
 def _save(repo, readme, readme_url):
     init_db()
     kind, categories, capabilities, _ = _classify(repo, readme)
+    repo_url = repo.get("html_url", "")
     evidence = [
-        {"claim": "Repository metadata", "source": repo.get("html_url", ""), "basis": "GitHub repository API fields"},
+        {"claim": "Repository metadata", "source": repo_url, "basis": "GitHub repository API fields"},
     ]
     if readme_url:
         evidence.append({"claim": "Description and capability signals", "source": readme_url,
                          "basis": "Static README text inspection; not runtime verification"})
-    if (repo.get("license") or {}).get("spdx_id"):
-        evidence.append({"claim": "Declared license", "source": repo.get("html_url", "") + "/blob/" + str(repo.get("default_branch") or "main") + "/LICENSE",
+    license_obj = repo.get("license") or {}
+    if license_obj.get("spdx_id"):
+        evidence.append({"claim": "Declared license", "source": repo_url + "/blob/" + str(repo.get("default_branch") or "main") + "/LICENSE",
                          "basis": "GitHub metadata SPDX identifier; license text not independently certified"})
     now = int(time.time())
     score = _score(repo, kind, readme, evidence)
-    license_obj = repo.get("license") or {}
     values = (
-        int(repo["id"]), repo.get("full_name", ""), repo.get("html_url", ""), repo.get("name", ""),
+        int(repo["id"]), repo.get("full_name", ""), repo_url, repo.get("name", ""),
         repo.get("description") or "", kind, json.dumps(categories), json.dumps(capabilities),
         repo.get("language"), license_obj.get("spdx_id"), int(repo.get("stargazers_count") or 0),
         int(repo.get("forks_count") or 0), int(repo.get("open_issues_count") or 0),
         repo.get("pushed_at"), repo.get("default_branch"), int(bool(repo.get("archived"))),
-        int(bool(repo.get("fork"))), score, json.dumps(evidence), readme, now, now, now
+        int(bool(repo.get("fork"))), score, json.dumps(evidence), readme, now, now, now,
+        json.dumps(topics := (repo.get("topics") or [])), str(repo.get("homepage") or ""),
+        str(license_obj.get("name") or ""), readme_url or ""
     )
     with _connect() as db:
         db.execute("""
-        INSERT INTO agents VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO agents (
+          github_id,full_name,html_url,name,description,kind,categories_json,capabilities_json,
+          language,license_spdx,stars,forks,open_issues,pushed_at,default_branch,archived,fork,
+          score,evidence_json,readme_excerpt,first_seen,last_seen,last_scanned,
+          topics_json,homepage,license_name,readme_url
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(github_id) DO UPDATE SET
           full_name=excluded.full_name, html_url=excluded.html_url, name=excluded.name,
           description=excluded.description, kind=excluded.kind, categories_json=excluded.categories_json,
@@ -213,7 +275,9 @@ def _save(repo, readme, readme_url):
           open_issues=excluded.open_issues, pushed_at=excluded.pushed_at,
           default_branch=excluded.default_branch, archived=excluded.archived, fork=excluded.fork,
           score=excluded.score, evidence_json=excluded.evidence_json, readme_excerpt=excluded.readme_excerpt,
-          last_seen=excluded.last_seen, last_scanned=excluded.last_scanned
+          last_seen=excluded.last_seen, last_scanned=excluded.last_scanned,
+          topics_json=excluded.topics_json, homepage=excluded.homepage,
+          license_name=excluded.license_name, readme_url=excluded.readme_url
         """, values)
     return kind
 
@@ -221,29 +285,32 @@ def _save(repo, readme, readme_url):
 def discover_agents(query="", max_results=60):
     init_db()
     max_results = max(1, min(int(max_results), 100))
-    queries = list(SEARCH_QUERIES)
     query = str(query or "").strip()[:180]
+    queries = list(SEARCH_QUERIES)
     if query:
-        queries.insert(0, f"{query} agent in:name,description,readme")
+        queries.insert(0, f"{query} in:name,description,readme stars:>=1 archived:false")
     queries = queries[:MAX_QUERIES]
     started = int(time.time())
-    errors, found, inspected = [], set(), 0
+    errors, found, inspected, readmes = [], set(), 0, 0
     with _connect() as db:
         cur = db.execute("INSERT INTO discovery_runs(query,started_at) VALUES (?,?)",
-                         (query or "broad GitHub AI agent discovery", started))
+                         (query or "broad GitHub AI ecosystem discovery", started))
         run_id = cur.lastrowid
     for search_query in queries:
-        if len(found) >= max_results:
+        if inspected >= max_results:
             break
         try:
-            url = API + "/search/repositories?q=" + quote(search_query, safe="") + "&sort=updated&order=desc&per_page=30"
+            url = API + "/search/repositories?q=" + quote(search_query, safe="") + "&sort=stars&order=desc&per_page=30"
             payload = _get(url)
             for repo in payload.get("items", []):
                 full = repo.get("full_name")
                 if not full or repo.get("archived") or full.lower() in found:
                     continue
                 found.add(full.lower())
-                readme, readme_url = _readme(full)
+                readme, readme_url = "", ""
+                if readmes < MAX_READMES_PER_RUN:
+                    readme, readme_url = _readme(full)
+                    readmes += 1
                 _save(repo, readme, readme_url)
                 inspected += 1
                 if inspected >= max_results:
@@ -258,7 +325,8 @@ def discover_agents(query="", max_results=60):
     if not inspected and errors:
         raise DiscoveryError(errors[0]["error"])
     return {"run_id": run_id, "queries_run": len(queries), "repositories_found": len(found),
-            "repositories_inspected": inspected, "errors": errors, "mode": "catalog_only"}
+            "repositories_inspected": inspected, "readmes_inspected": readmes,
+            "errors": errors, "mode": "catalog_only", "scope": "github_open_source_ai_ecosystem"}
 
 
 def list_agents(query="", category="", kind="", sort="relevance", limit=50, offset=0):
@@ -267,9 +335,9 @@ def list_agents(query="", category="", kind="", sort="relevance", limit=50, offs
     offset = max(0, int(offset))
     clauses, params = [], []
     if query:
-        clauses.append("(full_name LIKE ? OR name LIKE ? OR description LIKE ? OR readme_excerpt LIKE ?)")
+        clauses.append("(full_name LIKE ? OR name LIKE ? OR description LIKE ? OR readme_excerpt LIKE ? OR topics_json LIKE ?)")
         like = "%" + str(query)[:100] + "%"
-        params.extend([like] * 4)
+        params.extend([like] * 5)
     if category:
         clauses.append("categories_json LIKE ?")
         params.append('%"' + str(category)[:60] + '"%')
@@ -285,7 +353,8 @@ def list_agents(query="", category="", kind="", sort="relevance", limit=50, offs
         items = []
         for row in rows:
             item = dict(row)
-            for key, target in (("categories_json", "categories"), ("capabilities_json", "capabilities"), ("evidence_json", "evidence")):
+            for key, target in (("categories_json", "categories"), ("capabilities_json", "capabilities"),
+                                ("evidence_json", "evidence"), ("topics_json", "topics")):
                 item[target] = json.loads(item.pop(key) or "[]")
             item.pop("readme_excerpt", None)
             items.append(item)
@@ -299,7 +368,8 @@ def get_agent(github_id):
         if not row:
             return None
         item = dict(row)
-        for key, target in (("categories_json", "categories"), ("capabilities_json", "capabilities"), ("evidence_json", "evidence")):
+        for key, target in (("categories_json", "categories"), ("capabilities_json", "capabilities"),
+                            ("evidence_json", "evidence"), ("topics_json", "topics")):
             item[target] = json.loads(item.pop(key) or "[]")
         return item
 
@@ -311,4 +381,4 @@ def discovery_status():
         kinds = {row[0]: row[1] for row in db.execute("SELECT kind, COUNT(*) FROM agents GROUP BY kind")}
         last = db.execute("SELECT id,started_at,completed_at,found,inspected,errors_json FROM discovery_runs ORDER BY id DESC LIMIT 1").fetchone()
         return {"total": total, "by_kind": kinds, "last_run": dict(last) if last else None,
-                "database": "SQLite", "mode": "catalog_only"}
+                "database": "SQLite", "mode": "catalog_only", "scope": "github_open_source_ai_ecosystem"}
