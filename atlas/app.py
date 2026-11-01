@@ -8,6 +8,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 
+try:  # Works both as a package in tests and as app.py in the Atlas Docker image.
+    from .business_engine import InputError, calculate_roi, compare_solutions, build_decision_report
+except ImportError:
+    from business_engine import InputError, calculate_roi, compare_solutions, build_decision_report
+
 app = Flask(__name__)
 DB_PATH = os.environ.get("ATLAS_DB_PATH", "/tmp/atlas_catalog.db")
 GITHUB_API = "https://api.github.com/search/repositories"
@@ -126,7 +131,7 @@ def health():
             conn.execute("SELECT 1")
         finally:
             conn.close()
-        return jsonify({"status": "ok", "app": "Atlas AI", "database": "ok"})
+        return jsonify({"status": "ok", "app": "Atlas AI", "database": "ok", "decision_engine": "ready", "decision_engine_mode": "deterministic_no_llm"})
     except Exception as exc:
         app.logger.exception("Atlas health check failed")
         return jsonify({"status": "error", "message": str(exc)}), 500
@@ -156,6 +161,40 @@ def discover():
             "error": "تعذر جلب النتائج الحية من GitHub حالياً.",
             "detail": message[:240]
         }), status
+
+
+@app.post("/api/decision/analyze")
+def decision_analyze():
+    """Calculate a transparent ROI scenario from customer-supplied assumptions."""
+    try:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            raise InputError("Request body must be a JSON object")
+        return jsonify(calculate_roi(payload))
+    except InputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.post("/api/decision/compare")
+def decision_compare():
+    """Compare completeness of vendor evidence; does not rank vendor quality."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        return jsonify(compare_solutions(payload.get("solutions")))
+    except InputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.post("/api/decision/report")
+def decision_report():
+    """Generate an unsaved draft report with explicit evidence limitations."""
+    try:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            raise InputError("Request body must be a JSON object")
+        return jsonify(build_decision_report(payload))
+    except InputError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @app.get("/robots.txt")
