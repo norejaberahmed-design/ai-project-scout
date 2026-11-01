@@ -180,6 +180,7 @@ def _readme(full_name):
 
 
 def _save(repo, readme, readme_url):
+    init_db()
     kind, categories, capabilities, _ = _classify(repo, readme)
     evidence = [
         {"claim": "Repository metadata", "source": repo.get("html_url", ""), "basis": "GitHub repository API fields"},
